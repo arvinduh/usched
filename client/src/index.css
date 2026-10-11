@@ -1,83 +1,59 @@
 /*
- * Global reset and design tokens. Every color, radius, and timing in the
- * app resolves to a token here so a dark theme is a token swap.
+ * Global reset and design tokens. Every color resolves to a token here.
+ * Colors use light-dark(), so the theme is just `color-scheme` on :root:
+ * the system preference by default, or forced by the data-theme attribute
+ * the settings menu sets.
  */
 
 :root {
-  --bg: #fff;
-  --text-primary: #111;
-  --text-secondary: #6b6b6b;
-  --text-muted: #a3a3a3;
-  --hairline: rgba(0, 0, 0, 0.07);
-  --hairline-strong: rgba(0, 0, 0, 0.14);
-  --hover: rgba(0, 0, 0, 0.035);
-  --accent: #900;
-  --danger: #c0352b;
-  --danger-fill: #fcebeb;
-  --warn: #a8640b;
+  color-scheme: light dark;
+
+  --bg: light-dark(#fff, #111110);
+  --text-primary: light-dark(#111, #ededec);
+  --text-secondary: light-dark(#6b6b6b, #a1a09c);
+  --text-muted: light-dark(#a3a3a3, #6f6e6a);
+  --hairline: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.08));
+  --hairline-strong: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
+  --hover: light-dark(rgba(0, 0, 0, 0.035), rgba(255, 255, 255, 0.05));
+  --accent: light-dark(#900, #f0675c);
+  --danger: light-dark(#c0352b, #f28b82);
+  --danger-fill: light-dark(#fcebeb, #3b1715);
+  --warn: light-dark(#a8640b, #e5a54a);
+  --star: light-dark(#c98a1b, #e5a54a);
+  --shadow-pop:
+    0 8px 24px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.5)),
+    0 2px 6px light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
 
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
   --radius-s: 6px;
   --radius-m: 10px;
-  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
   --ease: cubic-bezier(0.2, 0, 0, 1);
-  --star: #c98a1b;
 
   /* Course hues: ink for text and edges, fill for block backgrounds. */
-  --hue-0-ink: #0f6e56;
-  --hue-0-fill: #e1f5ee;
-  --hue-1-ink: #534ab7;
-  --hue-1-fill: #eeedfe;
-  --hue-2-ink: #993c1d;
-  --hue-2-fill: #faece7;
-  --hue-3-ink: #185fa5;
-  --hue-3-fill: #e6f1fb;
-  --hue-4-ink: #993556;
-  --hue-4-fill: #fbeaf0;
-  --hue-5-ink: #3b6d11;
-  --hue-5-fill: #eaf3de;
-  --hue-6-ink: #854f0b;
-  --hue-6-fill: #faeeda;
-  --hue-7-ink: #444441;
-  --hue-7-fill: #f1efe8;
-
-  color-scheme: light dark;
+  --hue-0-ink: light-dark(#0f6e56, #9fe1cb);
+  --hue-0-fill: light-dark(#e1f5ee, #0b2f27);
+  --hue-1-ink: light-dark(#534ab7, #cecbf6);
+  --hue-1-fill: light-dark(#eeedfe, #221e4f);
+  --hue-2-ink: light-dark(#993c1d, #f5c4b3);
+  --hue-2-fill: light-dark(#faece7, #3e1a0e);
+  --hue-3-ink: light-dark(#185fa5, #b5d4f4);
+  --hue-3-fill: light-dark(#e6f1fb, #0b2945);
+  --hue-4-ink: light-dark(#993556, #f4c0d1);
+  --hue-4-fill: light-dark(#fbeaf0, #3f1424);
+  --hue-5-ink: light-dark(#3b6d11, #c0dd97);
+  --hue-5-fill: light-dark(#eaf3de, #18300a);
+  --hue-6-ink: light-dark(#854f0b, #fac775);
+  --hue-6-fill: light-dark(#faeeda, #3a2207);
+  --hue-7-ink: light-dark(#444441, #d3d1c7);
+  --hue-7-fill: light-dark(#f1efe8, #2a2a28);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111110;
-    --text-primary: #ededec;
-    --text-secondary: #a1a09c;
-    --text-muted: #6f6e6a;
-    --hairline: rgba(255, 255, 255, 0.08);
-    --hairline-strong: rgba(255, 255, 255, 0.16);
-    --hover: rgba(255, 255, 255, 0.05);
-    --accent: #f0675c;
-    --danger: #f28b82;
-    --danger-fill: #3b1715;
-    --warn: #e5a54a;
-    --shadow-pop:
-      0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
-    --star: #e5a54a;
+:root[data-theme='light'] {
+  color-scheme: light;
+}
 
-    --hue-0-ink: #9fe1cb;
-    --hue-0-fill: #0b2f27;
-    --hue-1-ink: #cecbf6;
-    --hue-1-fill: #221e4f;
-    --hue-2-ink: #f5c4b3;
-    --hue-2-fill: #3e1a0e;
-    --hue-3-ink: #b5d4f4;
-    --hue-3-fill: #0b2945;
-    --hue-4-ink: #f4c0d1;
-    --hue-4-fill: #3f1424;
-    --hue-5-ink: #c0dd97;
-    --hue-5-fill: #18300a;
-    --hue-6-ink: #fac775;
-    --hue-6-fill: #3a2207;
-    --hue-7-ink: #d3d1c7;
-    --hue-7-fill: #2a2a28;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 *,

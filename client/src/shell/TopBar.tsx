@@ -1,5 +1,5 @@
 /**
- * The app's only chrome: wordmark, degree meter, term, and a small menu.
+ * The app's only chrome: wordmark, degree meter, term, and settings.
  *
  * The meter doubles as navigation: it shows completed, planned-this-term, and
  * remaining units, and clicking it toggles the Degree space. The bar holds no
@@ -7,8 +7,10 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { ResetButton } from '../components/ResetButton/ResetButton';
+import { setTheme, useTheme } from '../state/theme';
+import type { Theme } from '../state/theme';
 import styles from './TopBar.module.css';
 
 /**
@@ -39,6 +41,7 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
   const { units, isDegreeOpen, onToggleDegree, onHome, onCopySections, onReset } =
     props;
   const [menuOpen, setMenuOpen] = useState(false);
+  const theme = useTheme();
   const menu = useRef<HTMLDivElement>(null);
 
   // Close on any press outside the menu, or on Escape.
@@ -104,12 +107,33 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
           className={styles.menuButton}
           onClick={() => setMenuOpen((v) => !v)}
           aria-expanded={menuOpen}
-          aria-label="Menu"
+          aria-label="Settings"
+          title="Settings"
         >
-          <MoreHorizontal size={16} />
+          <Settings size={15} />
         </button>
         {menuOpen && (
           <div className={styles.menu} role="menu">
+            <div className={styles.themeRow}>
+              <span className={styles.themeLabel}>Theme</span>
+              <span className={styles.segmented} role="radiogroup" aria-label="Theme">
+                {(['system', 'light', 'dark'] as const satisfies readonly Theme[]).map(
+                  (option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={theme === option}
+                      className={`${styles.segment} ${theme === option ? styles.segmentOn : ''}`}
+                      onClick={() => setTheme(option)}
+                    >
+                      {option[0].toUpperCase() + option.slice(1)}
+                    </button>
+                  ),
+                )}
+              </span>
+            </div>
+            <div className={styles.divider} />
             <button
               type="button"
               role="menuitem"

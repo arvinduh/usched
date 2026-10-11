@@ -105,7 +105,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  min-width: 200px;
+  min-width: 248px;
   padding: 6px;
   border-radius: var(--radius-m);
   background: var(--bg);
@@ -124,6 +124,46 @@
 
 button.item:hover {
   background: var(--hover);
+}
+
+.themeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+}
+
+.themeLabel {
+  color: var(--text-secondary);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--hover);
+}
+
+.segment {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+
+.segmentOn {
+  background: var(--bg);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--hairline-strong);
+}
+
+.divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--hairline);
 }
 
 @keyframes drop {
