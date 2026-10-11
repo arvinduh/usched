@@ -1,0 +1,142 @@
+/*
+ * Global reset and design tokens. Every color, radius, and timing in the
+ * app resolves to a token here so a dark theme is a token swap.
+ */
+
+:root {
+  --bg: #fff;
+  --text-primary: #111;
+  --text-secondary: #6b6b6b;
+  --text-muted: #a3a3a3;
+  --hairline: rgba(0, 0, 0, 0.07);
+  --hairline-strong: rgba(0, 0, 0, 0.14);
+  --hover: rgba(0, 0, 0, 0.035);
+  --accent: #900;
+  --danger: #c0352b;
+  --danger-fill: #fcebeb;
+  --warn: #a8640b;
+
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --star: #c98a1b;
+
+  /* Course hues: ink for text and edges, fill for block backgrounds. */
+  --hue-0-ink: #0f6e56;
+  --hue-0-fill: #e1f5ee;
+  --hue-1-ink: #534ab7;
+  --hue-1-fill: #eeedfe;
+  --hue-2-ink: #993c1d;
+  --hue-2-fill: #faece7;
+  --hue-3-ink: #185fa5;
+  --hue-3-fill: #e6f1fb;
+  --hue-4-ink: #993556;
+  --hue-4-fill: #fbeaf0;
+  --hue-5-ink: #3b6d11;
+  --hue-5-fill: #eaf3de;
+  --hue-6-ink: #854f0b;
+  --hue-6-fill: #faeeda;
+  --hue-7-ink: #444441;
+  --hue-7-fill: #f1efe8;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111110;
+    --text-primary: #ededec;
+    --text-secondary: #a1a09c;
+    --text-muted: #6f6e6a;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --hairline-strong: rgba(255, 255, 255, 0.16);
+    --hover: rgba(255, 255, 255, 0.05);
+    --accent: #f0675c;
+    --danger: #f28b82;
+    --danger-fill: #3b1715;
+    --warn: #e5a54a;
+    --shadow-pop:
+      0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --star: #e5a54a;
+
+    --hue-0-ink: #9fe1cb;
+    --hue-0-fill: #0b2f27;
+    --hue-1-ink: #cecbf6;
+    --hue-1-fill: #221e4f;
+    --hue-2-ink: #f5c4b3;
+    --hue-2-fill: #3e1a0e;
+    --hue-3-ink: #b5d4f4;
+    --hue-3-fill: #0b2945;
+    --hue-4-ink: #f4c0d1;
+    --hue-4-fill: #3f1424;
+    --hue-5-ink: #c0dd97;
+    --hue-5-fill: #18300a;
+    --hue-6-ink: #fac775;
+    --hue-6-fill: #3a2207;
+    --hue-7-ink: #d3d1c7;
+    --hue-7-fill: #2a2a28;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+.app-root {
+  height: 100%;
+  width: 100%;
+  font-family:
+    'Inter Variable',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 13px;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,69 @@
+.days {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--hairline-strong);
+}
+
+.dotOn {
+  background: var(--text-primary);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  flex-shrink: 0;
+}
+
+.rating {
+  display: inline-flex;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rating > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ratingMuted {
+  opacity: 0.45;
+}
+
+.star {
+  color: var(--star);
+}
+
+.effort {
+  color: var(--text-muted);
+}
+
+.seats {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.seatsFill {
+  display: block;
+  height: 100%;
+  background: var(--hairline-strong);
+}
+
+.seatsFull {
+  background: var(--danger);
+}

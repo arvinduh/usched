@@ -1,0 +1,34 @@
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px 10px 16px;
+  border-radius: var(--radius-m);
+  background: var(--text-primary);
+  color: var(--bg);
+  box-shadow: var(--shadow-pop);
+  z-index: 100;
+  animation: rise 200ms var(--ease);
+}
+
+.undo {
+  font-weight: 550;
+  color: inherit;
+  opacity: 0.75;
+  transition: opacity 100ms ease-out;
+}
+
+.undo:hover {
+  opacity: 1;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}

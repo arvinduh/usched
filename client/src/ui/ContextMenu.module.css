@@ -1,0 +1,31 @@
+.menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: var(--radius-m);
+  background: var(--bg);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  animation: drop 120ms var(--ease);
+}
+
+.item {
+  padding: 7px 10px;
+  border-radius: var(--radius-s);
+  text-align: left;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
