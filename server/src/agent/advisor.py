@@ -80,9 +80,10 @@ Core Principles:
      `preferred_instructors`, and `min_rmp_rating`.
    - Use the `search_courses` tool to verify courses and find available
      sections.
-3. Concise & Supportive:
-   - Format responses with clean markdown, bullet points, and highlight key
-     tradeoffs clearly.
+3. Brief:
+   - Answer in at most 120 words. The reply renders as plain text in a
+     narrow side panel, so use short sentences or a few "- " bullets.
+   - Never use tables, headings, or horizontal rules.
 """
 
 
@@ -230,11 +231,18 @@ def stream_advisor_sse(
       return
 
     try:
-      response_msg = ollama.call_ollama_chat(messages, tools.OLLAMA_TOOLS)
-      tool_calls = response_msg.get("tool_calls", [])
+      # Stream the first pass straight through: a direct answer shows up
+      # token by token, and only a tool request costs a second pass.
+      tool_calls: list[dict[str, Any]] = []
+      for chunk in ollama.stream_ollama_chat(messages, tools.OLLAMA_TOOLS):
+        tool_calls.extend(chunk.get("tool_calls") or [])
+        if chunk.get("content"):
+          yield f"data: {json.dumps({'token': chunk['content']})}\n\n"
 
       if tool_calls:
-        messages.append(response_msg)
+        messages.append(
+          {"role": "assistant", "content": "", "tool_calls": tool_calls}
+        )
         for tc in tool_calls:
           fn = tc.get("function", {})
           fname = fn.get("name", "")
@@ -255,9 +263,9 @@ def stream_advisor_sse(
             }
           )
 
-      for token in ollama.stream_ollama_chat(messages):
-        payload = json.dumps({"token": token})
-        yield f"data: {payload}\n\n"
+        for chunk in ollama.stream_ollama_chat(messages):
+          if chunk.get("content"):
+            yield f"data: {json.dumps({'token': chunk['content']})}\n\n"
 
       chips = generate_action_chips(
         request.message,
