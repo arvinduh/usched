@@ -1,0 +1,47 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.semester {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+}
+
+.left {
+  min-height: 0;
+  padding-top: 16px;
+  border-right: 1px solid var(--hairline);
+}
+
+.right {
+  min-height: 0;
+  padding-top: 16px;
+}
+
+.degree {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.degree > * {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+@media (max-width: 860px) {
+  .semester {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .left {
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+  }
+}

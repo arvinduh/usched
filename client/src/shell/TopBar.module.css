@@ -1,0 +1,134 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 52px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.wordmark {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.meter {
+  flex: 1;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  transition: background 120ms ease-out;
+}
+
+.meter:hover,
+.meterOn {
+  background: var(--hover);
+}
+
+.label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.meterOn .label {
+  color: var(--text-primary);
+}
+
+.track {
+  flex: 1;
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+  overflow: hidden;
+  view-transition-name: degree-meter;
+}
+
+.done {
+  background: var(--accent);
+  transition: width 400ms var(--ease);
+}
+
+.planned {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--accent) 0 1.5px,
+    transparent 1.5px 4px
+  );
+  transition: width 400ms var(--ease);
+}
+
+.figures {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.plus {
+  color: var(--accent);
+}
+
+.total {
+  color: var(--text-muted);
+}
+
+.term {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menuButton {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: background 100ms ease-out;
+}
+
+.menuButton:hover {
+  background: var(--hover);
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 200px;
+  padding: 6px;
+  border-radius: var(--radius-m);
+  background: var(--bg);
+  box-shadow: var(--shadow-pop);
+  z-index: 50;
+  animation: drop 140ms var(--ease);
+}
+
+.item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-s);
+  text-align: left;
+}
+
+button.item:hover {
+  background: var(--hover);
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

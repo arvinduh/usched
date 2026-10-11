@@ -1,0 +1,137 @@
+/**
+ * The app's only chrome: wordmark, degree meter, term, and a small menu.
+ *
+ * The meter doubles as navigation: it shows completed, planned-this-term, and
+ * remaining units, and clicking it toggles the Degree space. The bar holds no
+ * state of its own beyond whether the menu is open.
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
+import { ResetButton } from '../components/ResetButton/ResetButton';
+import styles from './TopBar.module.css';
+
+/**
+ * Unit totals for the degree meter.
+ */
+export interface DegreeUnits {
+  readonly completed: number;
+  readonly planned: number;
+  readonly total: number;
+}
+
+/**
+ * Properties for the top bar.
+ */
+export interface TopBarProps {
+  readonly units: DegreeUnits | null;
+  readonly isDegreeOpen: boolean;
+  readonly onToggleDegree: () => void;
+  readonly onHome: () => void;
+  readonly onCopySections: () => void;
+  readonly onReset: () => void;
+}
+
+/**
+ * Renders the bar and its menu.
+ */
+export function TopBar(props: TopBarProps): React.JSX.Element {
+  const { units, isDegreeOpen, onToggleDegree, onHome, onCopySections, onReset } =
+    props;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+
+  // Close on any press outside the menu, or on Escape.
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const onPointer = (e: PointerEvent): void => {
+      if (!menu.current?.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    // Escape closes only this layer, so the app-level handler never sees it.
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  const share = (n: number): string =>
+    units && units.total > 0 ? `${Math.min(100, (n / units.total) * 100)}%` : '0%';
+
+  return (
+    <header className={styles.bar}>
+      <button type="button" className={styles.wordmark} onClick={onHome}>
+        usched
+      </button>
+
+      <button
+        type="button"
+        className={`${styles.meter} ${isDegreeOpen ? styles.meterOn : ''}`}
+        onClick={onToggleDegree}
+        aria-pressed={isDegreeOpen}
+        title={isDegreeOpen ? 'Back to your week (D)' : 'Open degree progress (D)'}
+      >
+        <span className={styles.label}>Degree</span>
+        <span className={styles.track}>
+          <span className={styles.done} style={{ width: share(units?.completed ?? 0) }} />
+          <span className={styles.planned} style={{ width: share(units?.planned ?? 0) }} />
+        </span>
+        {units && (
+          <span className={styles.figures}>
+            {units.completed}
+            {units.planned > 0 && <span className={styles.plus}> +{units.planned}</span>}
+            <span className={styles.total}> / {units.total}</span>
+          </span>
+        )}
+      </button>
+
+      <span className={styles.term}>Spring 2027</span>
+
+      <div className={styles.menuWrap} ref={menu}>
+        <button
+          type="button"
+          className={styles.menuButton}
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-expanded={menuOpen}
+          aria-label="Menu"
+        >
+          <MoreHorizontal size={16} />
+        </button>
+        {menuOpen && (
+          <div className={styles.menu} role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.item}
+              onClick={() => {
+                onCopySections();
+                setMenuOpen(false);
+              }}
+            >
+              Copy section numbers
+            </button>
+            <div className={styles.item}>
+              <ResetButton
+                onReset={() => {
+                  onReset();
+                  setMenuOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
