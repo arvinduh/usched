@@ -15,12 +15,16 @@ class PrereqNode(pydantic.BaseModel):
 
   course_id: str = pydantic.Field(description="Course code identifier.")
   title: str = pydantic.Field(description="Course descriptive title.")
+  units: float = pydantic.Field(description="Credit units the course carries.")
   status: models.CourseStatus = pydantic.Field(
     description="Completion state: completed, eligible, or locked."
   )
-  prerequisites: list[str] = pydantic.Field(
+  prerequisites: list[list[str]] = pydantic.Field(
     default_factory=list,
-    description="Direct dependency course codes required beforehand.",
+    description=(
+      "Prerequisite groups that must all be met; any one course satisfies"
+      " a group."
+    ),
   )
 
 
@@ -72,15 +76,13 @@ def build_prerequisite_dag(
 
   for course in courses:
     status, _ = evaluate_course_eligibility(course, completed_set)
-    direct_prereqs = [
-      req for clause in course.prerequisites_json for req in clause
-    ]
     dag_nodes.append(
       PrereqNode(
         course_id=course.id,
         title=course.title,
+        units=course.units,
         status=status,
-        prerequisites=list(dict.fromkeys(direct_prereqs)),
+        prerequisites=[list(clause) for clause in course.prerequisites_json],
       )
     )
 
