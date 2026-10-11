@@ -10,9 +10,9 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Bookmark, Lock } from 'lucide-react';
-import { displayCode } from '../lib/degree';
-import { bySectionOrder, isTimed, missingComponents, unmetPrereqs } from '../lib/schedule';
+import { Bookmark, Check, CircleCheck, Lock } from 'lucide-react';
+import { courseKey, displayCode } from '../lib/degree';
+import { groupByType, isTimed, missingComponents, unmetPrereqs } from '../lib/schedule';
 import { formatRange } from '../lib/time';
 import { setFocus, toggleExpanded, usePreview } from '../state/preview';
 import { ContextMenu } from '../ui/ContextMenu';
@@ -32,6 +32,8 @@ export interface CourseRowProps {
   /** Courses on the active week in hue order. */
   readonly scheduledCourseIds: readonly string[];
   readonly onToggleSave: (course: Course) => void;
+  /** Marks the course completed (taken in a past term) or not. */
+  readonly onToggleTaken: (course: Course) => void;
   readonly onToggleSection: (section: Section, course: Course) => void;
   /** Variants other than the active one, for "Add to" in the menu. */
   readonly otherVariants: readonly { readonly id: string; readonly name: string }[];
@@ -64,6 +66,7 @@ export function CourseRow(props: CourseRowProps): React.JSX.Element {
     activeSectionIds,
     scheduledCourseIds,
     onToggleSave,
+    onToggleTaken,
     onToggleSection,
     otherVariants,
     onAddToVariant,
@@ -77,6 +80,9 @@ export function CourseRow(props: CourseRowProps): React.JSX.Element {
   const unmet = unmetPrereqs(course, completed);
   const hue = hueFor(course.id, scheduledCourseIds);
   const geLetters = (course.ge_categories ?? []).map((g) => g.replace('GE-', ''));
+  const isTaken = completed.has(courseKey(course.id));
+  const groups = groupByType(course.sections);
+  const chosenTypes = new Set(chosen.map((s) => s.section_type));
 
   return (
     <div className={`${styles.course} ${isExpanded ? styles.open : ''}`} data-course>
@@ -89,7 +95,9 @@ export function CourseRow(props: CourseRowProps): React.JSX.Element {
           aria-expanded={isExpanded}
         >
           <span className={styles.code}>{displayCode(course.id)}</span>
-          <span className={styles.title}>{course.title}</span>
+          <span className={`${styles.title} ${isTaken ? styles.titleTaken : ''}`}>
+            {course.title}
+          </span>
           {chosen.length > 0 && (
             <span
               className={styles.ring}
@@ -119,6 +127,16 @@ export function CourseRow(props: CourseRowProps): React.JSX.Element {
         </button>
         <button
           type="button"
+          className={`${styles.save} ${isTaken ? styles.saved : ''}`}
+          onClick={() => onToggleTaken(course)}
+          aria-pressed={isTaken}
+          aria-label={isTaken ? `Unmark ${course.id} as taken` : `Mark ${course.id} as taken`}
+          title={isTaken ? 'Taken' : 'Mark as taken'}
+        >
+          <CircleCheck size={13} />
+        </button>
+        <button
+          type="button"
           className={`${styles.save} ${isSaved ? styles.saved : ''}`}
           onClick={() => onToggleSave(course)}
           aria-pressed={isSaved}
@@ -133,20 +151,54 @@ export function CourseRow(props: CourseRowProps): React.JSX.Element {
           {course.description && (
             <p className={styles.description}>{course.description}</p>
           )}
-          <div
-            className={styles.sections}
-            onMouseLeave={() => setFocus(null)}
-          >
-            {[...course.sections].sort(bySectionOrder).map((section) => (
-              <SectionRow
-                key={section.id}
-                section={section}
-                ink={hue.ink}
-                fill={hue.fill}
-                isChosen={activeSectionIds.has(section.id)}
-                onToggle={() => onToggleSection(section, course)}
-                onMenu={(x, y) => setMenu({ x, y, section })}
-              />
+          {groups.length > 1 && (
+            <p className={styles.together}>
+              <span className={styles.togetherLabel}>Take together</span>
+              {groups.map((g, i) => (
+                <React.Fragment key={g.type}>
+                  {i > 0 && <span className={styles.plus}>+</span>}
+                  <span
+                    className={`${styles.part} ${chosenTypes.has(g.type) ? styles.partDone : ''}`}
+                  >
+                    <TypeSwatch sectionType={g.type} ink={hue.ink} />
+                    {g.type}
+                    {chosenTypes.has(g.type) && <Check size={11} />}
+                  </span>
+                </React.Fragment>
+              ))}
+            </p>
+          )}
+          <div onMouseLeave={() => setFocus(null)}>
+            {groups.map((g) => (
+              <section key={g.type} className={styles.group}>
+                <header className={styles.groupHead}>
+                  <TypeSwatch sectionType={g.type} ink={hue.ink} />
+                  <span className={styles.groupName}>{g.type}</span>
+                  <span className={styles.groupRule}>
+                    {g.sections.length > 1 ? 'choose one' : 'one option'}
+                  </span>
+                  {chosenTypes.has(g.type) ? (
+                    <span className={styles.groupDone} style={{ color: hue.ink }}>
+                      <Check size={12} />
+                    </span>
+                  ) : (
+                    chosen.length > 0 && <span className={styles.groupNeeded}>needed</span>
+                  )}
+                </header>
+                <div className={styles.sections}>
+                  {g.sections.map((section) => (
+                    <SectionRow
+                      key={section.id}
+                      section={section}
+                      ink={hue.ink}
+                      fill={hue.fill}
+                      isChosen={activeSectionIds.has(section.id)}
+                      onToggle={() => onToggleSection(section, course)}
+                      onMenu={(x, y) => setMenu({ x, y, section })}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </div>
@@ -204,7 +256,11 @@ function SectionRow({
       onMouseEnter={() => setFocus(section.id)}
       onFocus={() => setFocus(section.id)}
     >
-      <TypeSwatch sectionType={section.section_type} ink={ink} />
+      <span
+        className={`${styles.radio} ${isChosen ? styles.radioOn : ''}`}
+        style={{ color: ink }}
+        aria-hidden="true"
+      />
       {isTimed(section) ? (
         <>
           <DayStrip days={section.days} />

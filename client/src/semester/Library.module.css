@@ -88,6 +88,98 @@
   color: var(--bg);
 }
 
+.chipActive {
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--text-primary);
+}
+
+.badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.sort {
+  margin-left: auto;
+}
+
+.sort select {
+  height: 24px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.panel {
+  margin: 4px 12px 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  background: var(--hover);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: reveal 160ms var(--ease);
+}
+
+.panelRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.panelLabel {
+  width: 48px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.dayToggle,
+.geToggle {
+  width: 28px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--text-primary);
+  color: var(--bg);
+}
+
+.geToggle {
+  background: none;
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.dayOff {
+  background: none;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  text-decoration: line-through;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 .list {
   flex: 1;
   min-height: 0;
@@ -127,35 +219,6 @@
   font-weight: 500;
   color: var(--text-muted);
   padding: 14px 10px 6px;
-}
-
-.suggestion {
-  width: 100%;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-s);
-  text-align: left;
-  transition: background 100ms ease-out;
-}
-
-.suggestion:hover {
-  background: var(--hover);
-}
-
-.code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-.suggestionTitle {
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .empty {

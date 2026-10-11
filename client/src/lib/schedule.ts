@@ -139,3 +139,27 @@ export function bySectionOrder(a: Section, b: Section): number {
   };
   return rank(a) - rank(b) || a.start_minute - b.start_minute;
 }
+
+/**
+ * Sections of one type within a course; a student takes exactly one.
+ */
+export interface SectionGroup {
+  readonly type: string;
+  readonly sections: readonly Section[];
+}
+
+/**
+ * Groups a course's sections by type in display order (Lecture first).
+ */
+export function groupByType(sections: readonly Section[]): readonly SectionGroup[] {
+  const groups: { type: string; sections: Section[] }[] = [];
+  for (const section of [...sections].sort(bySectionOrder)) {
+    const last = groups[groups.length - 1];
+    if (last?.type === section.section_type) {
+      last.sections.push(section);
+    } else {
+      groups.push({ type: section.section_type, sections: [section] });
+    }
+  }
+  return groups;
+}

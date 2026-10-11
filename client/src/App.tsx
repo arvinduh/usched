@@ -23,7 +23,6 @@ import { courseKey, displayCode } from './lib/degree';
 import { totalUnits } from './lib/schedule';
 import { AskPane } from './semester/AskPane';
 import { Library } from './semester/Library';
-import type { Suggestion } from './semester/Library';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
 import {
@@ -43,7 +42,7 @@ import {
   toggleSection,
   toggleWatch,
 } from './state/actions';
-import { setExpanded, setProposal } from './state/preview';
+import { hasExpanded, setExpanded, setProposal } from './state/preview';
 import type { Proposal } from './state/preview';
 import { reset, useStore } from './state/store';
 import { showToast, undoLast } from './state/toast';
@@ -107,9 +106,26 @@ export function App(): React.JSX.Element {
   );
   const [geAudit, setGeAudit] = useState<GeAuditSummary | null>(null);
 
+  const completed = useMemo(
+    () => new Set(completedCourseIds.map(courseKey)),
+    [completedCourseIds],
+  );
+  // Eligible degree courses to suggest; a few spares cover ones already
+  // planned this term, which are filtered out once the week resolves.
+  const suggestionIds = useMemo(
+    () =>
+      (degreeAudit?.prereq_graph ?? [])
+        .filter((n) => n.status === 'eligible' && !completed.has(courseKey(n.course_id)))
+        .slice(0, MAX_SUGGESTIONS + 4)
+        .map((n) => n.course_id),
+    [degreeAudit, completed],
+  );
+
   const search = useCatalogSearch();
+  const setSearchText = search.setText;
   const { coursesById, sectionsById, remember } = usePlanCourses(
     search.courses,
+    suggestionIds,
   );
   const chat = useAdvisorChat();
 
@@ -157,10 +173,6 @@ export function App(): React.JSX.Element {
         .map((c) => ({ id: c.id, name: c.name })),
     [configurations, activeConfig.id],
   );
-  const completed = useMemo(
-    () => new Set(completedCourseIds.map(courseKey)),
-    [completedCourseIds],
-  );
   const planned = useMemo(
     () => new Set(scheduledCourseIds.map(courseKey)),
     [scheduledCourseIds],
@@ -174,17 +186,13 @@ export function App(): React.JSX.Element {
     [watchedCourseIds, coursesById],
   );
   const suggestions = useMemo(
-    (): readonly Suggestion[] =>
-      (degreeAudit?.prereq_graph ?? [])
-        .filter((n) => {
-          const key = courseKey(n.course_id);
-          return (
-            n.status === 'eligible' && !completed.has(key) && !planned.has(key)
-          );
-        })
-        .slice(0, MAX_SUGGESTIONS)
-        .map((n) => ({ id: n.course_id, title: n.title })),
-    [degreeAudit, completed, planned],
+    () =>
+      suggestionIds
+        .filter((id) => !planned.has(courseKey(id)))
+        .map((id) => coursesById.get(id))
+        .filter((c): c is Course => c !== undefined)
+        .slice(0, MAX_SUGGESTIONS),
+    [suggestionIds, planned, coursesById],
   );
 
   const plannedUnits = totalUnits(activeSections, coursesById);
@@ -395,14 +403,20 @@ export function App(): React.JSX.Element {
           cycleConfig(1);
           return;
         case 'Escape':
-          setExpanded(null);
-          setPane('library');
+          // Peel one layer: an open course, then Ask, then the search text.
+          if (hasExpanded()) {
+            setExpanded(null);
+          } else if (pane === 'ask') {
+            setPane('library');
+          } else {
+            setSearchText('');
+          }
           return;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, openAsk, showLibrary, space]);
+  }, [go, openAsk, showLibrary, space, pane, setSearchText]);
 
   return (
     <div className={styles.app}>
@@ -437,6 +451,7 @@ export function App(): React.JSX.Element {
                 completed={completed}
                 watched={watched}
                 onToggleSave={handleToggleSave}
+                onToggleTaken={(course) => handleToggleCompleted(course.id)}
                 onToggleSection={handleToggleSection}
                 otherVariants={otherVariants}
                 onAddToVariant={handleAddToVariant}

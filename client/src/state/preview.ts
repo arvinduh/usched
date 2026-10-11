@@ -49,6 +49,13 @@ export function setExpanded(course: Course | null): void {
 }
 
 /**
+ * Reports whether any course is expanded, for handlers outside React.
+ */
+export function hasExpanded(): boolean {
+  return preview.get().expanded !== null;
+}
+
+/**
  * Collapses `course` if it is expanded, otherwise expands it.
  */
 export function toggleExpanded(course: Course): void {

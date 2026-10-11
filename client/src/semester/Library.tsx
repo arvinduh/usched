@@ -4,28 +4,22 @@
  *
  * With empty text it shows saved courses and degree-suggested next courses;
  * otherwise it shows parsed filter chips, an "Ask" row when the text reads as
- * a question, and catalog results with infinite scroll. Plan edits and the
+ * a question, and catalog results with infinite scroll. Every list honors
+ * the filter panel and sort. Plan edits and the
  * advisor hand-off are delegated to the caller.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, Sparkles, X } from 'lucide-react';
+import { ListFilter, Search, Sparkles, X } from 'lucide-react';
 import type { CatalogSearch } from '../hooks/useCatalogSearch';
-import { displayCode } from '../lib/degree';
+import { NO_FILTER, activeFilterCount, courseMatches, sortCourses } from '../lib/filter';
+import type { DayPart, SectionFilter, SortKey } from '../lib/filter';
 import { looksLikeQuestion } from '../lib/query';
-import { clashes, isTimed } from '../lib/schedule';
 import type { Course, Section } from '../types';
 import { CourseRow } from './CourseRow';
 import type { CourseRowProps } from './CourseRow';
+import { FilterPanel } from './FilterPanel';
 import styles from './Library.module.css';
-
-/**
- * A degree course the student can take next.
- */
-export interface Suggestion {
-  readonly id: string;
-  readonly title: string;
-}
 
 /**
  * Properties for the Library pane.
@@ -34,25 +28,66 @@ export interface LibraryProps {
   readonly search: CatalogSearch;
   readonly inputRef: React.RefObject<HTMLInputElement | null>;
   readonly savedCourses: readonly Course[];
-  readonly suggestions: readonly Suggestion[];
+  /** Degree courses the student can take next. */
+  readonly suggestions: readonly Course[];
   readonly activeSections: readonly Section[];
   readonly scheduledCourseIds: readonly string[];
   readonly completed: ReadonlySet<string>;
   readonly watched: ReadonlySet<string>;
   readonly onToggleSave: (course: Course) => void;
+  readonly onToggleTaken: CourseRowProps['onToggleTaken'];
   readonly onToggleSection: (section: Section, course: Course) => void;
   readonly otherVariants: CourseRowProps['otherVariants'];
   readonly onAddToVariant: CourseRowProps['onAddToVariant'];
   readonly onAsk: (text: string) => void;
 }
 
+const SORT_LABELS: Record<SortKey, string> = {
+  relevance: 'Relevance',
+  rating: 'Highest rated',
+  easiest: 'Easiest',
+  code: 'Course code',
+};
+
+const DAY_PART_LABELS: Record<DayPart, string> = {
+  morning: 'Mornings',
+  afternoon: 'Afternoons',
+  evening: 'Evenings',
+};
+
+interface FilterChip {
+  readonly label: string;
+  readonly clear: (f: SectionFilter) => SectionFilter;
+}
+
+function without<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
+  return new Set([...set].filter((x) => x !== value));
+}
+
 /**
- * Reports whether some section of the course can join the week without a
- * time clash. Courses that only meet TBA always fit.
+ * Lists the active section filters as removable chips.
  */
-function fitsWeek(course: Course, scheduled: readonly Section[]): boolean {
-  const timed = course.sections.filter(isTimed);
-  return timed.length === 0 || timed.some((s) => !clashes(s, scheduled));
+function filterChips(f: SectionFilter): readonly FilterChip[] {
+  const chips: FilterChip[] = [];
+  for (const d of f.excludedDays) {
+    chips.push({
+      label: `No ${d}`,
+      clear: (g) => ({ ...g, excludedDays: without(g.excludedDays, d) }),
+    });
+  }
+  for (const p of f.dayParts) {
+    chips.push({
+      label: DAY_PART_LABELS[p],
+      clear: (g) => ({ ...g, dayParts: without(g.dayParts, p) }),
+    });
+  }
+  if (f.openSeatsOnly) {
+    chips.push({ label: 'Open seats', clear: (g) => ({ ...g, openSeatsOnly: false }) });
+  }
+  if (f.fitsWeekOnly) {
+    chips.push({ label: 'Fits my week', clear: (g) => ({ ...g, fitsWeekOnly: false }) });
+  }
+  return chips;
 }
 
 /**
@@ -69,20 +104,27 @@ export function Library(props: LibraryProps): React.JSX.Element {
     completed,
     watched,
     onToggleSave,
+    onToggleTaken,
     onToggleSection,
     otherVariants,
     onAddToVariant,
     onAsk,
   } = props;
-  const [fitsOnly, setFitsOnly] = useState(false);
+  const [filter, setFilter] = useState<SectionFilter>(NO_FILTER);
+  const [sort, setSort] = useState<SortKey>('relevance');
+  const [panelOpen, setPanelOpen] = useState(false);
   const { text, setText, parsed, courses, isSearching, hasMore, loadMore } =
     search;
   const isQuestion = looksLikeQuestion(text);
   const activeIds = new Set(activeSections.map((s) => s.id));
+  const filterCount = activeFilterCount(filter) + parsed.tokens.length;
 
-  const results = fitsOnly
-    ? courses.filter((c) => fitsWeek(c, activeSections))
-    : courses;
+  const refine = (list: readonly Course[]): readonly Course[] =>
+    sortCourses(
+      list.filter((c) => courseMatches(c, filter, activeSections)),
+      sort,
+    );
+  const results = refine(courses);
 
   const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -108,6 +150,7 @@ export function Library(props: LibraryProps): React.JSX.Element {
       activeSectionIds={activeIds}
       scheduledCourseIds={scheduledCourseIds}
       onToggleSave={onToggleSave}
+      onToggleTaken={onToggleTaken}
       onToggleSection={onToggleSection}
       otherVariants={otherVariants}
       onAddToVariant={onAddToVariant}
@@ -191,15 +234,48 @@ export function Library(props: LibraryProps): React.JSX.Element {
             <X size={11} />
           </button>
         ))}
+        {filterChips(filter).map((chip) => (
+          <button
+            key={chip.label}
+            type="button"
+            className={`${styles.chip} ${styles.chipOn}`}
+            onClick={() => setFilter(chip.clear)}
+          >
+            {chip.label}
+            <X size={11} />
+          </button>
+        ))}
         <button
           type="button"
-          className={`${styles.chip} ${fitsOnly ? styles.chipOn : ''}`}
-          aria-pressed={fitsOnly}
-          onClick={() => setFitsOnly((v) => !v)}
+          className={`${styles.chip} ${panelOpen ? styles.chipActive : ''}`}
+          aria-expanded={panelOpen}
+          onClick={() => setPanelOpen((v) => !v)}
         >
-          Fits my week
+          <ListFilter size={12} />
+          Filter
+          {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
         </button>
+        <label className={styles.sort}>
+          <span className={styles.srOnly}>Sort by</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+            {Object.entries(SORT_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+
+      {panelOpen && (
+        <FilterPanel
+          filter={filter}
+          onFilter={setFilter}
+          parsed={parsed}
+          text={text}
+          setText={setText}
+        />
+      )}
 
       <div className={styles.list} ref={list} onKeyDown={handleListKeyDown}>
         {text.trim() && isQuestion && (
@@ -220,8 +296,8 @@ export function Library(props: LibraryProps): React.JSX.Element {
             {results.map(row)}
             {results.length === 0 && !hasMore && !isSearching && (
               <p className={styles.empty}>
-                {fitsOnly && courses.length > 0
-                  ? 'Nothing here fits your week.'
+                {courses.length > 0
+                  ? 'Nothing matches these filters.'
                   : 'No matching courses.'}
               </p>
             )}
@@ -232,27 +308,13 @@ export function Library(props: LibraryProps): React.JSX.Element {
             {savedCourses.length > 0 && (
               <section>
                 <h3 className={styles.heading}>Saved</h3>
-                {(fitsOnly
-                  ? savedCourses.filter((c) => fitsWeek(c, activeSections))
-                  : savedCourses
-                ).map(row)}
+                {refine(savedCourses).map(row)}
               </section>
             )}
             {suggestions.length > 0 && (
               <section>
                 <h3 className={styles.heading}>Next up</h3>
-                {suggestions.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    data-nav="suggestion"
-                    className={styles.suggestion}
-                    onClick={() => setText(displayCode(s.id))}
-                  >
-                    <span className={styles.code}>{displayCode(s.id)}</span>
-                    <span className={styles.suggestionTitle}>{s.title}</span>
-                  </button>
-                ))}
+                {refine(suggestions).map(row)}
               </section>
             )}
             {savedCourses.length === 0 && suggestions.length === 0 && (

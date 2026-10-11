@@ -26,9 +26,13 @@ export interface PlanCourses {
 }
 
 /**
- * Merges the catalog page with cached plan courses and hydrates misses.
+ * Merges the catalog page with cached plan courses and hydrates misses,
+ * including `wantedCourseIds` the caller is about to show (suggestions).
  */
-export function usePlanCourses(catalog: readonly Course[]): PlanCourses {
+export function usePlanCourses(
+  catalog: readonly Course[],
+  wantedCourseIds: readonly string[],
+): PlanCourses {
   const configurations = useStore((s) => s.configurations);
   const watchedCourseIds = useStore((s) => s.watchedCourseIds);
   const proposal = usePreview((p) => p.proposal);
@@ -72,7 +76,9 @@ export function usePlanCourses(catalog: readonly Course[]): PlanCourses {
         ...(proposal?.sectionIds ?? []),
       ]),
     ].filter((id) => unseen(id, sectionsById));
-    const courseIds = watchedCourseIds.filter((id) => unseen(id, coursesById));
+    const courseIds = [...new Set([...watchedCourseIds, ...wantedCourseIds])].filter(
+      (id) => unseen(id, coursesById),
+    );
     if (sectionIds.length === 0 && courseIds.length === 0) {
       return;
     }
@@ -100,7 +106,14 @@ export function usePlanCourses(catalog: readonly Course[]): PlanCourses {
       });
     };
     hydrate().catch(console.error);
-  }, [configurations, proposal, watchedCourseIds, sectionsById, coursesById]);
+  }, [
+    configurations,
+    proposal,
+    watchedCourseIds,
+    wantedCourseIds,
+    sectionsById,
+    coursesById,
+  ]);
 
   return { coursesById, sectionsById, remember };
 }
