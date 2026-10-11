@@ -1,0 +1,167 @@
+.pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  animation: enter 200ms var(--ease);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 0 12px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-s);
+  color: var(--text-secondary);
+  transition: background 100ms ease-out, color 100ms ease-out;
+}
+
+.back:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+.transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestion {
+  text-align: left;
+  padding: 8px 0;
+  color: var(--text-secondary);
+  transition: color 100ms ease-out;
+}
+
+.suggestion:hover {
+  color: var(--text-primary);
+}
+
+.user {
+  align-self: flex-end;
+  max-width: 85%;
+  color: var(--text-secondary);
+  text-align: right;
+  line-height: 1.5;
+}
+
+.reply {
+  line-height: 1.6;
+}
+
+.reply p:empty {
+  height: 0.6em;
+}
+
+.reply strong {
+  font-weight: 550;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.chip {
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  transition: background 100ms ease-out;
+}
+
+.chip:hover {
+  background: var(--hover);
+}
+
+.thinking {
+  display: inline-flex;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.thinking span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: pulse 1s infinite ease-in-out;
+}
+
+.thinking span:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.thinking span:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+.composer {
+  position: relative;
+  margin: 8px 12px 12px;
+}
+
+.input {
+  width: 100%;
+  height: 38px;
+  padding: 0 40px 0 12px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--hover);
+  outline: none;
+}
+
+.input:focus {
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.send {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: var(--bg);
+  transition: opacity 100ms ease-out;
+}
+
+.send:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
