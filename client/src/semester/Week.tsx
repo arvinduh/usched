@@ -221,6 +221,10 @@ export function Week(props: WeekProps): React.JSX.Element {
         {days.map((day) => {
           const dayBlocks = timed.filter((s) => s.days.includes(day));
           const lanes = layoutLanes(dayBlocks);
+          // Ghosts share lanes among themselves so same-time options sit
+          // side by side instead of hiding one another.
+          const dayGhosts = ghosts.filter((g) => g.days.includes(day));
+          const ghostLanes = layoutLanes(dayGhosts);
           const flipPopover = day === 'Fri' || day === 'Sat';
           return (
             <div key={day} className={styles.column}>
@@ -273,11 +277,10 @@ export function Week(props: WeekProps): React.JSX.Element {
               })}
 
               {expanded &&
-                ghosts
-                  .filter((g) => g.days.includes(day))
-                  .map((g) => {
+                dayGhosts.map((g) => {
                     const hue = hueFor(g.course_id, hueOrder);
                     const bad = clashes(g, timed);
+                    const lane = ghostLanes.get(g.id) ?? { lane: 0, lanes: 1 };
                     return (
                       <button
                         key={g.id}
@@ -288,6 +291,8 @@ export function Week(props: WeekProps): React.JSX.Element {
                         style={{
                           top: pct(g.start_minute),
                           height: `calc(${pct(g.end_minute)} - ${pct(g.start_minute)})`,
+                          left: `calc(${(lane.lane / lane.lanes) * 100}% + 2px)`,
+                          width: `calc(${100 / lane.lanes}% - 4px)`,
                           color: bad ? undefined : hue.ink,
                           background: bad ? undefined : textureBackground(g.section_type, hue.fill),
                         }}

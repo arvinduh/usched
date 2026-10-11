@@ -305,8 +305,6 @@
 
 .ghost {
   position: absolute;
-  left: 2px;
-  right: 2px;
   z-index: 3;
   padding: 4px 6px;
   border: 1px dashed currentColor;
