@@ -1,7 +1,7 @@
 /**
  * One degree requirement category rendered in the chip grammar.
  *
- * Separate chips mean "take all"; chips fused into one capsule mean "take
+ * Loose chips mean "take all"; chips gathered in a box mean "take
  * any"; a dashed "+N units" slot means open units of anything that counts.
  * Chip fill encodes state (done, planned this term, available, locked).
  * Plan edits and navigation are delegated to the caller.
@@ -66,7 +66,6 @@ export function Requirement({
       key={id}
       courseId={id}
       ctx={ctx}
-      segment={shape.kind === 'choice'}
       faded={shape.kind === 'choice' && satisfied && !ctx.completed.has(courseKey(id))}
     />
   ));
@@ -90,7 +89,7 @@ export function Requirement({
         </span>
       </header>
       <div className={styles.chips}>
-        {shape.kind === 'choice' ? <span className={styles.capsule}>{chips}</span> : chips}
+        {shape.kind === 'choice' ? <span className={styles.choiceBox}>{chips}</span> : chips}
         {shape.kind === 'pool' && (
           <span className={styles.openSlot}>+ {shape.openUnits} units</span>
         )}
@@ -102,12 +101,10 @@ export function Requirement({
 function Chip({
   courseId,
   ctx,
-  segment,
   faded,
 }: {
   readonly courseId: string;
   readonly ctx: ChipContext;
-  readonly segment: boolean;
   readonly faded: boolean;
 }): React.JSX.Element {
   const key = courseKey(courseId);
@@ -116,7 +113,6 @@ function Chip({
   const classes = [
     styles.chip,
     styles[state],
-    segment ? styles.segment : '',
     faded ? styles.faded : '',
     ctx.highlighted.has(key) ? styles.blocker : '',
   ].join(' ');
