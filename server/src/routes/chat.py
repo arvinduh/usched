@@ -1,9 +1,13 @@
 """Server-Sent Events (SSE) AI advisor streaming chat route.
 
 This module exposes the streaming dialogue endpoint for academic advising,
-prerequisite navigation, and schedule optimization.
+prerequisite navigation, and schedule optimization. The advisor itself is
+blocking (synchronous Ollama and SQLite calls), so this route owns moving it
+off the event loop; the advisor module owns what gets said.
 """
 
+import asyncio
+import threading
 from collections.abc import AsyncIterator
 
 import fastapi
@@ -20,26 +24,59 @@ def get_db(request: fastapi.Request) -> database.Database:
   return request.app.state.db
 
 
+async def _relay(
+  payload: advisor.ChatRequest, db: database.Database
+) -> AsyncIterator[str]:
+  """Runs the blocking advisor on a worker thread and relays its chunks.
+
+  Iterating the advisor directly would block the event loop for the whole
+  reply, stalling every other request and Ctrl+C handling. When the client
+  disconnects, Starlette cancels this generator and the `finally` signals the
+  worker to stop at its next chunk.
+
+  Args:
+    payload: The chat request to answer.
+    db: Database service; the worker opens its own connection.
+
+  Yields:
+    SSE-formatted chunks in production order.
+  """
+  loop = asyncio.get_running_loop()
+  chunks: asyncio.Queue[str | None] = asyncio.Queue()
+  stop = threading.Event()
+
+  def deliver(chunk: str | None) -> None:
+    if not loop.is_closed():
+      loop.call_soon_threadsafe(chunks.put_nowait, chunk)
+
+  def produce() -> None:
+    conn = db.connect()
+    try:
+      for chunk in advisor.stream_advisor_sse(payload, conn, db):
+        if stop.is_set():
+          return
+        deliver(chunk)
+    finally:
+      conn.close()
+      deliver(None)
+
+  # Daemon so a reply still generating never blocks process shutdown.
+  threading.Thread(target=produce, name="advisor", daemon=True).start()
+  try:
+    while (chunk := await chunks.get()) is not None:
+      yield chunk
+  finally:
+    stop.set()
+
+
 @router.post("")
 async def chat_stream(
   payload: advisor.ChatRequest,
   request: fastapi.Request,
 ) -> fastapi.responses.StreamingResponse:
   """Streams AI advisor markdown guidance and interactive chips via SSE."""
-  db = get_db(request)
-
-  async def event_generator() -> AsyncIterator[str]:
-    conn = db.connect()
-    try:
-      for chunk in advisor.stream_advisor_sse(payload, conn, db):
-        if await request.is_disconnected():
-          break
-        yield chunk
-    finally:
-      conn.close()
-
   return fastapi.responses.StreamingResponse(
-    event_generator(),
+    _relay(payload, get_db(request)),
     media_type="text/event-stream",
     headers={
       "Cache-Control": "no-cache",
