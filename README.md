@@ -4,9 +4,10 @@ A calm course planner for USC students. Find classes, pick sections right on
 your week, and see how each choice moves you toward your degree. Everything you
 plan stays in your browser.
 
-- **Semester**: one search box finds courses or asks the advisor. Opening a
-  course ghosts every section onto your week; click a ghost to take it.
-  Conflicts, units, and missing labs or discussions show up as you go.
+- **Semester**: one input at the bottom of the left pane asks the advisor or
+  finds courses, and says what Enter will do as you type. Opening a course
+  ghosts every section onto your week; click a ghost to take it. Conflicts,
+  units, and missing labs or discussions show up as you go.
 - **Degree**: pick your program by typing, mark what you've taken, and read
   requirements at a glance (loose chips mean take all, chips in a box mean pick
   some). Hover a locked course to see what's blocking it.

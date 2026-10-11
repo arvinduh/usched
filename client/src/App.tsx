@@ -1,7 +1,7 @@
 /**
  * Root application component for the usched academic planner.
  *
- * Composes the two spaces (Semester: Library or Ask beside the week; Degree:
+ * Composes the two spaces (Semester: the Assistant pane beside the week; Degree:
  * the audit) under one top bar, and wires the plan store, catalog search,
  * server audits, advisor chat, and keyboard shortcuts together. It owns only
  * view state; user-authored data lives in `state/store`.
@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom';
 import {
   getApExams,
+  getCourseDetail,
   getDegreeAudit,
   getDegrees,
   getGeAudit,
@@ -21,8 +22,8 @@ import { useCatalogSearch } from './hooks/useCatalogSearch';
 import { DegreeView } from './degree/DegreeView';
 import { courseKey, displayCode } from './lib/degree';
 import { totalUnits } from './lib/schedule';
-import { AskPane } from './semester/AskPane';
-import { Library } from './semester/Library';
+import { Assistant } from './semester/Assistant';
+import type { AssistantView } from './semester/Assistant';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
 import {
@@ -72,6 +73,31 @@ function fallbackDegreeId(degrees: readonly DegreeProgram[]): string {
   return degrees.find((d) => d.id === 'buai-bs')?.id ?? degrees[0]?.id ?? '';
 }
 
+const PANE_KEY = 'usched:pane';
+const PANE_DEFAULT = 420;
+
+/** Keeps the assistant pane between usable and overbearing widths. */
+function clampPaneWidth(px: number): number {
+  return Math.round(Math.min(600, Math.max(340, px)));
+}
+
+function readPaneWidth(): number {
+  try {
+    const saved = Number(localStorage.getItem(PANE_KEY));
+    return saved > 0 ? clampPaneWidth(saved) : PANE_DEFAULT;
+  } catch {
+    return PANE_DEFAULT;
+  }
+}
+
+function savePaneWidth(px: number): void {
+  try {
+    localStorage.setItem(PANE_KEY, String(px));
+  } catch (err) {
+    console.error('Failed to save pane width', err);
+  }
+}
+
 function isTyping(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLElement &&
@@ -87,8 +113,10 @@ function isTyping(target: EventTarget | null): boolean {
  */
 export function App(): React.JSX.Element {
   const [space, setSpace] = useState<Space>('semester');
-  const [pane, setPane] = useState<'library' | 'ask'>('library');
+  const [view, setView] = useState<AssistantView>('chat');
   const searchInput = useRef<HTMLInputElement>(null);
+  const semester = useRef<HTMLElement>(null);
+  const [paneWidth, setPaneWidth] = useState(readPaneWidth);
 
   const configurations = useStore((s) => s.configurations);
   const activeConfigId = useStore((s) => s.activeConfigId);
@@ -224,22 +252,38 @@ export function App(): React.JSX.Element {
     }
   }, []);
 
-  const showLibrary = useCallback(
-    (text?: string): void => {
+  const focusComposer = useCallback((): void => {
+    go('semester');
+    requestAnimationFrame(() => searchInput.current?.focus());
+  }, [go]);
+
+  const showResults = useCallback(
+    (text: string): void => {
       go('semester');
-      setPane('library');
-      if (text !== undefined) {
-        search.setText(text);
-      }
-      requestAnimationFrame(() => searchInput.current?.focus());
+      setView('results');
+      setSearchText(text);
     },
-    [go, search],
+    [go, setSearchText],
   );
 
-  const openAsk = useCallback((): void => {
-    go('semester');
-    setPane('ask');
-  }, [go]);
+  // Opening a course expands it (ghosting its sections) and lists it first
+  // in the results, where its sections can be picked.
+  const handleOpenCourse = (course: Course): void => {
+    remember(course);
+    setExpanded(course);
+    showResults(displayCode(course.id));
+  };
+
+  const handleOpenCourseId = (courseId: string): void => {
+    // The advisor can name courses this term's catalog lacks; say so rather
+    // than leave an unexplained empty list.
+    getCourseDetail(courseId)
+      .then(handleOpenCourse)
+      .catch(() => {
+        showToast(`${displayCode(courseId)} isn't offered this term`);
+        showResults(displayCode(courseId));
+      });
+  };
 
   const handleToggleSave = (course: Course): void => {
     remember(course);
@@ -307,11 +351,6 @@ export function App(): React.JSX.Element {
     showToast(`Deleted ${config.name}`, deleteConfig(config.id));
   };
 
-  const handleFocusCourse = (course: Course): void => {
-    showLibrary(displayCode(course.id));
-    setExpanded(course);
-  };
-
   const handleToggleCompleted = (courseId: string): void => {
     const wasDone = completed.has(courseKey(courseId));
     showToast(
@@ -329,7 +368,8 @@ export function App(): React.JSX.Element {
 
   const handleAsk = (text: string): void => {
     setExpanded(null);
-    setPane('ask');
+    setView('chat');
+    setSearchText('');
     void chat.send(text, {
       enrolledCourseIds: scheduledCourseIds,
       watchedCourseIds,
@@ -342,7 +382,7 @@ export function App(): React.JSX.Element {
     applyActionChip(chip, {
       showWeek: () => go('semester'),
       showDegree: () => go('degree'),
-      search: (q) => showLibrary(q),
+      search: showResults,
     });
   };
 
@@ -375,7 +415,7 @@ export function App(): React.JSX.Element {
       const key = e.key.toLowerCase();
       if (mod && key === 'j') {
         e.preventDefault();
-        openAsk();
+        focusComposer();
         return;
       }
       if (mod && key === 'z' && !isTyping(e.target)) {
@@ -390,7 +430,7 @@ export function App(): React.JSX.Element {
       switch (e.key) {
         case '/':
           e.preventDefault();
-          showLibrary();
+          focusComposer();
           return;
         case 'd':
         case 'D':
@@ -403,11 +443,11 @@ export function App(): React.JSX.Element {
           cycleConfig(1);
           return;
         case 'Escape':
-          // Peel one layer: an open course, then Ask, then the search text.
+          // Peel one layer: an open course, then the results, then the text.
           if (hasExpanded()) {
             setExpanded(null);
-          } else if (pane === 'ask') {
-            setPane('library');
+          } else if (view === 'results') {
+            setView('chat');
           } else {
             setSearchText('');
           }
@@ -416,7 +456,32 @@ export function App(): React.JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, openAsk, showLibrary, space, pane, setSearchText]);
+  }, [go, focusComposer, space, view, setSearchText]);
+
+  // Drag the pane edge to resize. Moves write the CSS variable directly so
+  // the app does not re-render per pointer event; the width is committed
+  // and remembered on release.
+  const startResize = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const grid = semester.current;
+    if (!grid) {
+      return;
+    }
+    e.preventDefault();
+    const left = grid.getBoundingClientRect().left;
+    let width = paneWidth;
+    const move = (ev: PointerEvent): void => {
+      width = clampPaneWidth(ev.clientX - left);
+      grid.style.setProperty('--pane', `${width}px`);
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setPaneWidth(width);
+      savePaneWidth(width);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
 
   return (
     <div className={styles.app}>
@@ -430,34 +495,43 @@ export function App(): React.JSX.Element {
       />
 
       {space === 'semester' ? (
-        <main className={styles.semester}>
+        <main
+          ref={semester}
+          className={styles.semester}
+          style={{ '--pane': `${paneWidth}px` } as React.CSSProperties}
+        >
           <aside className={styles.left}>
-            {pane === 'ask' ? (
-              <AskPane
-                messages={chat.messages}
-                isLoading={chat.isLoading}
-                onSend={handleAsk}
-                onChip={handleChip}
-                onBack={() => showLibrary()}
-              />
-            ) : (
-              <Library
-                search={search}
-                inputRef={searchInput}
-                savedCourses={savedCourses}
-                suggestions={suggestions}
-                activeSections={activeSections}
-                scheduledCourseIds={scheduledCourseIds}
-                completed={completed}
-                watched={watched}
-                onToggleSave={handleToggleSave}
-                onToggleTaken={(course) => handleToggleCompleted(course.id)}
-                onToggleSection={handleToggleSection}
-                otherVariants={otherVariants}
-                onAddToVariant={handleAddToVariant}
-                onAsk={handleAsk}
-              />
-            )}
+            <Assistant
+              view={view}
+              onView={setView}
+              search={search}
+              inputRef={searchInput}
+              messages={chat.messages}
+              busy={chat.isLoading}
+              onAsk={handleAsk}
+              onChip={handleChip}
+              onNewChat={chat.clear}
+              onOpenCourse={handleOpenCourse}
+              onOpenCourseId={handleOpenCourseId}
+              savedCourses={savedCourses}
+              suggestions={suggestions}
+              activeSections={activeSections}
+              scheduledCourseIds={scheduledCourseIds}
+              completed={completed}
+              watched={watched}
+              onToggleSave={handleToggleSave}
+              onToggleTaken={(course) => handleToggleCompleted(course.id)}
+              onToggleSection={handleToggleSection}
+              otherVariants={otherVariants}
+              onAddToVariant={handleAddToVariant}
+            />
+            <div
+              className={styles.resize}
+              onPointerDown={startResize}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the assistant pane"
+            />
           </aside>
           <section className={styles.right}>
             <Week
@@ -473,7 +547,7 @@ export function App(): React.JSX.Element {
               onDuplicateVariant={duplicateActiveConfig}
               onToggleSection={handleToggleSection}
               onRemove={handleRemove}
-              onFocusCourse={handleFocusCourse}
+              onFocusCourse={handleOpenCourse}
               onKeepProposal={handleKeepProposal}
               onDiscardProposal={() => setProposal(null)}
             />
@@ -495,8 +569,8 @@ export function App(): React.JSX.Element {
             plannedUnits={plannedUnits}
             onToggleCompleted={handleToggleCompleted}
             onRecordCompleted={handleRecordCompleted}
-            onFindSections={(courseId) => showLibrary(displayCode(courseId))}
-            onBrowseGe={(letter) => showLibrary(`ge ${letter.toLowerCase()} `)}
+            onFindSections={handleOpenCourseId}
+            onBrowseGe={(letter) => showResults(`ge ${letter.toLowerCase()} `)}
           />
         </main>
       )}
