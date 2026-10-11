@@ -14,7 +14,7 @@ from typing import Any
 
 from absl import logging
 
-from server.src.data import models
+from server.src.data import models, search
 
 
 DEFAULT_DB_PATH = (
@@ -185,28 +185,28 @@ class Database:
     limit: int = 60,
     offset: int = 0,
   ) -> list[models.Course]:
-    """Retrieves courses using SQL-level filters and FTS5 search."""
+    """Retrieves courses using SQL-level filters and FTS5 search.
+
+    With a query, results rank by relevance: an exact course-code prefix
+    first, then BM25 weighting code and title matches over descriptions.
+    """
     where_clauses: list[str] = []
     params: list[Any] = []
     join_clause = ""
+    order_terms = ["c.department", "c.number"]
+    order_params: list[Any] = []
 
-    if q and q.strip():
-      clean_q = q.strip().replace('"', '""')
-      fts_expr = f'"{clean_q}"*'
-      try:
-        conn.execute(
-          "SELECT 1 FROM courses_fts WHERE courses_fts MATCH ? LIMIT 1",
-          (fts_expr,),
-        )
-        join_clause = "JOIN courses_fts fts ON fts.rowid = c.rowid"
-        where_clauses.append("courses_fts MATCH ?")
-        params.append(fts_expr)
-      except sqlite3.OperationalError:
-        where_clauses.append(
-          "(c.id LIKE ? OR c.title LIKE ? OR c.description LIKE ?)"
-        )
-        pattern = f"%{clean_q}%"
-        params.extend([pattern, pattern, pattern])
+    match = search.parse(q) if q else None
+    if match is not None:
+      join_clause = "JOIN courses_fts fts ON fts.rowid = c.rowid"
+      where_clauses.append("courses_fts MATCH ?")
+      params.append(match.fts)
+      # Column weights follow courses_fts: id, department, number, title,
+      # description.
+      order_terms.insert(0, "bm25(courses_fts, 10.0, 4.0, 6.0, 8.0, 1.0)")
+      if match.code_prefix is not None:
+        order_terms.insert(0, "c.id NOT LIKE ?")
+        order_params.append(match.code_prefix)
 
     if department:
       where_clauses.append("c.department = ?")
@@ -243,10 +243,10 @@ class Database:
       {_COURSE_AGGREGATE_SELECT}
       {join_clause}
       {where_sql}
-      ORDER BY c.department, c.number
+      ORDER BY {", ".join(order_terms)}
       LIMIT ? OFFSET ?
     """
-    params.extend([limit, offset])
+    params.extend([*order_params, limit, offset])
 
     cursor = conn.execute(query, params)
     return [_parse_course_row(row) for row in cursor.fetchall()]
