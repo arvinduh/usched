@@ -84,3 +84,17 @@ def test_ge_audit(client):
   by_code = {p["code"]: p for p in progress}
   assert by_code["GE-A"]["courses"] == ["csci-104l"]
   assert by_code["GE-F"]["exams"] == ["AP_CALC_BC"]
+
+
+def test_program_audit(client):
+  audit = client.post(
+    "/api/terms/20271/programs/computer-science-bs/audit",
+    json={"completed": ["CSCI-103L"]},
+  ).json()
+  assert audit["units"] == 4
+  assert any(r["courses"] == ["CSCI-103L"] for r in audit["requirements"])
+  fresh = client.post(
+    "/api/terms/20271/programs/computer-science-bs/audit",
+    json={"completed": []},
+  ).json()
+  assert "CSCI-104L" in fresh["locked"]

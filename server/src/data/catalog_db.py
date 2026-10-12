@@ -209,6 +209,28 @@ def sections(
   return _sections_where(conn, term, "s.id", ids) if ids else []
 
 
+def requisites_of(
+  conn: sqlite3.Connection, term: int, codes: Sequence[str]
+) -> dict[str, m.Requisites]:
+  """Maps lowercased codes offered in `term` to their requisites."""
+  return _requisites(conn, term, codes) if codes else {}
+
+
+def units_of(
+  conn: sqlite3.Connection, codes: Sequence[str]
+) -> dict[str, m.Units]:
+  """Maps lowercased codes to their units in the latest term offering them."""
+  out: dict[str, m.Units] = {}
+  if codes:
+    for code, low, high in conn.execute(
+      f"""SELECT course_code, units_min, units_max FROM offering
+          WHERE course_code IN ({_marks(codes)}) ORDER BY term_code DESC""",
+      list(codes),
+    ):
+      out.setdefault(code.lower(), m.Units(min=low, max=high))
+  return out
+
+
 def _ge(conn: sqlite3.Connection, codes: Sequence[str]) -> dict[str, list[str]]:
   out: dict[str, list[str]] = collections.defaultdict(list)
   for row in conn.execute(

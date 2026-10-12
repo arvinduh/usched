@@ -244,3 +244,43 @@ class GeProgress(pydantic.BaseModel):
   required_count: int
   courses: list[str] = pydantic.Field(description="Completed codes used here.")
   exams: list[str] = pydantic.Field(description="AP exam ids used here.")
+
+
+class RequirementStatus(enum.StrEnum):
+  """How far along a requirement is."""
+
+  DONE = "done"
+  PARTIAL = "partial"
+  TODO = "todo"
+  MANUAL = "manual"  # Only prose rules; a person has to judge it.
+
+
+class RequirementProgress(pydantic.BaseModel):
+  """Progress on one requirement of a program."""
+
+  position: int = pydantic.Field(description="The requirement's position.")
+  status: RequirementStatus
+  units: float = pydantic.Field(
+    description="Units earned here and in nested requirements."
+  )
+  courses: list[str] = pydantic.Field(
+    description="Completed codes filling this requirement's own slots."
+  )
+
+
+class ProgramAuditRequest(pydantic.BaseModel):
+  """Courses a student has completed."""
+
+  completed: list[str]
+
+
+class ProgramAudit(pydantic.BaseModel):
+  """A program audited against completed courses in a planning term."""
+
+  units: float = pydantic.Field(
+    description="Units of every completed course with known units."
+  )
+  requirements: list[RequirementProgress]
+  locked: list[str] = pydantic.Field(
+    description="Program courses whose prerequisites are not yet met."
+  )
