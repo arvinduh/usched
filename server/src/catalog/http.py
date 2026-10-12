@@ -28,7 +28,8 @@ def client(**kwargs: Any) -> httpx.Client:
     **kwargs: Overrides passed to `httpx.Client` (cookies, headers, ...).
   """
   options: dict[str, Any] = {
-    "timeout": httpx.Timeout(30.0, connect=10.0),
+    # The largest program listings take over 30 s to generate server-side.
+    "timeout": httpx.Timeout(120.0, connect=10.0),
     "headers": {"User-Agent": _USER_AGENT, "Accept": "application/json"},
     "limits": httpx.Limits(max_connections=16, max_keepalive_connections=16),
     "follow_redirects": True,
