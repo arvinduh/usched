@@ -370,6 +370,11 @@ def _instructors(
   return out
 
 
+def departments(conn: sqlite3.Connection) -> list[str]:
+  """Lists every department code, e.g. CSCI."""
+  return [r[0] for r in conn.execute("SELECT code FROM department ORDER BY 1")]
+
+
 def ge_categories(conn: sqlite3.Connection) -> list[m.GeCategory]:
   """Lists GE categories in code order."""
   return [

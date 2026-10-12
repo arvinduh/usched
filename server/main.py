@@ -14,8 +14,8 @@ import uvicorn
 from absl import logging
 from fastapi.middleware import cors
 
-from server.src.data import database
-from server.src.routes import chat, courses, degree, ge, schedule
+from server.src.data import catalog_db, database
+from server.src.routes import catalog, chat, courses, degree, ge, schedule
 
 
 def _load_env_file() -> None:
@@ -44,6 +44,9 @@ async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
   db = database.Database()
   db.init()
   app.state.db = db
+  app.state.catalog = catalog_db.CatalogDb()
+  if not app.state.catalog.path.is_file():
+    logging.warning("No catalog database yet; build it with `npm run catalog`.")
   conn = db.connect()
   try:
     cursor = conn.execute("SELECT COUNT(*) FROM courses")
@@ -93,6 +96,7 @@ app.add_middleware(
   allow_headers=["*"],
 )
 
+app.include_router(catalog.router)
 app.include_router(courses.router)
 app.include_router(schedule.router)
 app.include_router(degree.router)
