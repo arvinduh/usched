@@ -1,306 +1,198 @@
-"""AI academic advisor orchestrator and SSE streaming response generator.
+"""Runs an advising conversation and streams it as Server-Sent Events.
 
-This module coordinates multi-turn dialogue, tool execution, context injection
-(enrolled courses, wishlist, degree progress), and Server-Sent Events (SSE).
+Owns the prompt, the tool loop with the local model, and which chips end
+a reply. Tools and their renderings live in `tools`; transport (threads,
+the event loop) lives in the chat route.
 """
 
 import json
 import sqlite3
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Generator, Iterator, Sequence
+from typing import Any, Literal
 
 import httpx
 import pydantic
 from absl import logging
 
-from server.src.agent import ollama, tools
-from server.src.data import database, models
-from server.src.engine import audit
+from server.src.agent import chips, ollama, tools
+from server.src.data import catalog_db
 
 
-class ChatMessage(pydantic.BaseModel):
-  """Dialogue message in advisor interaction history."""
+class ChatTurn(pydantic.BaseModel):
+  """A prior message in the conversation."""
 
-  role: str = pydantic.Field(
-    description="Sender role: user, assistant, system."
-  )
-  content: str = pydantic.Field(description="Markdown-formatted message body.")
-  action_chips: list[dict[str, Any]] = pydantic.Field(
-    default_factory=list,
-    description="Interactive recommendation chips attached to assistant turn.",
-  )
+  role: Literal["user", "assistant"]
+  content: str
 
 
 class ChatRequest(pydantic.BaseModel):
-  """Payload dispatched to stream advisor advice."""
+  """A student's message with what the advisor should know about them."""
 
-  message: str = pydantic.Field(
-    description="Current student user query or prompt."
+  message: str
+  history: list[ChatTurn] = []
+  term: int = pydantic.Field(description="The term being planned.")
+  program_id: str | None = None
+  planned: list[str] = pydantic.Field(
+    default=[], description="Codes of courses in the active schedule."
   )
-  history: list[ChatMessage] = pydantic.Field(
-    default_factory=list, description="Prior conversational dialogue turns."
+  shortlisted: list[str] = pydantic.Field(
+    default=[], description="Codes of courses saved for later."
   )
-  enrolled_courses: list[str] = pydantic.Field(
-    default_factory=list,
-    description="Course codes currently marked enrolled.",
-  )
-  wishlist_courses: list[str] = pydantic.Field(
-    default_factory=list,
-    description="Course codes currently marked on wishlist.",
-  )
-  completed_courses: list[str] = pydantic.Field(
-    default_factory=list, description="Historical courses completed by student."
-  )
-  degree_id: str = pydantic.Field(
-    default="",
-    description="Target degree program identifier for graduation audit.",
+  completed: list[str] = pydantic.Field(
+    default=[], description="Codes of courses already taken."
   )
 
 
-SYSTEM_PROMPT = """You are usched, an expert AI advisor and UI co-pilot.
-Your mission is to provide high-value scheduling strategies, degree
-optimization, and direct UI controls for USC students.
+class ChipsEvent(pydantic.BaseModel):
+  """The final event of a reply: chips for the student to act on."""
 
-Core Principles:
-1. Grounded & Strategic: Do not just state basic facts. Offer
-   non-obvious suggestions:
-   - Identify workload bottlenecks and weed-out traps (e.g. warning against
-     pairing heavy programming projects like CSCI 104 with intensive math/EE
-     courses unless balanced by lighter GEs).
-   - Identify prerequisite bottlenecks in the degree DAG (courses that unblock
-     multiple future requirements).
-   - Evaluate professors holistically (RateMyProfessors quality, grading
-     difficulty, teaching styles).
-2. Actionable Recommendations:
-   - When recommending courses or schedules, reference specific section IDs
-     and professors so students can act immediately.
-   - Use the `solve_schedule` tool whenever students ask to build, optimize,
-     or find schedules. Pass their natural language preferences:
-     `excluded_days`, `earliest_start_time`, `latest_end_time`,
-     `preferred_instructors`, and `min_rmp_rating`.
-   - Use the `search_courses` tool to verify courses and find available
-     sections.
-3. Brief:
-   - Answer in at most 120 words. The reply renders as plain text in a
-     narrow side panel, so use short sentences or a few "- " bullets.
-   - Never use tables, headings, or horizontal rules.
+  action_chips: list[chips.Chip]
+
+
+SYSTEM_PROMPT = """You are usched, an academic advisor for USC students.
+
+Be strategic, not encyclopedic:
+- Spot workload traps (two project-heavy courses together) and courses that
+  unlock many later requirements.
+- Judge instructors by rating and difficulty, and name the sections you mean
+  so the student can act.
+- Call solve_schedule to build or optimize schedules, passing the student's
+  day, time, and instructor preferences. Call search_courses or
+  get_course_details before stating facts about a course, and
+  audit_program for degree progress.
+
+Answer in at most 120 words of plain text for a narrow side panel: short
+sentences or a few "- " bullets, never tables, headings, or rules.
 """
+_HISTORY_TURNS = 6
+_MAX_CHIPS = 4
 
 
-def format_context_prompt(
-  enrolled: list[str],
-  wishlist: list[str],
-  completed: list[str],
-  degree_id: str,
-) -> str:
-  """Constructs context message detailing student courses and target degree."""
+def _term_name(conn: sqlite3.Connection, term: int) -> str:
+  for t in catalog_db.terms(conn):
+    if t.code == term:
+      return f"{t.season} {t.year}"
+  return str(term)
+
+
+def _context(conn: sqlite3.Connection, request: ChatRequest) -> str:
+  def listed(codes: Sequence[str]) -> str:
+    return ", ".join(codes) or "none"
+
   return (
-    f"[Student Academic Context]\n"
-    f"- Target Degree Program: {degree_id or 'csci-bs'}\n"
-    f"- Currently Enrolled Courses: {', '.join(enrolled) or 'None'}\n"
-    f"- Wishlist Courses: {', '.join(wishlist) or 'None'}\n"
-    f"- Completed Courses: {', '.join(completed) or 'None'}\n"
+    "[Student]\n"
+    f"- Planning: {_term_name(conn, request.term)}\n"
+    f"- Program: {request.program_id or 'not chosen'}\n"
+    f"- Scheduled: {listed(request.planned)}\n"
+    f"- Shortlisted: {listed(request.shortlisted)}\n"
+    f"- Completed: {listed(request.completed)}\n"
   )
 
 
-def generate_action_chips(
-  query: str,
-  completed: list[str],
-  degree_id: str,
+def closing_chips(
   conn: sqlite3.Connection,
-  db: database.Database,
-  tool_actions: list[dict[str, Any]] | None = None,
-) -> list[dict[str, Any]]:
-  """Derives interactive action chips from tool outputs and student context."""
-  chips: list[dict[str, Any]] = []
+  student: tools.Student,
+  message: str,
+  from_tools: Sequence[chips.Chip],
+) -> list[chips.Chip]:
+  """Picks up to four chips: the tools' first, then ones the message invites.
 
-  # Prioritize concrete actions generated by tool execution
-  if tool_actions:
-    chips.extend(tool_actions)
-
-  q_lower = query.lower()
-  if "wishlist" in q_lower and ("clear" in q_lower or "empty" in q_lower):
-    chips.append(
-      {
-        "label": "Clear Wishlist",
-        "action": "CLEAR_WISHLIST",
-        "payload": {},
-      }
-    )
-
-  if "audit" in q_lower or "degree" in q_lower or "graduate" in q_lower:
-    chips.append(
-      {
-        "label": "View Full Degree DAG",
-        "action": "NAVIGATE_TAB",
-        "payload": {"tab": "audit"},
-      }
-    )
-
-  if "conflict" in q_lower or "schedule" in q_lower or "calendar" in q_lower:
-    chips.append(
-      {
-        "label": "Open Weekly Timetable",
-        "action": "NAVIGATE_TAB",
-        "payload": {"tab": "calendar"},
-      }
-    )
-
-  if len(chips) < 2 and degree_id:
-    deg = db.get_degree(conn, degree_id)
-    if deg:
-      all_courses = db.get_courses(conn, limit=1000)
-      course_map = {c.id: c for c in all_courses}
-      audit_res = audit.audit_degree_progress(deg, completed, course_map)
-      eligible_uncompleted = [
-        node.course_id
-        for node in audit_res.prereq_graph
-        if node.status == models.CourseStatus.ELIGIBLE
-        and node.course_id not in completed
-      ]
-      for cid in eligible_uncompleted[:2]:
-        chips.append(
-          {
-            "label": f"Explore {cid} Sections",
-            "action": "FILTER_EXPLORER",
-            "payload": {"query": cid},
-          }
-        )
-
-  if not chips:
-    chips.append(
-      {
-        "label": "Audit Degree Progress",
-        "action": "NAVIGATE_TAB",
-        "payload": {"tab": "audit"},
-      }
-    )
-    chips.append(
-      {
-        "label": "Check Schedule Conflicts",
-        "action": "NAVIGATE_TAB",
-        "payload": {"tab": "calendar"},
-      }
-    )
-
-  # De-duplicate chips by label
-  seen_labels: set[str] = set()
-  unique_chips: list[dict[str, Any]] = []
-  for chip in chips:
-    lbl = chip.get("label", "")
-    if lbl and lbl not in seen_labels:
-      seen_labels.add(lbl)
-      unique_chips.append(chip)
-
-  return unique_chips[:4]
+  With room left and a program chosen, suggests courses the student can
+  take next.
+  """
+  found: list[chips.Chip] = list(from_tools)
+  text = message.lower()
+  if any(w in text for w in ("degree", "audit", "graduat", "requirement")):
+    found.append(chips.Show(label="Open degree", view="degree"))
+  if any(w in text for w in ("schedule", "calendar", "conflict", "week")):
+    found.append(chips.Show(label="Open week", view="week"))
+  if len(found) < 2 and student.program_id:
+    found += tools.audit_program(conn, student).chips
+  if not found:
+    found = [
+      chips.Show(label="Open degree", view="degree"),
+      chips.Show(label="Open week", view="week"),
+    ]
+  unique = {c.label: c for c in reversed(found)}
+  return list(reversed(unique.values()))[:_MAX_CHIPS]
 
 
-def stream_advisor_sse(
-  request: ChatRequest,
-  conn: sqlite3.Connection,
-  db: database.Database,
-) -> Iterator[str]:
-  """Yields Server-Sent Events (SSE) streaming tokens and action chips."""
-  context_msg = format_context_prompt(
-    request.enrolled_courses,
-    request.wishlist_courses,
-    request.completed_courses,
-    request.degree_id,
+def _event(payload: Any) -> str:
+  return f"data: {json.dumps(payload)}\n\n"
+
+
+def _token(text: str) -> str:
+  return _event({"token": text})
+
+
+def stream(request: ChatRequest, conn: sqlite3.Connection) -> Iterator[str]:
+  """Yields SSE events: tokens, then one chips event, then `[DONE]`.
+
+  The model's first pass streams straight through, so a direct answer
+  appears token by token and only a tool call costs a second pass.
+  """
+  student = tools.Student(
+    term=request.term,
+    program_id=request.program_id,
+    completed=tuple(request.completed),
   )
-
-  messages: list[dict[str, Any]] = [
-    {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{context_msg}"}
-  ]
-
-  for turn in request.history[-6:]:
-    messages.append({"role": turn.role, "content": turn.content})
-
-  messages.append({"role": "user", "content": request.message})
-
-  collected_actions: list[dict[str, Any]] = []
-
-  if ollama.is_ollama_available():
-    if not ollama.is_model_downloaded():
-      token_msg = (
-        f"Ollama is online, but model `{ollama.MODEL_NAME}` is not "
-        f"downloaded yet. Run `ollama pull {ollama.MODEL_NAME}` to enable."
-      )
-      payload = json.dumps({"token": token_msg})
-      yield f"data: {payload}\n\n"
-      yield "data: [DONE]\n\n"
-      return
-
+  from_tools: list[chips.Chip] = []
+  if not ollama.is_ollama_available():
+    yield _token(
+      "The advisor is offline: start Ollama "
+      f"(`ollama run {ollama.MODEL_NAME}`) to chat."
+    )
+  elif not ollama.is_model_downloaded():
+    yield _token(
+      f"Ollama is running but `{ollama.MODEL_NAME}` is not downloaded. "
+      f"Run `ollama pull {ollama.MODEL_NAME}`."
+    )
+  else:
     try:
-      # Stream the first pass straight through: a direct answer shows up
-      # token by token, and only a tool request costs a second pass.
-      tool_calls: list[dict[str, Any]] = []
-      for chunk in ollama.stream_ollama_chat(messages, tools.OLLAMA_TOOLS):
-        tool_calls.extend(chunk.get("tool_calls") or [])
-        if chunk.get("content"):
-          yield f"data: {json.dumps({'token': chunk['content']})}\n\n"
-
-      if tool_calls:
-        messages.append(
-          {"role": "assistant", "content": "", "tool_calls": tool_calls}
-        )
-        for tc in tool_calls:
-          fn = tc.get("function", {})
-          fname = fn.get("name", "")
-          fargs = fn.get("arguments", {})
-          if isinstance(fargs, str):
-            try:
-              fargs = json.loads(fargs)
-            except json.JSONDecodeError:
-              fargs = {}
-
-          tool_result = tools.execute_tool(fname, fargs, conn, db)
-          collected_actions.extend(tool_result.actions)
-          messages.append(
-            {
-              "role": "tool",
-              "name": fname,
-              "content": tool_result.content,
-            }
-          )
-
-        for chunk in ollama.stream_ollama_chat(messages):
-          if chunk.get("content"):
-            yield f"data: {json.dumps({'token': chunk['content']})}\n\n"
-
-      chips = generate_action_chips(
-        request.message,
-        request.completed_courses,
-        request.degree_id,
-        conn,
-        db,
-        tool_actions=collected_actions,
-      )
-      yield f"data: {json.dumps({'action_chips': chips})}\n\n"
-      yield "data: [DONE]\n\n"
-      return
-    except (httpx.HTTPError, json.JSONDecodeError) as exc:
-      logging.error("Ollama advisor streaming failed: %s", exc)
-      payload = json.dumps({"token": f"\n\n[Error: AI Advisor failed: {exc}]"})
-      yield f"data: {payload}\n\n"
-      yield "data: [DONE]\n\n"
-      return
-
-  payload = json.dumps(
-    {
-      "token": (
-        "AI Advisor offline: Local Ollama daemon is unreachable. "
-        "Start Ollama with `ollama run qwen3.5:4b` to enable local "
-        "academic advising."
-      )
-    }
-  )
-  yield f"data: {payload}\n\n"
-  chips = generate_action_chips(
-    request.message,
-    request.completed_courses,
-    request.degree_id,
-    conn,
-    db,
-  )
-  yield f"data: {json.dumps({'action_chips': chips})}\n\n"
+      from_tools = yield from _converse(request, conn, student)
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
+      logging.error("Advisor failed: %s", e)
+      yield _token(f"\n\n[The advisor failed: {e}]")
+  chosen = closing_chips(conn, student, request.message, from_tools)
+  yield _event(ChipsEvent(action_chips=chosen).model_dump())
   yield "data: [DONE]\n\n"
+
+
+def _converse(
+  request: ChatRequest, conn: sqlite3.Connection, student: tools.Student
+) -> Generator[str, None, list[chips.Chip]]:
+  """Streams the model's reply, running any tools it calls in between.
+
+  Returns (as the generator's value) the chips the tools produced.
+  """
+  messages: list[dict[str, Any]] = [
+    {
+      "role": "system",
+      "content": f"{SYSTEM_PROMPT}\n{_context(conn, request)}",
+    },
+    *(t.model_dump() for t in request.history[-_HISTORY_TURNS:]),
+    {"role": "user", "content": request.message},
+  ]
+  calls: list[dict[str, Any]] = []
+  for chunk in ollama.stream_ollama_chat(messages, tools.OLLAMA_TOOLS):
+    calls.extend(chunk.get("tool_calls") or [])
+    if chunk.get("content"):
+      yield _token(chunk["content"])
+  if not calls:
+    return []
+  from_tools: list[chips.Chip] = []
+  messages.append({"role": "assistant", "content": "", "tool_calls": calls})
+  for call in calls:
+    fn = call.get("function", {})
+    args = fn.get("arguments") or {}
+    if isinstance(args, str):
+      args = json.loads(args)
+    result = tools.execute(fn.get("name", ""), args, conn, student)
+    from_tools += result.chips
+    messages.append(
+      {"role": "tool", "name": fn.get("name", ""), "content": result.content}
+    )
+  for chunk in ollama.stream_ollama_chat(messages):
+    if chunk.get("content"):
+      yield _token(chunk["content"])
+  return from_tools
