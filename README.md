@@ -4,13 +4,15 @@ A calm course planner for USC students. Find classes, pick sections right on
 your week, and see how each choice moves you toward your degree. Everything you
 plan stays in your browser.
 
-- **Semester**: one input at the bottom of the left pane asks the advisor or
+- **Semester**: pick any fetched term from the top bar; each keeps its own
+  schedules. One input at the bottom of the left pane asks the advisor or
   finds courses, and says what Enter will do as you type. Opening a course
-  ghosts every section onto your week; click a ghost to take it. Conflicts,
-  units, and missing labs or discussions show up as you go.
+  ghosts every section onto your week; click a ghost to take it. Linked
+  lectures, labs, and quizzes stay together, and conflicts, units, missing
+  components, and D-clearance show up as you go.
 - **Degree**: pick your program by typing, mark what you've taken, and read
-  requirements at a glance (loose chips mean take all, chips in a box mean pick
-  some). Hover a locked course to see what's blocking it.
+  its requirement tree at a glance (loose chips mean take all, chips in a box
+  mean pick one). Hover a locked course to see what's blocking it.
 - **Advisor** (optional): a local LLM via Ollama that can search the catalog,
   check prerequisites, and propose whole schedules you keep or discard.
 
