@@ -10,6 +10,7 @@
     "setup": "npm install && npm --prefix client install && uv sync",
     "postinstall": "npm --prefix client install",
     "catalog": "uv run catalog",
+    "api": "uv run python -m server.openapi > client/.openapi.json && npm --prefix client run gen:api",
     "build": "npm --prefix client run build",
     "lint:py": "uv run ruff check . && uv run ruff format --check .",
     "format:py": "uv run ruff format .",
