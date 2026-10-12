@@ -33,10 +33,14 @@ scratch/
 # Logs
 *.log
 
-# Generated catalog (built by `npm run ingest`; contains scraped data)
-server/data/usched.db
 .claude/
 
 # Catalog pipeline: raw fetch cache and the built database
 server/data/raw/
 server/data/catalog.db*
+
+# API schema dump, an input to client/src/api/schema.d.ts
+client/.openapi.json
+
+# Obsolete: the pre-catalog database, no longer read by anything
+server/data/usched.db

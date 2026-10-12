@@ -33,18 +33,21 @@ cp .env.example .env       # PowerShell: Copy-Item .env.example .env
 
 ### Build the course catalog
 
-The catalog database is generated, not committed: it holds schedule and
-RateMyProfessors data scraped from public sources. Build it once (no USC login
-needed; headless Chromium is only used to get past the catalogue site's bot
+The catalog database is generated, not committed: it holds course, section,
+RateMyProfessors, and degree-program data from public sources. Build it once
+(no USC login needed; headless Chromium only gets past the catalogue site's bot
 firewall):
 
 ```bash
 uv run playwright install chromium
-npm run ingest
+npm run catalog
 ```
 
-This writes `server/data/usched.db`. Run it again to refresh the term.
-`uv run ingest --helpfull` lists options such as `--departments=CSCI,MATH`.
+This fetches every active term into a raw cache (`server/data/raw/`), then
+builds `server/data/catalog.db` from it. Rerunning refetches only what is
+stale (listings after 12 hours, ratings after 30 days, programs after 7), and
+`npm run catalog -- build` rebuilds from the cache without the network.
+`uv run catalog --helpfull` lists options such as `--terms=20271`.
 
 ## Run
 
@@ -78,11 +81,11 @@ section numbers for registration and resets all local data.
 | Command              | What it does                                        |
 | :------------------- | :-------------------------------------------------- |
 | `npm run setup`      | Install Node and Python dependencies                |
-| `npm run ingest`     | Build or refresh the catalog database               |
+| `npm run catalog`    | Fetch and build the catalog database                |
 | `npm run dev:server` | FastAPI backend with hot reload                     |
 | `npm run dev:client` | Vite dev server                                     |
 | `npm run dev:model`  | Run the advisor model in Ollama                     |
-| `npm run check`      | Ruff, Basedpyright, Oxlint, and `tsc` (the CI gate) |
+| `npm run check`      | Lint, type-check, and test (the CI gate)            |
 | `npm run build`      | Production client bundle                            |
 | `npm run format:py`  | Format Python with Ruff                             |
 
@@ -100,13 +103,14 @@ section numbers for registration and resets all local data.
 ```txt
 server/
   main.py              FastAPI app
-  ingest.py            Catalog scraper CLI
+  catalog.py           Catalog fetch and build CLI
   src/
-    data/              SQLite schema, queries, Pydantic models
-    engine/            Conflicts, degree and GE audits, schedule solver
-    agent/             Ollama client, advisor tools, SSE streaming
-    ingest/            classes.usc.edu, RateMyProfessors, catalogue scrapers
-    routes/            /api/courses, schedule, degrees, ge, chat
+    catalog/           Fetchers, pure parsers, schema, and the build
+    data/              Read-only catalog queries and API models
+    engine/            Schedule solver, degree and GE audits
+    agent/             Ollama client, advisor tools, chips, SSE streaming
+    routes/            Term-scoped catalog routes and chat
+tests/                 Pytest suites mirroring server/src
 client/src/
   semester/            Search, course rows, ask pane, week canvas
   degree/              Program picker, requirement chips, GE, credits

@@ -1,7 +1,8 @@
 """FastAPI server entrypoint for usched backend services.
 
 This module initializes the FastAPI application, mounts CORS middleware,
-ensures database schema integrity on startup, and exposes API routes.
+reports what the catalog and local model offer on startup, and exposes
+API routes.
 """
 
 import contextlib
@@ -14,8 +15,8 @@ import uvicorn
 from absl import logging
 from fastapi.middleware import cors
 
-from server.src.data import catalog_db, database
-from server.src.routes import catalog, chat, courses, degree, ge, schedule
+from server.src.data import catalog_db
+from server.src.routes import catalog, chat
 
 
 def _load_env_file() -> None:
@@ -39,21 +40,20 @@ _load_env_file()
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
-  """Ensures database initialization and reports catalogue status on startup."""
+  """Opens the catalog and reports what it and the local model offer."""
   logging.set_verbosity(logging.INFO)
-  db = database.Database()
-  db.init()
-  app.state.db = db
   app.state.catalog = catalog_db.CatalogDb()
-  if not app.state.catalog.path.is_file():
-    logging.warning("No catalog database yet; build it with `npm run catalog`.")
-  conn = db.connect()
   try:
-    cursor = conn.execute("SELECT COUNT(*) FROM courses")
-    count = int(cursor.fetchone()[0])
-    logging.info("Connected to database with %d courses available.", count)
-  finally:
-    conn.close()
+    conn = app.state.catalog.connect()
+  except FileNotFoundError as e:
+    logging.warning("%s", e)
+  else:
+    with contextlib.closing(conn):
+      fetched = [t for t in catalog_db.terms(conn) if t.has_courses]
+      logging.info(
+        "Catalog has %s.",
+        ", ".join(f"{t.season} {t.year}" for t in fetched) or "no terms",
+      )
 
   from server.src.agent import ollama
 
@@ -97,10 +97,6 @@ app.add_middleware(
 )
 
 app.include_router(catalog.router)
-app.include_router(courses.router)
-app.include_router(schedule.router)
-app.include_router(degree.router)
-app.include_router(ge.router)
 app.include_router(chat.router)
 
 
