@@ -14,6 +14,7 @@ import fastapi
 
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
+from server.src.engine import ge_audit
 
 
 router = fastapi.APIRouter(prefix="/api", tags=["catalog"])
@@ -105,3 +106,15 @@ def list_ge_categories(conn: Conn) -> list[m.GeCategory]:
 def list_ap_exams(conn: Conn) -> list[m.ApExam]:
   """Lists AP exams with the GE categories and courses they cover."""
   return catalog_db.ap_exams(conn)
+
+
+@router.post("/ge-audit")
+def audit_ge(conn: Conn, body: m.GeAuditRequest) -> list[m.GeProgress]:
+  """Shows how completed courses and AP exams fill each GE category."""
+  return ge_audit.audit(
+    catalog_db.ge_categories(conn),
+    catalog_db.ge_of(conn, body.completed),
+    body.completed,
+    catalog_db.ap_exams(conn),
+    body.ap_credits,
+  )

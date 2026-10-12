@@ -71,3 +71,16 @@ def test_missing_catalog_is_503_with_the_fix(tmp_path):
   response = _client(tmp_path / "none.db").get("/api/terms")
   assert response.status_code == 503
   assert "npm run catalog" in response.json()["detail"]
+
+
+def test_ge_audit(client):
+  progress = client.post(
+    "/api/ge-audit",
+    json={
+      "completed": ["csci-104l"],
+      "ap_credits": [{"exam_id": "AP_CALC_BC", "score": 5}],
+    },
+  ).json()
+  by_code = {p["code"]: p for p in progress}
+  assert by_code["GE-A"]["courses"] == ["csci-104l"]
+  assert by_code["GE-F"]["exams"] == ["AP_CALC_BC"]

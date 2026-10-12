@@ -220,3 +220,27 @@ class ApExam(pydantic.BaseModel):
   units: float
   ge: list[str]
   waives: list[CourseRef]
+
+
+class ApCredit(pydantic.BaseModel):
+  """A student's AP exam result."""
+
+  exam_id: str
+  score: int = pydantic.Field(ge=1, le=5)
+
+
+class GeAuditRequest(pydantic.BaseModel):
+  """What a student has done toward General Education."""
+
+  completed: list[str] = pydantic.Field(description="Course codes taken.")
+  ap_credits: list[ApCredit] = []
+
+
+class GeProgress(pydantic.BaseModel):
+  """How a GE category is filled; satisfied once filled reaches required."""
+
+  code: str
+  name: str
+  required_count: int
+  courses: list[str] = pydantic.Field(description="Completed codes used here.")
+  exams: list[str] = pydantic.Field(description="AP exam ids used here.")
