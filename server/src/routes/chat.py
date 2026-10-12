@@ -70,7 +70,19 @@ async def _relay(
     stop.set()
 
 
-@router.post("")
+@router.post(
+  "",
+  response_class=fastapi.responses.StreamingResponse,
+  responses={
+    200: {
+      "model": advisor.ChipsEvent,
+      "description": (
+        "An event stream of `{token}` events, then one ChipsEvent, then "
+        "`[DONE]`."
+      ),
+    }
+  },
+)
 async def chat_stream(
   payload: advisor.ChatRequest,
   request: fastapi.Request,
