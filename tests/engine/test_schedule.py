@@ -94,6 +94,18 @@ def test_bundles_take_one_of_each_type_within_a_link_code():
   assert ids == [("lab1", "lec"), ("lab2", "lec"), ("labB",)]
 
 
+def test_unlinked_sections_pair_with_any_link_group():
+  found = schedule.bundles(
+    [
+      _section("lecA", "Lecture", "A", start=600),
+      _section("lec", "Lecture", None, start=700, end=750),
+      _section("dis", "Discussion", None, start=800, end=850),
+    ]
+  )
+  ids = sorted(tuple(sorted(s.id for s in b)) for b in found)
+  assert ids == [("dis", "lec"), ("dis", "lecA")]
+
+
 def test_bundles_drop_cancelled_and_self_conflicting_sections():
   found = schedule.bundles(
     [

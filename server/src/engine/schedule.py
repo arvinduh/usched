@@ -123,19 +123,23 @@ def bundles(
 ) -> list[tuple[m.Section, ...]]:
   """Lists a course's registrable bundles, best first.
 
-  Sections without a link code form their own group. Within a type, the
-  sections meeting every preference are preferred; when none do, the
-  type's sections are kept anyway and later count as violations.
+  A bundle takes one section of every type its link group offers. A link
+  group is the sections sharing a link code plus those without one, which
+  pair with any group ("Register for 1 Lecture and the Discussion"). Within
+  a type, sections meeting every preference are preferred; when none do,
+  the type's sections are kept anyway and later count as violations.
   Cancelled sections and bundles that conflict internally are dropped.
   """
-  groups: dict[str | None, dict[str, list[m.Section]]] = (
-    collections.defaultdict(lambda: collections.defaultdict(list))
-  )
-  for s in sections:
-    if not s.is_cancelled:
-      groups[s.link_code][s.type].append(s)
-  found: list[tuple[m.Section, ...]] = []
-  for by_type in groups.values():
+  live = [s for s in sections if not s.is_cancelled]
+  links = sorted({s.link_code for s in live if s.link_code is not None})
+  found: dict[frozenset[str], tuple[m.Section, ...]] = {}
+  for link in links or [None]:
+    by_type: dict[str, list[m.Section]] = collections.defaultdict(list)
+    for s in live:
+      if s.link_code in (None, link):
+        by_type[s.type].append(s)
+    if not by_type:
+      continue
     choices = []
     for typed in by_type.values():
       ok = [s for s in typed if not _violates(s, prefs)] or typed
@@ -143,9 +147,8 @@ def bundles(
       choices.append(ok[:_PER_TYPE])
     for combo in itertools.product(*choices):
       if not any(overlaps(a, b) for a, b in itertools.combinations(combo, 2)):
-        found.append(combo)
-  found.sort(key=lambda b: _score(b, prefs), reverse=True)
-  return found
+        found.setdefault(frozenset(s.id for s in combo), combo)
+  return sorted(found.values(), key=lambda b: _score(b, prefs), reverse=True)
 
 
 def _score(sections: Sequence[m.Section], prefs: Preferences) -> float:
