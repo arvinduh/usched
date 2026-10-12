@@ -44,6 +44,7 @@ class Listing:
 
   courses: list[records.Course]
   offerings: list[records.Offering]
+  usc_ge_codes: list[records.OfferingUscGe]
   requisite_groups: list[records.RequisiteGroup]
   requisite_courses: list[records.RequisiteCourse]
   restrictions: list[records.Restriction]
@@ -100,7 +101,7 @@ def course_code(prefix: str, number: str, suffix: str | None) -> str:
 
 def parse_listing(raw: Mapping[str, Any], term: int) -> Listing:
   """Parses one `/Courses/CoursesByTermSchoolProgram` payload."""
-  out = Listing([], [], [], [], [], [], [], [], [])
+  out = Listing([], [], [], [], [], [], [], [], [], [])
   for course in raw.get("courses") or []:
     _parse_course(course, term, out)
   return out
@@ -109,7 +110,8 @@ def parse_listing(raw: Mapping[str, Any], term: int) -> Listing:
 def _parse_course(course: Mapping[str, Any], term: int, out: Listing) -> None:
   prefix = str(course["prefix"])
   number = str(course["classNumber"])
-  suffix = str(course.get("suffix") or "")
+  # A sequence letter (597A of 597A/597B) precedes the suffix: ARCH-102AL.
+  suffix = f"{course.get('sequence') or ''}{course.get('suffix') or ''}"
   code = course_code(prefix, number, suffix)
   units_min, units_max = _units(
     course.get("courseUnits"), course.get("maxUnits")
@@ -129,15 +131,15 @@ def _parse_course(course: Mapping[str, Any], term: int, out: Listing) -> None:
       description=str(course.get("description") or "").strip(),
       units_min=units_min,
       units_max=units_max,
-      sequence=_text(course.get("sequence")),
       recommended_prep=_text(course.get("recommendedPrep")),
       duplicate_credit=_text(course.get("duplicateCredit")),
       course_notes=_text(course.get("courseNotes")),
       term_notes=_text(course.get("termNotes")),
-      usc_ge_code=_text(course.get("geCode")),
       is_cross_listed=bool(course.get("isCrossListed")),
     )
   )
+  if usc_ge := _text(course.get("geCode")):
+    out.usc_ge_codes.append(records.OfferingUscGe(term, code, usc_ge))
   for kind, field in _REQUISITE_FIELDS.items():
     _parse_requisites(course.get(field) or [], term, code, kind, out)
   for kind, field in _RESTRICTION_FIELDS.items():

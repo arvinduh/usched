@@ -184,7 +184,6 @@ def courses(
       title=r["title"],
       description=r["description"],
       units=m.Units(min=r["units_min"], max=r["units_max"]),
-      sequence=r["sequence"],
       recommended_prep=r["recommended_prep"],
       duplicate_credit=r["duplicate_credit"],
       course_notes=r["course_notes"],

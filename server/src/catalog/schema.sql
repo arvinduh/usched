@@ -40,7 +40,8 @@ CREATE TABLE course (
   code TEXT PRIMARY KEY COLLATE NOCASE, -- DEPT-NUMBER+SUFFIX, e.g. CSCI-104L
   department_code TEXT NOT NULL REFERENCES department (code),
   number TEXT NOT NULL,               -- e.g. 104
-  suffix TEXT NOT NULL                -- e.g. L, g, xg; empty when none
+  suffix TEXT NOT NULL                -- e.g. L, g, xg, AL (sequence A);
+                                      -- empty when none
 );
 
 CREATE TABLE offering (
@@ -51,15 +52,24 @@ CREATE TABLE offering (
   description TEXT NOT NULL,
   units_min REAL NOT NULL,
   units_max REAL NOT NULL,
-  sequence TEXT,                      -- sequence letter, e.g. A of A/B
   recommended_prep TEXT,
   duplicate_credit TEXT,
   course_notes TEXT,
   term_notes TEXT,
-  usc_ge_code TEXT,                   -- USC's own GE code (e.g. 35), kept raw;
-                                      -- GE membership comes from ge_course
   is_cross_listed INTEGER NOT NULL CHECK (is_cross_listed IN (0, 1)),
   PRIMARY KEY (term_code, course_code)
+);
+
+-- USC's own numeric GE codes (e.g. 35), kept raw. Each listing reports
+-- one, so a course in two categories shows a different code per
+-- listing; this holds their union. GE membership comes from ge_course.
+CREATE TABLE offering_usc_ge (
+  term_code INTEGER NOT NULL,
+  course_code TEXT NOT NULL COLLATE NOCASE,
+  usc_ge_code TEXT NOT NULL,
+  PRIMARY KEY (term_code, course_code, usc_ge_code),
+  FOREIGN KEY (term_code, course_code)
+    REFERENCES offering (term_code, course_code)
 );
 
 -- Prerequisites, corequisites, and concurrent courses as USC structures

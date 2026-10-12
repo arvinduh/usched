@@ -130,3 +130,12 @@ def test_instructor_key_normalizes_spacing_and_case():
   assert (
     parse_classes.parse_instructor({"firstName": "", "lastName": ""}) is None
   )
+
+
+def test_sequence_letters_join_the_code_before_the_suffix():
+  raw = json.loads((FIXTURES / "listing.json").read_text(encoding="utf-8"))
+  course = dict(raw["courses"][0], sequence="A", suffix="L", geCode="35")
+  parsed = parse_classes.parse_listing({"courses": [course]}, TERM)
+  (code,) = {c.code for c in parsed.courses}
+  assert code.endswith("AL")
+  assert [g.usc_ge_code for g in parsed.usc_ge_codes] == ["35"]

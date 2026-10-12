@@ -61,7 +61,6 @@ def _course(code: str, *sections: m.Section) -> m.Course:
     title=code,
     description="",
     units=m.Units(min=4, max=4),
-    sequence=None,
     recommended_prep=None,
     duplicate_credit=None,
     course_notes=None,

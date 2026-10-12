@@ -46,6 +46,11 @@ _KEYS: Mapping[str, Callable[[Any], Hashable]] = {
   "department": lambda r: _code(r.code),
   "course": lambda r: _code(r.code),
   "offering": lambda r: (r.term_code, _code(r.course_code)),
+  "offering_usc_ge": lambda r: (
+    r.term_code,
+    _code(r.course_code),
+    r.usc_ge_code,
+  ),
   "requisite_group": lambda r: (
     r.term_code,
     _code(r.course_code),
@@ -73,24 +78,77 @@ _KEYS: Mapping[str, Callable[[Any], Hashable]] = {
 }
 
 
+def _capitals(row: Any) -> int:
+  return sum(ch.isupper() for ch in f"{row.first_name}{row.last_name}")
+
+
+# How to settle two different rows with one key, beyond listing priority:
+# True when the first argument should replace the second.
+_BETTER: Mapping[str, Callable[[Any, Any], bool]] = {
+  # Some listings name a department by its code alone.
+  "department": lambda row, kept: kept.name == kept.code != row.name,
+  # "Nieto Manzer" over "Nieto manzer".
+  "instructor": lambda row, kept: _capitals(row) > _capitals(kept),
+}
+
+
 class _Table:
-  """Rows for one table, unique by primary key; the first one seen wins."""
+  """Rows for one table, unique by primary key.
 
-  def __init__(self, key: Callable[[Any], Hashable]) -> None:
+  A course appears in its home listing (its department's) and in every
+  listing it is cross-listed into, and USC's copies sometimes disagree. A
+  home row beats a cross-listed one; otherwise the table's `_BETTER` rule
+  decides, and failing that the first row seen wins and the disagreement
+  is counted as a conflict.
+
+  Attributes:
+    duplicates: Rows dropped because an identical row came first.
+    settled: Differing rows settled by listing priority or a rule.
+    conflicts: Differing rows kept first-come because nothing settled them.
+    example: The first unsettled pair, (kept, dropped).
+  """
+
+  def __init__(
+    self,
+    key: Callable[[Any], Hashable],
+    better: Callable[[Any, Any], bool] | None = None,
+  ) -> None:
     self._key = key
-    self._rows: dict[Hashable, Any] = {}
+    self._better = better or (lambda _row, _kept: False)
+    self._rows: dict[Hashable, tuple[Any, bool]] = {}
     self.duplicates = 0
+    self.settled = 0
+    self.conflicts = 0
+    self.example: tuple[Any, Any] | None = None
 
-  def add(self, rows: Iterable[Any]) -> None:
+  def add(self, rows: Iterable[Any], home: bool = False) -> None:
     for row in rows:
-      if self._rows.setdefault(self._key(row), row) is not row:
+      key = self._key(row)
+      if key not in self._rows:
+        self._rows[key] = (row, home)
+        continue
+      kept, kept_home = self._rows[key]
+      if kept == row:
         self.duplicates += 1
+        self._rows[key] = (kept, kept_home or home)
+      elif home != kept_home:
+        self.settled += 1
+        if home:
+          self._rows[key] = (row, home)
+      elif self._better(row, kept):
+        self.settled += 1
+        self._rows[key] = (row, home)
+      elif self._better(kept, row):
+        self.settled += 1
+      else:
+        self.conflicts += 1
+        self.example = self.example or (kept, row)
 
   def has(self, key: Hashable) -> bool:
     return key in self._rows
 
   def rows(self) -> list[Any]:
-    return list(self._rows.values())
+    return [row for row, _ in self._rows.values()]
 
 
 @dataclasses.dataclass
@@ -99,7 +157,9 @@ class _Collected:
 
   terms: list[records.Term] = dataclasses.field(default_factory=list)
   tables: dict[str, _Table] = dataclasses.field(
-    default_factory=lambda: {name: _Table(key) for name, key in _KEYS.items()}
+    default_factory=lambda: {
+      name: _Table(key, _BETTER.get(name)) for name, key in _KEYS.items()
+    }
   )
   profiles: list[records.RmpProfile] = dataclasses.field(default_factory=list)
   catalogue: records.Catalogue | None = None
@@ -121,13 +181,16 @@ def _collect_classes(raw: cache.RawCache, out: _Collected) -> None:
     out.tables["school"].add(schools)
     out.tables["department"].add(departments)
     for key in raw.keys(f"classes/{term}/listings", "*.json"):
-      school = pathlib.PurePosixPath(key).stem.split("-", 1)[0]
+      school, program = pathlib.PurePosixPath(key).stem.split("-", 1)
       listing = parse_classes.parse_listing(raw.read_json(key), term)
-      _add_listing(listing, school, out.tables)
+      _add_listing(listing, school, program, out.tables)
 
 
 def _add_listing(
-  listing: parse_classes.Listing, school: str, tables: dict[str, _Table]
+  listing: parse_classes.Listing,
+  school: str,
+  program: str,
+  tables: dict[str, _Table],
 ) -> None:
   # A cross-listed course can carry a prefix its listing's school does not
   # own; record that department under the listing's school.
@@ -140,15 +203,37 @@ def _add_listing(
           )
         ]
       )
+  # Rows of courses this listing's program owns come from their home
+  # listing; the rest are cross-listed copies.
+  home = {
+    _code(c.code) for c in listing.courses if c.department_code == program
+  }
+  section_home = {
+    s.id for s in listing.sections if _code(s.course_code) in home
+  }
+
+  def split(
+    name: str, rows: Sequence[Any], is_home: Callable[[Any], bool]
+  ) -> None:
+    tables[name].add((r for r in rows if is_home(r)), home=True)
+    tables[name].add(r for r in rows if not is_home(r))
+
+  def by_course(row: Any) -> bool:
+    return _code(row.course_code) in home
+
+  def by_section(row: Any) -> bool:
+    return row.section_id in section_home
+
   tables["course"].add(listing.courses)
-  tables["offering"].add(listing.offerings)
-  tables["requisite_group"].add(listing.requisite_groups)
-  tables["requisite_course"].add(listing.requisite_courses)
-  tables["restriction"].add(listing.restrictions)
-  tables["section"].add(listing.sections)
-  tables["meeting"].add(listing.meetings)
+  split("offering", listing.offerings, by_course)
+  split("offering_usc_ge", listing.usc_ge_codes, by_course)
+  split("requisite_group", listing.requisite_groups, by_course)
+  split("requisite_course", listing.requisite_courses, by_course)
+  split("restriction", listing.restrictions, by_course)
+  split("section", listing.sections, by_course)
+  split("meeting", listing.meetings, by_section)
   tables["instructor"].add(listing.instructors)
-  tables["section_instructor"].add(listing.section_instructors)
+  split("section_instructor", listing.section_instructors, by_section)
 
 
 def _collect_rmp(raw: cache.RawCache, out: _Collected) -> None:
@@ -249,7 +334,14 @@ def _write(conn: sqlite3.Connection, data: _Collected) -> dict[str, int]:
   tables = data.tables
   resolve = _Resolver(tables["course"].rows())
   counts: dict[str, int] = {"term": _insert(conn, "term", _tuples(data.terms))}
-  for name in ("school", "department", "course", "offering", "requisite_group"):
+  for name in (
+    "school",
+    "department",
+    "course",
+    "offering",
+    "offering_usc_ge",
+    "requisite_group",
+  ):
     counts[name] = _insert(conn, name, _tuples(tables[name].rows()))
   counts["requisite_course"] = _insert(
     conn,
@@ -350,6 +442,15 @@ def build(
   for name, table in data.tables.items():
     if table.duplicates:
       logging.info("Dropped %d duplicate %s rows", table.duplicates, name)
+    if table.settled:
+      logging.info("Settled %d differing %s rows", table.settled, name)
+    if table.conflicts:
+      logging.warning(
+        "Kept the first of %d conflicting %s rows, e.g. %s over %s",
+        table.conflicts,
+        name,
+        *table.example or ("?", "?"),
+      )
 
   target.parent.mkdir(parents=True, exist_ok=True)
   partial = target.with_name(target.name + ".building")

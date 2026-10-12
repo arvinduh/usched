@@ -58,13 +58,20 @@ class Offering:
   description: str
   units_min: float
   units_max: float
-  sequence: str | None
   recommended_prep: str | None
   duplicate_credit: str | None
   course_notes: str | None
   term_notes: str | None
-  usc_ge_code: str | None
   is_cross_listed: bool
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class OfferingUscGe:
+  """One of USC's numeric GE codes for an offering."""
+
+  term_code: int
+  course_code: str
+  usc_ge_code: str
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

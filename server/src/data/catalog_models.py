@@ -147,7 +147,6 @@ class Course(pydantic.BaseModel):
   title: str
   description: str
   units: Units
-  sequence: str | None
   recommended_prep: str | None
   duplicate_credit: str | None
   course_notes: str | None
