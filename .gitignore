@@ -36,3 +36,7 @@ scratch/
 # Generated catalog (built by `npm run ingest`; contains scraped data)
 server/data/usched.db
 .claude/
+
+# Catalog pipeline: raw fetch cache and the built database
+server/data/raw/
+server/data/catalog.db*
