@@ -16,7 +16,7 @@ def _ref(code: str, resolved: str | None = None) -> m.CourseRef:
 
 def _slot(*codes: str) -> list[m.RequirementChoice]:
   return [
-    m.RequirementChoice(course=_ref(c), units=m.Units(min=4, max=4))
+    m.RequirementChoice(course=_ref(c), title=None, units=m.Units(min=4, max=4))
     for c in codes
   ]
 
@@ -92,11 +92,11 @@ def test_locked_courses_follow_prerequisites():
     concurrent=[],
   )
   requisites = {"e-2": needs_a1, "e-1": needs_a1}
-  assert program_audit.audit(PROGRAM, [], {}, requisites).locked == [
-    "E-1",
-    "E-2",
-  ]
-  assert program_audit.audit(PROGRAM, ["A-1"], {}, requisites).locked == []
+  assert program_audit.audit(PROGRAM, [], {}, requisites).locked == {
+    "E-1": ["A-1"],
+    "E-2": ["A-1"],
+  }
+  assert program_audit.audit(PROGRAM, ["A-1"], {}, requisites).locked == {}
 
 
 def test_prerequisite_groups_need_their_count_of_complete_options():
@@ -104,6 +104,6 @@ def test_prerequisite_groups_need_their_count_of_complete_options():
     required_count=1, options=[[_ref("A-1"), _ref("A-2")], [_ref("B-1")]]
   )
   req = m.Requisites(prerequisite=[group], corequisite=[], concurrent=[])
-  assert not program_audit.prerequisites_met(req, {"a-1"})
-  assert program_audit.prerequisites_met(req, {"a-1", "a-2"})
-  assert program_audit.prerequisites_met(req, {"b-1"})
+  assert program_audit.unmet_prerequisites(req, {"a-1"}) == [group]
+  assert not program_audit.unmet_prerequisites(req, {"a-1", "a-2"})
+  assert not program_audit.unmet_prerequisites(req, {"b-1"})

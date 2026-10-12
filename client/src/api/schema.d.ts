@@ -588,9 +588,11 @@ export interface components {
             requirements: components["schemas"]["RequirementProgress"][];
             /**
              * Locked
-             * @description Program courses whose prerequisites are not yet met.
+             * @description Program courses whose prerequisites are not yet met, each mapped to the untaken courses of its unmet prerequisite groups.
              */
-            locked: string[];
+            locked: {
+                [key: string]: string[];
+            };
         };
         /**
          * ProgramAuditRequest
@@ -702,6 +704,11 @@ export interface components {
          */
         RequirementChoice: {
             course: components["schemas"]["CourseRef"];
+            /**
+             * Title
+             * @description From the course's latest offering; None if never offered.
+             */
+            title: string | null;
             units: components["schemas"]["Units"] | null;
         };
         /**

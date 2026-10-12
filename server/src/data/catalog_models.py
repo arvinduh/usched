@@ -177,6 +177,9 @@ class RequirementChoice(pydantic.BaseModel):
   """One course that can fill a requirement slot."""
 
   course: CourseRef
+  title: str | None = pydantic.Field(
+    description="From the course's latest offering; None if never offered."
+  )
   units: Units | None
 
 
@@ -280,6 +283,9 @@ class ProgramAudit(pydantic.BaseModel):
     description="Units of every completed course with known units."
   )
   requirements: list[RequirementProgress]
-  locked: list[str] = pydantic.Field(
-    description="Program courses whose prerequisites are not yet met."
+  locked: dict[str, list[str]] = pydantic.Field(
+    description=(
+      "Program courses whose prerequisites are not yet met, each mapped to "
+      "the untaken courses of its unmet prerequisite groups."
+    )
   )

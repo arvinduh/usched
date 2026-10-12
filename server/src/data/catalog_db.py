@@ -447,15 +447,19 @@ def program(conn: sqlite3.Connection, program_id: str) -> m.Program | None:
     collections.defaultdict(lambda: collections.defaultdict(list))
   )
   for row in conn.execute(
-    """SELECT requirement_position, slot, listed_code, resolved_code,
-              units_min, units_max
-       FROM program_requirement_choice WHERE program_id = ?
-       ORDER BY requirement_position, slot, position""",
+    """SELECT c.requirement_position, c.slot, c.listed_code, c.resolved_code,
+              c.units_min, c.units_max,
+              (SELECT o.title FROM offering o
+               WHERE o.course_code = c.resolved_code
+               ORDER BY o.term_code DESC LIMIT 1) AS title
+       FROM program_requirement_choice c WHERE c.program_id = ?
+       ORDER BY c.requirement_position, c.slot, c.position""",
     [program_id],
   ):
     slots[row[0]][row[1]].append(
       m.RequirementChoice(
         course=m.CourseRef(code=row[2], resolved=row[3]),
+        title=row[6],
         units=_units(row[4], row[5]),
       )
     )

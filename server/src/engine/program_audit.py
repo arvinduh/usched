@@ -21,17 +21,20 @@ def _key(ref: m.CourseRef) -> str:
   return (ref.resolved or ref.code).lower()
 
 
-def prerequisites_met(requisites: m.Requisites, done: set[str]) -> bool:
-  """Whether completed courses (lowercased) meet every prerequisite group.
+def unmet_prerequisites(
+  requisites: m.Requisites, done: set[str]
+) -> list[m.RequisiteGroup]:
+  """Prerequisite groups completed courses (lowercased) do not meet.
 
   Corequisites and concurrent courses may be taken alongside, so they never
   lock a course.
   """
-  return all(
-    sum(all(_key(r) in done for r in option) for option in group.options)
-    >= group.required_count
+  return [
+    group
     for group in requisites.prerequisite
-  )
+    if sum(all(_key(r) in done for r in option) for option in group.options)
+    < group.required_count
+  ]
 
 
 def audit(
@@ -117,20 +120,28 @@ def audit(
     )
 
   done = set(shown)
-  locked = dict.fromkeys(
-    choice.course.resolved or choice.course.code
-    for req in program.requirements
-    for slot in req.slots
-    for choice in slot
-    if _key(choice.course) not in done
-    and _key(choice.course) in requisites
-    and not prerequisites_met(requisites[_key(choice.course)], done)
-  )
+  locked: dict[str, list[str]] = {}
+  for req in program.requirements:
+    for slot in req.slots:
+      for choice in slot:
+        key = _key(choice.course)
+        if key in done or key not in requisites:
+          continue
+        if unmet := unmet_prerequisites(requisites[key], done):
+          locked[choice.course.resolved or choice.course.code] = list(
+            dict.fromkeys(
+              ref.resolved or ref.code
+              for group in unmet
+              for option in group.options
+              for ref in option
+              if _key(ref) not in done
+            )
+          )
   total = sum(
     units[k].min if k in units else slot_units.get(k, 0.0) for k in shown
   )
   return m.ProgramAudit(
     units=total,
     requirements=[progress[r.position] for r in program.requirements],
-    locked=list(locked),
+    locked=locked,
   )

@@ -119,6 +119,13 @@ def test_program_tree_and_choices(conn):
   assert program.catalogue == "USC Catalogue 2026-2027"
   math = next(r for r in program.requirements if r.title == "Mathematics")
   assert [c.course.code for c in math.slots[1]] == ["MATH-126g", "MATH-129"]
+  titles = {
+    c.course.resolved: c.title
+    for r in program.requirements
+    for slot in r.slots
+    for c in slot
+  }
+  assert titles["CSCI-104L"] == "Data Structures"
   assert catalog_db.program(conn, "nope") is None
 
 

@@ -369,7 +369,7 @@ def audit_program(
     f"{program.title}: {result.units:g}{total} units",
     f"Unmet: {', '.join(open_top) or 'nothing'}",
     f"Can take this term: {', '.join(ready[:8]) or 'none listed'}",
-    f"Locked by prerequisites: {', '.join(result.locked[:8]) or 'none'}",
+    f"Locked by prerequisites: {', '.join(list(result.locked)[:8]) or 'none'}",
   ]
   actions: list[chips.Chip] = [chips.Show(label="Open degree", view="degree")]
   actions += [
