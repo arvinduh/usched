@@ -1,16 +1,30 @@
 /**
  * Pure schedule arithmetic over sections and courses.
  *
- * Computes meeting overlaps, unit totals, missing section components, and
- * unmet prerequisites on the client so the week can react to hover previews
- * without a server round trip. Rendering and state live elsewhere.
+ * Computes meeting overlaps, link-group compatibility, unit totals, missing
+ * section components, and unmet prerequisites on the client so the week
+ * reacts to hover previews without a server round trip. The rules mirror
+ * the server's schedule engine. Rendering and state live elsewhere.
  */
 
-import type { Course, Section } from '../types';
+import type {
+  Course,
+  Meeting,
+  RequisiteGroup,
+  Section,
+  Weekday,
+} from '../types';
 import { courseKey } from './degree';
 
-/** Weekday labels in the order `Section.days` uses. */
-export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const;
+/** Weekdays the week canvas shows. */
+export const WEEKDAYS: readonly Weekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+/** A meeting with a fixed weekly time, in minutes after midnight. */
+export interface TimedMeeting {
+  readonly days: readonly Weekday[];
+  readonly start: number;
+  readonly end: number;
+}
 
 /**
  * Two scheduled sections that meet at the same time on at least one day.
@@ -20,23 +34,47 @@ export interface Overlap {
   readonly b: Section;
 }
 
+function timed(meeting: Meeting): TimedMeeting | null {
+  const { days, start_minute: start, end_minute: end } = meeting;
+  return days.length > 0 && start !== null && end !== null && end > start
+    ? { days, start, end }
+    : null;
+}
+
 /**
- * Reports whether a section has a fixed weekly meeting time (not TBA).
+ * Lists a section's meetings that have a fixed time (not TBA).
+ */
+export function timedMeetings(section: Section): readonly TimedMeeting[] {
+  return section.meetings.flatMap((m) => timed(m) ?? []);
+}
+
+/**
+ * Reports whether a section meets at a fixed weekly time.
  */
 export function isTimed(section: Section): boolean {
-  return section.days.length > 0 && section.end_minute > section.start_minute;
+  return timedMeetings(section).length > 0;
+}
+
+/**
+ * The earliest start among a section's timed meetings, or null if TBA.
+ */
+export function startOf(section: Section): number | null {
+  const starts = timedMeetings(section).map((m) => m.start);
+  return starts.length > 0 ? Math.min(...starts) : null;
 }
 
 /**
  * Reports whether two sections share a day and their times intersect.
  */
 export function overlaps(a: Section, b: Section): boolean {
-  return (
-    isTimed(a) &&
-    isTimed(b) &&
-    a.start_minute < b.end_minute &&
-    b.start_minute < a.end_minute &&
-    a.days.some((d) => b.days.includes(d))
+  const bs = timedMeetings(b);
+  return timedMeetings(a).some((x) =>
+    bs.some(
+      (y) =>
+        x.start < y.end &&
+        y.start < x.end &&
+        x.days.some((d) => y.days.includes(d)),
+    ),
   );
 }
 
@@ -56,66 +94,92 @@ export function findOverlaps(sections: readonly Section[]): readonly Overlap[] {
 }
 
 /**
- * Reports whether adding `section` would collide with the schedule. A
- * scheduled section of the same course and type is ignored because adding
- * swaps it out; a course's lecture against its own lab still collides.
+ * Reports whether two sections of a course can be taken together: their
+ * link codes agree, or one has none (it pairs with any group).
+ */
+export function compatible(a: Section, b: Section): boolean {
+  return (
+    a.link_code === null || b.link_code === null || a.link_code === b.link_code
+  );
+}
+
+/**
+ * Reports whether adding `section` displaces `other`: they belong to the
+ * same course and share a type or cannot be taken together.
+ */
+export function displaces(section: Section, other: Section): boolean {
+  return (
+    other.id !== section.id &&
+    other.course_code === section.course_code &&
+    (other.type === section.type || !compatible(other, section))
+  );
+}
+
+/**
+ * Reports whether adding `section` would collide with the schedule,
+ * ignoring sections that adding it swaps out.
  */
 export function clashes(
   section: Section,
   scheduled: readonly Section[],
 ): boolean {
-  return scheduled.some(
-    (s) =>
-      !(
-        s.course_id === section.course_id &&
-        s.section_type === section.section_type
-      ) && overlaps(s, section),
-  );
+  return scheduled.some((s) => !displaces(section, s) && overlaps(s, section));
 }
 
 /**
- * Sums units once per distinct course among the sections.
+ * Sums units once per distinct course, counting a variable-unit course at
+ * its minimum.
  */
 export function totalUnits(
   sections: readonly Section[],
-  coursesById: ReadonlyMap<string, Course>,
+  coursesByCode: ReadonlyMap<string, Course>,
 ): number {
   let units = 0;
-  for (const id of new Set(sections.map((s) => s.course_id))) {
-    units += coursesById.get(id)?.units ?? 0;
+  for (const code of new Set(sections.map((s) => s.course_code))) {
+    units += coursesByCode.get(code)?.units.min ?? 0;
   }
   return units;
 }
 
-function components(sectionType: string): readonly string[] {
-  return sectionType.split('/');
-}
-
 /**
- * Lists section components (Lecture, Lab, ...) the course offers but none of
- * the chosen sections cover. A combined "Lecture/Lab" covers both parts.
+ * Lists the section types the chosen sections' link group still needs.
+ *
+ * The group is fixed by the first chosen section with a link code; until
+ * one is chosen, every type the course offers counts.
  */
 export function missingComponents(
   course: Course,
   chosen: readonly Section[],
 ): readonly string[] {
-  const covered = new Set(chosen.flatMap((s) => components(s.section_type)));
+  const link = chosen.find((s) => s.link_code !== null)?.link_code ?? null;
   const required = new Set(
-    course.sections.flatMap((s) => components(s.section_type)),
+    course.sections
+      .filter(
+        (s) =>
+          !s.is_cancelled &&
+          (link === null || s.link_code === null || s.link_code === link),
+      )
+      .map((s) => s.type),
   );
-  return [...required].filter((c) => !covered.has(c));
+  for (const s of chosen) {
+    required.delete(s.type);
+  }
+  return [...required];
 }
 
 /**
- * Returns the prerequisite OR-groups with no completed member. The course
- * is takeable when this is empty. `completed` holds `courseKey` IDs.
+ * Returns the prerequisite groups completed courses do not meet; the course
+ * is takeable when this is empty. `completed` holds `courseKey` codes.
  */
 export function unmetPrereqs(
   course: Course,
   completed: ReadonlySet<string>,
-): readonly (readonly string[])[] {
-  return course.prerequisites_json.filter(
-    (group) => !group.some((id) => completed.has(courseKey(id))),
+): readonly RequisiteGroup[] {
+  return course.requisites.prerequisite.filter(
+    (group) =>
+      group.options.filter((option) =>
+        option.every((ref) => completed.has(courseKey(ref.resolved ?? ref.code))),
+      ).length < group.required_count,
   );
 }
 
@@ -130,14 +194,18 @@ const TYPE_ORDER = [
 ];
 
 /**
- * Sorts sections by type, then start time.
+ * Sorts sections by type, then link code, then start time.
  */
 export function bySectionOrder(a: Section, b: Section): number {
   const rank = (s: Section): number => {
-    const i = TYPE_ORDER.indexOf(s.section_type);
+    const i = TYPE_ORDER.indexOf(s.type);
     return i === -1 ? TYPE_ORDER.length : i;
   };
-  return rank(a) - rank(b) || a.start_minute - b.start_minute;
+  return (
+    rank(a) - rank(b) ||
+    (a.link_code ?? '').localeCompare(b.link_code ?? '') ||
+    (startOf(a) ?? Infinity) - (startOf(b) ?? Infinity)
+  );
 }
 
 /**
@@ -151,14 +219,16 @@ export interface SectionGroup {
 /**
  * Groups a course's sections by type in display order (Lecture first).
  */
-export function groupByType(sections: readonly Section[]): readonly SectionGroup[] {
+export function groupByType(
+  sections: readonly Section[],
+): readonly SectionGroup[] {
   const groups: { type: string; sections: Section[] }[] = [];
   for (const section of [...sections].sort(bySectionOrder)) {
     const last = groups[groups.length - 1];
-    if (last?.type === section.section_type) {
+    if (last?.type === section.type) {
       last.sections.push(section);
     } else {
-      groups.push({ type: section.section_type, sections: [section] });
+      groups.push({ type: section.type, sections: [section] });
     }
   }
   return groups;

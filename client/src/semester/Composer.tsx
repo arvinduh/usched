@@ -95,13 +95,13 @@ export function Composer(props: ComposerProps): React.JSX.Element {
         <div className={styles.tray} onKeyDown={onTrayKey} role="listbox">
           {top.map((course) => (
             <button
-              key={course.id}
+              key={course.code}
               type="button"
               data-tray
               className={styles.trayRow}
               onClick={() => onOpen(course)}
             >
-              <span className={styles.trayCode}>{displayCode(course.id)}</span>
+              <span className={styles.trayCode}>{displayCode(course.code)}</span>
               <span className={styles.trayTitle}>{course.title}</span>
             </button>
           ))}
@@ -132,7 +132,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
           {query ? (
             <>
               <CornerDownLeft size={11} />
-              {opens ? `Open ${displayCode(top[0].id)}` : busy ? 'Replying…' : 'Ask'}
+              {opens ? `Open ${displayCode(top[0].code)}` : busy ? 'Replying…' : 'Ask'}
             </>
           ) : (
             <kbd className={styles.kbd}>/</kbd>

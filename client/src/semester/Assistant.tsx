@@ -13,7 +13,7 @@ import { ArrowLeft, ListFilter, X } from 'lucide-react';
 import type { CatalogSearch } from '../hooks/useCatalogSearch';
 import { NO_FILTER, activeFilterCount, courseMatches, sortCourses } from '../lib/filter';
 import type { DayPart, SectionFilter, SortKey } from '../lib/filter';
-import type { ActionChip, ChatMessage, Course, Section } from '../types';
+import type { Chip, ChatMessage, Course, Section } from '../types';
 import { Composer } from './Composer';
 import { CourseRow } from './CourseRow';
 import type { CourseRowProps } from './CourseRow';
@@ -89,7 +89,7 @@ export interface AssistantProps {
   readonly messages: readonly ChatMessage[];
   readonly busy: boolean;
   readonly onAsk: (text: string) => void;
-  readonly onChip: (chip: ActionChip) => void;
+  readonly onChip: (chip: Chip) => void;
   readonly onNewChat: () => void;
   /** Opens a course: expands it and shows it in the results. */
   readonly onOpenCourse: (course: Course) => void;
@@ -126,9 +126,9 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
 
   const row = (course: Course): React.JSX.Element => (
     <CourseRow
-      key={course.id}
+      key={course.code}
       course={course}
-      isSaved={props.watched.has(course.id)}
+      isSaved={props.watched.has(course.code)}
       completed={props.completed}
       activeSectionIds={activeIds}
       scheduledCourseIds={props.scheduledCourseIds}

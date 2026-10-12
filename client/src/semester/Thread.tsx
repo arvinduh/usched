@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import type { ActionChip, ChatMessage } from '../types';
+import type { Chip, ChatMessage } from '../types';
 import styles from './Thread.module.css';
 
 /** Course codes as the advisor writes them: "CSCI-104L" or "CSCI 104L". */
@@ -19,7 +19,7 @@ const CODE = /\b([A-Z]{2,5})[- ](\d{3}[A-Za-z]{0,2})\b/g;
  */
 export interface ThreadProps {
   readonly messages: readonly ChatMessage[];
-  readonly onChip: (chip: ActionChip) => void;
+  readonly onChip: (chip: Chip) => void;
   /** Opens a course mentioned in a reply, given as "DEPT-123X". */
   readonly onOpenCourse: (courseId: string) => void;
   readonly onNewChat: () => void;
@@ -95,9 +95,9 @@ export function Thread(props: ThreadProps): React.JSX.Element {
                 <span />
               </span>
             )}
-            {m.action_chips && m.action_chips.length > 0 && (
+            {m.chips && m.chips.length > 0 && (
               <div className={styles.chips}>
-                {m.action_chips.map((chip, j) => (
+                {m.chips.map((chip, j) => (
                   <button
                     key={j}
                     type="button"

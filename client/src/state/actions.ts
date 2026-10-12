@@ -8,8 +8,9 @@
  */
 
 import { courseKey } from '../lib/degree';
-import { update } from './store';
-import type { PlanState } from './store';
+import { displaces } from '../lib/schedule';
+import { update, updateTerm } from './store';
+import type { TermPlan } from './store';
 import type { ScheduleConfiguration, Section } from '../types';
 
 function toggle(ids: readonly string[], id: string): readonly string[] {
@@ -17,10 +18,10 @@ function toggle(ids: readonly string[], id: string): readonly string[] {
 }
 
 function editConfig(
-  s: PlanState,
+  s: TermPlan,
   configId: string,
   edit: (c: ScheduleConfiguration) => ScheduleConfiguration,
-): PlanState {
+): TermPlan {
   return {
     ...s,
     configurations: s.configurations.map((c) =>
@@ -42,11 +43,11 @@ function nextName(configs: readonly ScheduleConfiguration[]): string {
 }
 
 function appendConfig(
-  s: PlanState,
+  s: TermPlan,
   id: string,
   sectionIds: readonly string[],
   name?: string,
-): PlanState {
+): TermPlan {
   return {
     ...s,
     configurations: [
@@ -65,7 +66,7 @@ export function createConfig(
   sectionIds: readonly string[] = [],
 ): string {
   const id = `config-${Date.now()}`;
-  update((s) => appendConfig(s, id, sectionIds, name));
+  updateTerm((s) => appendConfig(s, id, sectionIds, name));
   return id;
 }
 
@@ -73,7 +74,7 @@ export function createConfig(
  * Forks the active variant into a new active variant with the same sections.
  */
 export function duplicateActiveConfig(): void {
-  update((s) => {
+  updateTerm((s) => {
     const active = s.configurations.find((c) => c.id === s.activeConfigId);
     return appendConfig(s, `config-${Date.now()}`, active?.section_ids ?? []);
   });
@@ -83,14 +84,14 @@ export function duplicateActiveConfig(): void {
  * Makes the given configuration the one the calendar shows.
  */
 export function selectConfig(configId: string): void {
-  update((s) => ({ ...s, activeConfigId: configId }));
+  updateTerm((s) => ({ ...s, activeConfigId: configId }));
 }
 
 /**
  * Activates the variant `step` places after the active one, wrapping around.
  */
 export function cycleConfig(step: 1 | -1): void {
-  update((s) => {
+  updateTerm((s) => {
     const n = s.configurations.length;
     const i = s.configurations.findIndex((c) => c.id === s.activeConfigId);
     return { ...s, activeConfigId: s.configurations[(i + step + n) % n].id };
@@ -101,7 +102,7 @@ export function cycleConfig(step: 1 | -1): void {
  * Renames a schedule configuration.
  */
 export function renameConfig(configId: string, name: string): void {
-  update((s) => editConfig(s, configId, (c) => ({ ...c, name })));
+  updateTerm((s) => editConfig(s, configId, (c) => ({ ...c, name })));
 }
 
 /**
@@ -111,7 +112,7 @@ export function overwriteConfig(
   sectionIds: readonly string[],
   configId?: string,
 ): void {
-  update((s) =>
+  updateTerm((s) =>
     editConfig(s, configId ?? s.activeConfigId, (c) => ({
       ...c,
       section_ids: sectionIds,
@@ -128,7 +129,7 @@ export function deleteConfig(configId: string): () => void {
   let removed: ScheduleConfiguration | undefined;
   let index = -1;
   let wasActive = false;
-  update((s) => {
+  updateTerm((s) => {
     index = s.configurations.findIndex((c) => c.id === configId);
     if (s.configurations.length <= 1 || index === -1) {
       return s;
@@ -149,7 +150,7 @@ export function deleteConfig(configId: string): () => void {
       return;
     }
     const restored = removed;
-    update((s) => {
+    updateTerm((s) => {
       const configurations = [...s.configurations];
       configurations.splice(index, 0, restored);
       return {
@@ -165,7 +166,7 @@ export function deleteConfig(configId: string): () => void {
  * Adds a section to a configuration (the active one by default).
  */
 export function enrollSection(sectionId: string, configId?: string): void {
-  update((s) =>
+  updateTerm((s) =>
     editConfig(s, configId ?? s.activeConfigId, (c) =>
       c.section_ids.includes(sectionId)
         ? c
@@ -180,7 +181,7 @@ export function enrollSection(sectionId: string, configId?: string): void {
  */
 export function dropSection(sectionId: string, configId?: string): () => void {
   let target = configId;
-  update((s) => {
+  updateTerm((s) => {
     target ??= s.activeConfigId;
     return editConfig(s, target, (c) => ({
       ...c,
@@ -191,9 +192,9 @@ export function dropSection(sectionId: string, configId?: string): () => void {
 }
 
 /**
- * Puts `section` in a variant, replacing any section of the same course and
- * type already there, since a student takes exactly one lecture, one lab,
- * and so on.
+ * Puts `section` in a variant, removing the course's sections it displaces:
+ * one of the same type (a student takes one lecture, one lab, ...) or from
+ * another link group.
  */
 function withSection(
   c: ScheduleConfiguration,
@@ -201,9 +202,7 @@ function withSection(
   courseSections: readonly Section[],
 ): ScheduleConfiguration {
   const rivals = new Set(
-    courseSections
-      .filter((x) => x.section_type === section.section_type)
-      .map((x) => x.id),
+    courseSections.filter((x) => displaces(section, x)).map((x) => x.id),
   );
   return {
     ...c,
@@ -223,7 +222,7 @@ export function addSection(
   courseSections: readonly Section[],
   configId?: string,
 ): void {
-  update((s) =>
+  updateTerm((s) =>
     editConfig(s, configId ?? s.activeConfigId, (c) =>
       withSection(c, section, courseSections),
     ),
@@ -238,7 +237,7 @@ export function toggleSection(
   section: Section,
   courseSections: readonly Section[],
 ): void {
-  update((s) =>
+  updateTerm((s) =>
     editConfig(s, s.activeConfigId, (c) =>
       c.section_ids.includes(section.id)
         ? { ...c, section_ids: c.section_ids.filter((id) => id !== section.id) }
@@ -248,10 +247,10 @@ export function toggleSection(
 }
 
 /**
- * Adds or removes a course from the watched list.
+ * Adds or removes a course from this term's shortlist.
  */
 export function toggleWatch(courseId: string): void {
-  update((s) => ({
+  updateTerm((s) => ({
     ...s,
     watchedCourseIds: toggle(s.watchedCourseIds, courseId),
   }));
@@ -311,8 +310,15 @@ export function toggleApCredit(examId: string): void {
 }
 
 /**
- * Sets the degree program audited on the progress view.
+ * Sets the program audited on the degree view.
  */
-export function selectDegree(degreeId: string): void {
-  update((s) => ({ ...s, degreeId }));
+export function selectProgram(programId: string): void {
+  update((s) => ({ ...s, programId }));
+}
+
+/**
+ * Switches the term being planned; each term keeps its own schedules.
+ */
+export function selectTerm(term: number): void {
+  update((s) => (s.term === term ? s : { ...s, term }));
 }

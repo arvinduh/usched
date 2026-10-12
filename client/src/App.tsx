@@ -1,20 +1,25 @@
 /**
  * Root application component for the usched academic planner.
  *
- * Composes the two spaces (Semester: the Assistant pane beside the week; Degree:
- * the audit) under one top bar, and wires the plan store, catalog search,
- * server audits, advisor chat, and keyboard shortcuts together. It owns only
- * view state; user-authored data lives in `state/store`.
+ * `App` resolves which term is being planned (the stored one, else the
+ * newest with courses) and explains a missing catalog. `Planner` then
+ * composes the two spaces (Semester: the Assistant pane beside the week;
+ * Degree: the audit) under one top bar, and wires the plan store, catalog
+ * search, server audits, advisor chat, and keyboard shortcuts together for
+ * that term. Both own only view state; user-authored data lives in
+ * `state/store`.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  auditGe,
+  auditProgram,
   getApExams,
-  getCourseDetail,
-  getDegreeAudit,
-  getDegrees,
-  getGeAudit,
+  getCourse,
+  getProgram,
+  getPrograms,
+  getTerms,
 } from './api/client';
 import { applyActionChip } from './components/Chat/applyActionChip';
 import { useAdvisorChat } from './hooks/useAdvisorChat';
@@ -36,7 +41,8 @@ import {
   overwriteConfig,
   renameConfig,
   selectConfig,
-  selectDegree,
+  selectProgram,
+  selectTerm,
   recordCompleted,
   toggleApCredit,
   toggleCompleted,
@@ -45,33 +51,27 @@ import {
 } from './state/actions';
 import { hasExpanded, setExpanded, setProposal } from './state/preview';
 import type { Proposal } from './state/preview';
-import { reset, useStore } from './state/store';
+import { reset, useStore, useTermPlan } from './state/store';
 import { showToast, undoLast } from './state/toast';
 import { usePlanCourses } from './state/usePlanCourses';
 import { ToastHost } from './ui/Toast';
 import type {
-  ActionChip,
-  ApExamDefinition,
+  ApExam,
+  Chip,
   Course,
-  DegreeAuditResponse,
-  DegreeProgram,
-  GeAuditSummary,
+  GeProgress,
+  Program,
+  ProgramAudit,
+  ProgramSummary,
   ScheduleConfiguration,
   Section,
+  Term,
 } from './types';
 import styles from './App.module.css';
 
-const DEFAULT_DEGREE_ID = 'csci-bs';
 const MAX_SUGGESTIONS = 8;
 
 type Space = 'semester' | 'degree';
-
-/**
- * Picks the degree shown before the user chooses one.
- */
-function fallbackDegreeId(degrees: readonly DegreeProgram[]): string {
-  return degrees.find((d) => d.id === 'buai-bs')?.id ?? degrees[0]?.id ?? '';
-}
 
 const PANE_KEY = 'usched:pane';
 const PANE_DEFAULT = 420;
@@ -109,74 +109,145 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /**
- * Main application shell.
+ * Loads the plannable terms and renders the planner for the chosen one.
  */
 export function App(): React.JSX.Element {
+  const [terms, setTerms] = useState<readonly Term[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const stored = useStore((s) => s.term);
+
+  useEffect(() => {
+    getTerms()
+      .then((all) => setTerms(all.filter((t) => t.has_courses)))
+      .catch(() => setFailed(true));
+  }, []);
+
+  // A stored term the catalog no longer has falls back to the newest one.
+  const term = (terms?.find((t) => t.code === stored) ?? terms?.[0])?.code;
+  useEffect(() => {
+    if (term !== undefined && term !== stored) {
+      selectTerm(term);
+    }
+  }, [term, stored]);
+
+  if (failed || terms?.length === 0) {
+    return (
+      <p className={styles.notice}>
+        No course catalog yet. Build it with <code>npm run catalog</code>, then
+        reload.
+      </p>
+    );
+  }
+  if (!terms || term === undefined) {
+    return <div className={styles.app} />;
+  }
+  return <Planner term={term} terms={terms} />;
+}
+
+/**
+ * Main application shell for one planning term.
+ */
+function Planner({
+  term,
+  terms,
+}: {
+  readonly term: number;
+  readonly terms: readonly Term[];
+}): React.JSX.Element {
   const [space, setSpace] = useState<Space>('semester');
   const [view, setView] = useState<AssistantView>('chat');
   const searchInput = useRef<HTMLInputElement>(null);
   const semester = useRef<HTMLElement>(null);
   const [paneWidth, setPaneWidth] = useState(readPaneWidth);
 
-  const configurations = useStore((s) => s.configurations);
-  const activeConfigId = useStore((s) => s.activeConfigId);
-  const watchedCourseIds = useStore((s) => s.watchedCourseIds);
+  const configurations = useTermPlan((p) => p.configurations);
+  const activeConfigId = useTermPlan((p) => p.activeConfigId);
+  const watchedCourseIds = useTermPlan((p) => p.watchedCourseIds);
   const completedCourseIds = useStore((s) => s.completedCourseIds);
   const apCredits = useStore((s) => s.apCredits);
-  const storedDegreeId = useStore((s) => s.degreeId);
+  const programId = useStore((s) => s.programId);
 
-  const [degrees, setDegrees] = useState<readonly DegreeProgram[]>([]);
-  const [apDefinitions, setApDefinitions] = useState<
-    readonly ApExamDefinition[]
-  >([]);
-  const [degreeAudit, setDegreeAudit] = useState<DegreeAuditResponse | null>(
+  const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
+  const [apExams, setApExams] = useState<readonly ApExam[]>([]);
+  // Fetched results remember what they answer, so a stale one is never
+  // shown for a newly chosen program or term.
+  const [loadedProgram, setLoadedProgram] = useState<Program | null>(null);
+  const [loadedAudit, setLoadedAudit] = useState<{
+    readonly key: string;
+    readonly audit: ProgramAudit;
+  } | null>(null);
+  const auditKey = `${term}|${programId}`;
+  const program = loadedProgram?.id === programId ? loadedProgram : null;
+  const audit = loadedAudit?.key === auditKey ? loadedAudit.audit : null;
+  const [geProgress, setGeProgress] = useState<readonly GeProgress[] | null>(
     null,
   );
-  const [geAudit, setGeAudit] = useState<GeAuditSummary | null>(null);
 
   const completed = useMemo(
     () => new Set(completedCourseIds.map(courseKey)),
     [completedCourseIds],
   );
-  // Eligible degree courses to suggest; a few spares cover ones already
-  // planned this term, which are filtered out once the week resolves.
-  const suggestionIds = useMemo(
-    () =>
-      (degreeAudit?.prereq_graph ?? [])
-        .filter((n) => n.status === 'eligible' && !completed.has(courseKey(n.course_id)))
-        .slice(0, MAX_SUGGESTIONS + 4)
-        .map((n) => n.course_id),
-    [degreeAudit, completed],
-  );
+  // Program courses the student can take next: untaken and not locked. A
+  // few spares cover ones already planned or not offered this term, which
+  // drop out once the week and the catalog resolve.
+  const suggestionIds = useMemo(() => {
+    if (!program) {
+      return [];
+    }
+    const locked = new Set(Object.keys(audit?.locked ?? {}).map(courseKey));
+    const codes = program.requirements.flatMap((r) =>
+      r.slots.flat().flatMap((c) => (c.title ? [c.course.resolved ?? ''] : [])),
+    );
+    return [...new Set(codes)]
+      .filter((c) => c && !completed.has(courseKey(c)) && !locked.has(courseKey(c)))
+      .slice(0, MAX_SUGGESTIONS + 4);
+  }, [program, audit, completed]);
 
-  const search = useCatalogSearch();
+  const search = useCatalogSearch(term);
   const setSearchText = search.setText;
-  const { coursesById, sectionsById, remember } = usePlanCourses(
+  const { coursesByCode, sectionsById, remember } = usePlanCourses(
+    term,
     search.courses,
     suggestionIds,
   );
   const chat = useAdvisorChat();
 
-  const degreeId = storedDegreeId || fallbackDegreeId(degrees);
-
   useEffect(() => {
-    getApExams().then(setApDefinitions).catch(console.error);
-    getDegrees().then(setDegrees).catch(console.error);
+    getApExams().then(setApExams).catch(console.error);
+    getPrograms()
+      .then((all) =>
+        setPrograms(all.filter((p) => p.kind === 'degree' || p.kind === 'minor')),
+      )
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (!degreeId) {
-      return;
+    if (programId) {
+      getProgram(programId).then(setLoadedProgram).catch(console.error);
     }
-    getDegreeAudit(degreeId, completedCourseIds)
-      .then(setDegreeAudit)
-      .catch(console.error);
-  }, [degreeId, completedCourseIds]);
+  }, [programId]);
 
   useEffect(() => {
-    getGeAudit(completedCourseIds, apCredits)
-      .then(setGeAudit)
+    if (!programId) {
+      return;
+    }
+    let stale = false;
+    auditProgram(term, programId, completedCourseIds)
+      .then((a) => !stale && setLoadedAudit({ key: auditKey, audit: a }))
       .catch(console.error);
+    return () => {
+      stale = true;
+    };
+  }, [auditKey, term, programId, completedCourseIds]);
+
+  useEffect(() => {
+    let stale = false;
+    auditGe(completedCourseIds, apCredits)
+      .then((g) => !stale && setGeProgress(g))
+      .catch(console.error);
+    return () => {
+      stale = true;
+    };
   }, [completedCourseIds, apCredits]);
 
   const activeConfig =
@@ -191,7 +262,7 @@ export function App(): React.JSX.Element {
     [activeSectionIds, sectionsById],
   );
   const scheduledCourseIds = useMemo(
-    () => [...new Set(activeSections.map((s) => s.course_id))],
+    () => [...new Set(activeSections.map((s) => s.course_code))],
     [activeSections],
   );
   const otherVariants = useMemo(
@@ -209,26 +280,25 @@ export function App(): React.JSX.Element {
   const savedCourses = useMemo(
     () =>
       watchedCourseIds
-        .map((id) => coursesById.get(id))
+        .map((code) => coursesByCode.get(code))
         .filter((c): c is Course => c !== undefined),
-    [watchedCourseIds, coursesById],
+    [watchedCourseIds, coursesByCode],
   );
   const suggestions = useMemo(
     () =>
       suggestionIds
         .filter((id) => !planned.has(courseKey(id)))
-        .map((id) => coursesById.get(id))
+        .map((code) => coursesByCode.get(code))
         .filter((c): c is Course => c !== undefined)
         .slice(0, MAX_SUGGESTIONS),
-    [suggestionIds, planned, coursesById],
+    [suggestionIds, planned, coursesByCode],
   );
 
-  const plannedUnits = totalUnits(activeSections, coursesById);
-  const degreeUnits = degreeAudit && {
-    completed: degreeAudit.total_completed_units,
-    planned: plannedUnits,
-    total: degreeAudit.degree.total_units,
-  };
+  const plannedUnits = totalUnits(activeSections, coursesByCode);
+  const degreeUnits =
+    audit && program?.total_units
+      ? { completed: audit.units, planned: plannedUnits, total: program.total_units }
+      : null;
 
   // Morph between spaces where the browser supports view transitions.
   // Staying put skips it: a transition defers rendering, which would delay
@@ -271,23 +341,29 @@ export function App(): React.JSX.Element {
   const handleOpenCourse = (course: Course): void => {
     remember(course);
     setExpanded(course);
-    showResults(displayCode(course.id));
+    showResults(displayCode(course.code));
   };
 
-  const handleOpenCourseId = (courseId: string): void => {
+  const handleOpenCourseId = (code: string): void => {
     // The advisor can name courses this term's catalog lacks; say so rather
     // than leave an unexplained empty list.
-    getCourseDetail(courseId)
+    getCourse(term, code)
       .then(handleOpenCourse)
       .catch(() => {
-        showToast(`${displayCode(courseId)} isn't offered this term`);
-        showResults(displayCode(courseId));
+        showToast(`${displayCode(code)} isn't offered this term`);
+        showResults(displayCode(code));
       });
+  };
+
+  const handleSelectTerm = (next: number): void => {
+    setProposal(null);
+    setExpanded(null);
+    selectTerm(next);
   };
 
   const handleToggleSave = (course: Course): void => {
     remember(course);
-    toggleWatch(course.id);
+    toggleWatch(course.code);
   };
 
   const handleToggleSection = (section: Section, course: Course): void => {
@@ -305,33 +381,23 @@ export function App(): React.JSX.Element {
     if (target) {
       addSection(section, course.sections, target.id);
       // Adding may swap out a sibling, so undo restores the whole variant.
-      showToast(`Added ${displayCode(course.id)} to ${target.name}`, () =>
+      showToast(`Added ${displayCode(course.code)} to ${target.name}`, () =>
         overwriteConfig(target.section_ids, target.id),
       );
     } else {
       const id = createConfig(undefined, [section.id]);
-      showToast(`Added ${displayCode(course.id)} to a new variant`, () => {
+      showToast(`Added ${displayCode(course.code)} to a new variant`, () => {
         deleteConfig(id);
       });
     }
   };
 
   const handleKeepProposal = (proposal: Proposal): void => {
-    const target = proposal.targetConfigId;
-    const previous = configurations.find((c) => c.id === target)?.section_ids;
     setProposal(null);
-    if (target && previous) {
-      overwriteConfig(proposal.sectionIds, target);
-      selectConfig(target);
-      showToast('Replaced with the suggestion', () =>
-        overwriteConfig(previous, target),
-      );
-    } else {
-      const id = createConfig(proposal.name, proposal.sectionIds);
-      showToast(`Kept as ${proposal.name}`, () => {
-        deleteConfig(id);
-      });
-    }
+    const id = createConfig(proposal.name, proposal.sectionIds);
+    showToast(`Kept as ${proposal.name}`, () => {
+      deleteConfig(id);
+    });
   };
 
   const handleSelectVariant = (configId: string): void => {
@@ -342,7 +408,7 @@ export function App(): React.JSX.Element {
   const handleRemove = (section: Section): void => {
     const undo = dropSection(section.id);
     showToast(
-      `Removed ${displayCode(section.course_id)} ${section.section_type.toLowerCase()}`,
+      `Removed ${displayCode(section.course_code)} ${section.type.toLowerCase()}`,
       undo,
     );
   };
@@ -370,15 +436,16 @@ export function App(): React.JSX.Element {
     setExpanded(null);
     setView('chat');
     setSearchText('');
-    void chat.send(text, {
-      enrolledCourseIds: scheduledCourseIds,
-      watchedCourseIds,
-      completedCourseIds,
-      degreeId: degreeId || DEFAULT_DEGREE_ID,
+    chat.send(text, {
+      term,
+      plannedCodes: scheduledCourseIds,
+      shortlistedCodes: watchedCourseIds,
+      completedCodes: completedCourseIds,
+      programId,
     });
   };
 
-  const handleChip = (chip: ActionChip): void => {
+  const handleChip = (chip: Chip): void => {
     applyActionChip(chip, {
       showWeek: () => go('semester'),
       showDegree: () => go('degree'),
@@ -487,6 +554,9 @@ export function App(): React.JSX.Element {
     <div className={styles.app}>
       <TopBar
         units={degreeUnits}
+        terms={terms}
+        term={term}
+        onSelectTerm={handleSelectTerm}
         isDegreeOpen={space === 'degree'}
         onToggleDegree={() => go(space === 'degree' ? 'semester' : 'degree')}
         onHome={() => go('semester')}
@@ -520,7 +590,7 @@ export function App(): React.JSX.Element {
               completed={completed}
               watched={watched}
               onToggleSave={handleToggleSave}
-              onToggleTaken={(course) => handleToggleCompleted(course.id)}
+              onToggleTaken={(course) => handleToggleCompleted(course.code)}
               onToggleSection={handleToggleSection}
               otherVariants={otherVariants}
               onAddToVariant={handleAddToVariant}
@@ -539,7 +609,7 @@ export function App(): React.JSX.Element {
               activeConfigId={activeConfig.id}
               sections={activeSections}
               sectionsById={sectionsById}
-              coursesById={coursesById}
+              coursesByCode={coursesByCode}
               scheduledCourseIds={scheduledCourseIds}
               onSelectVariant={handleSelectVariant}
               onRenameVariant={renameConfig}
@@ -556,12 +626,14 @@ export function App(): React.JSX.Element {
       ) : (
         <main className={styles.degree}>
           <DegreeView
-            degrees={degrees}
-            degreeId={degreeId}
-            onSelectDegree={selectDegree}
-            audit={degreeAudit}
-            geAudit={geAudit}
-            apDefinitions={apDefinitions}
+            term={term}
+            programs={programs}
+            programId={programId}
+            onSelectProgram={selectProgram}
+            program={program}
+            audit={audit}
+            geProgress={geProgress}
+            apExams={apExams}
             apCredits={apCredits}
             onToggleAp={toggleApCredit}
             completed={completed}

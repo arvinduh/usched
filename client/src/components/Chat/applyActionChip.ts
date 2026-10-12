@@ -10,8 +10,7 @@
 
 import { enrollSection, recordCompleted, toggleWatch } from '../../state/actions';
 import { setProposal } from '../../state/preview';
-import { getPlan } from '../../state/store';
-import type { ActionChip } from '../../types';
+import type { Chip } from '../../types';
 
 /**
  * View-level effects a chip may trigger.
@@ -24,82 +23,35 @@ export interface ChipEffects {
   readonly search: (query: string) => void;
 }
 
-function str(payload: Record<string, unknown>, key: string): string | undefined {
-  const value = payload[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-function strs(
-  payload: Record<string, unknown>,
-  key: string,
-): readonly string[] | undefined {
-  const value = payload[key];
-  return Array.isArray(value) ? (value as string[]) : undefined;
-}
-
 /**
- * Applies one chip. Payload fields take precedence over top-level chip
- * fields, matching how the advisor tools emit them.
+ * Applies one chip; the union's `action` narrows each case's fields.
  */
-export function applyActionChip(chip: ActionChip, effects: ChipEffects): void {
-  const payload = chip.payload ?? {};
+export function applyActionChip(chip: Chip, effects: ChipEffects): void {
   switch (chip.action) {
-    case 'CREATE_CONFIGURATION':
-    case 'OVERWRITE_CONFIGURATION':
-      setProposal({
-        name: str(payload, 'name') ?? chip.config_name ?? 'Suggested',
-        sectionIds: strs(payload, 'section_ids') ?? chip.section_ids ?? [],
-        targetConfigId:
-          chip.action === 'OVERWRITE_CONFIGURATION'
-            ? (str(payload, 'config_id') ??
-              chip.config_id ??
-              getPlan().activeConfigId)
-            : undefined,
-      });
+    case 'propose_schedule':
+      setProposal({ name: chip.name, sectionIds: chip.section_ids });
       effects.showWeek();
       return;
-    case 'WATCH_COURSE': {
-      const courseId = str(payload, 'course_id') ?? chip.course_id;
-      if (courseId) {
-        toggleWatch(courseId);
-      }
-      return;
-    }
-    case 'RECORD_COMPLETED_COURSES':
-    case 'MARK_TAKEN': {
-      const courses =
-        strs(payload, 'courses') ?? (chip.course_id ? [chip.course_id] : []);
-      if (courses.length > 0) {
-        recordCompleted(courses);
-      }
-      return;
-    }
-    case 'ENROLL_SECTION': {
-      // The section record is hydrated by usePlanCourses once it is enrolled.
-      const sectionId = str(payload, 'section_id') ?? chip.section_id;
-      if (sectionId) {
-        enrollSection(sectionId);
-        effects.showWeek();
-      }
-      return;
-    }
-    case 'tab_degree':
-      effects.showDegree();
-      return;
-    case 'tab_calendar':
-    case 'tab_explorer':
+    case 'enroll_section':
+      // usePlanCourses hydrates the section once it is in the plan.
+      enrollSection(chip.section_id);
       effects.showWeek();
       return;
-    case 'NAVIGATE_TAB':
-      if ((str(payload, 'tab') ?? chip.target) === 'degree') {
+    case 'watch_course':
+      toggleWatch(chip.course_code);
+      return;
+    case 'mark_completed':
+      recordCompleted(chip.course_codes);
+      return;
+    case 'show':
+      if (chip.view === 'degree') {
         effects.showDegree();
       } else {
         effects.showWeek();
       }
       return;
-    case 'FILTER_EXPLORER':
-    case 'search_course':
-      effects.search(str(payload, 'query') ?? chip.target ?? '');
+    case 'search':
+      effects.search(chip.query);
       return;
   }
 }

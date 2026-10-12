@@ -34,6 +34,8 @@ export interface paths {
         /**
          * Search Courses
          * @description Searches a term's courses by text, GE category, and instructor rating.
+         *
+         *     With `codes`, loads exactly those courses in one request instead.
          */
         get: operations["search_courses_api_terms__term__courses_get"];
         put?: never;
@@ -979,6 +981,8 @@ export interface operations {
                 min_rating?: number | null;
                 limit?: number;
                 offset?: number;
+                /** @description Comma-separated codes to load instead of searching; codes not offered this term are skipped. */
+                codes?: string | null;
             };
             header?: never;
             path: {
