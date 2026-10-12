@@ -13,8 +13,9 @@ import httpx
 from absl import logging
 
 
-_ATTEMPTS = 3
-_BACKOFF_S = 0.6
+_ATTEMPTS = 5
+_BACKOFF_S = 1.0
+_MAX_WAIT_S = 60.0
 _USER_AGENT = (
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
   "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -42,6 +43,15 @@ def _retryable(status: int) -> bool:
   return status == HTTPStatus.TOO_MANY_REQUESTS or status >= 500
 
 
+def _wait_s(response: httpx.Response | None, attempt: int) -> float:
+  """Honors a numeric Retry-After, else backs off exponentially."""
+  backoff = _BACKOFF_S * 2 ** (attempt - 1)
+  after = response.headers.get("Retry-After", "") if response else ""
+  if after.isdigit():
+    return min(max(float(after), backoff), _MAX_WAIT_S)
+  return backoff
+
+
 def request(
   http: httpx.Client, method: str, url: str, **kwargs: Any
 ) -> httpx.Response:
@@ -52,6 +62,7 @@ def request(
       answered with a non-retryable error status.
   """
   for attempt in range(1, _ATTEMPTS + 1):
+    response = None
     try:
       response = http.request(method, url, **kwargs)
     except httpx.TransportError as e:
@@ -68,5 +79,5 @@ def request(
         response.status_code,
         attempt,
       )
-    time.sleep(_BACKOFF_S * 2 ** (attempt - 1))
+    time.sleep(_wait_s(response, attempt))
   raise AssertionError("unreachable: the final attempt returns or raises")
