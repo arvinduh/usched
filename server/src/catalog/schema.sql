@@ -132,7 +132,7 @@ CREATE TABLE section (
   usc_section_id INTEGER,
   type TEXT NOT NULL,                 -- Lecture, Lab, Discussion, Quiz, ...
   type_code TEXT,                     -- USC's short code, e.g. C
-  link_code TEXT,                     -- bundle letter; NULL = standalone
+  link_code TEXT,                     -- bundle letter; NULL pairs with any
   session_code TEXT,                  -- e.g. 001 (regular) or a sub-session
   name TEXT,                          -- special-topic title, if any
   units_min REAL,
