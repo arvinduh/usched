@@ -56,8 +56,23 @@ def search_courses(
   min_rating: Annotated[float | None, fastapi.Query(ge=0, le=5)] = None,
   limit: Annotated[int, fastapi.Query(ge=1, le=500)] = 100,
   offset: Annotated[int, fastapi.Query(ge=0)] = 0,
+  codes: Annotated[
+    str | None,
+    fastapi.Query(
+      description=(
+        "Comma-separated codes to load instead of searching; codes not "
+        "offered this term are skipped."
+      )
+    ),
+  ] = None,
 ) -> list[m.Course]:
-  """Searches a term's courses by text, GE category, and instructor rating."""
+  """Searches a term's courses by text, GE category, and instructor rating.
+
+  With `codes`, loads exactly those courses in one request instead.
+  """
+  if codes is not None:
+    wanted = [c for c in (s.strip() for s in codes.split(",")) if c]
+    return catalog_db.courses(conn, term, wanted[:limit])
   return catalog_db.search_courses(
     conn, term, q, ge=ge, min_rating=min_rating, limit=limit, offset=offset
   )

@@ -41,6 +41,13 @@ def test_course_search_and_detail(client):
   assert course["sections"][0]["meetings"][0]["days"]
 
 
+def test_courses_load_by_code_in_one_request(client):
+  found = client.get(
+    "/api/terms/20271/courses", params={"codes": "CSCI-420,NOPE-1,csci-104l"}
+  ).json()
+  assert [c["code"] for c in found] == ["CSCI-420", "CSCI-104L"]
+
+
 def test_unknown_items_are_404(client):
   assert client.get("/api/terms/20253/courses/CSCI-104L").status_code == 404
   assert client.get("/api/programs/nope").status_code == 404
