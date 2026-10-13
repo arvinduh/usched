@@ -7,7 +7,7 @@
  * this module stays independent of the app shell's view state.
  */
 
-import { enrollSection, toggleWatch } from '../../state/actions';
+import { enrollSection, recordCompleted, toggleWatch } from '../../state/actions';
 import { setProposals } from '../../state/preview';
 import type { Proposal } from '../../state/preview';
 import type { Chip } from '../../types';
@@ -43,6 +43,9 @@ export function applyActionChip(chip: Chip, effects: ChipEffects): void {
       return;
     case 'watch_course':
       toggleWatch(chip.course_code);
+      return;
+    case 'mark_taken':
+      recordCompleted(chip.course_codes);
       return;
     case 'search':
       effects.search(chip.query);

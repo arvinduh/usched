@@ -236,6 +236,8 @@ function Planner({
   );
   // Proposals land on the week, so the planner comes forward to show them.
   const goRef = useRef<(next: Space) => void>(() => {});
+  // A finished reply acts at once: proposals land on the week, and courses
+  // the student said they took are recorded, with undo.
   const projectProposals = useCallback((chips: readonly Chip[]): void => {
     const proposals = proposalsOf(chips);
     if (proposals.length > 0) {
@@ -243,7 +245,15 @@ function Planner({
       setProposals(proposals);
     }
   }, []);
-  const chat = useAdvisorChat(projectProposals);
+  const actOnReply = useCallback((chips: readonly Chip[]): void => {
+    projectProposals(chips);
+    for (const chip of chips) {
+      if (chip.action === 'mark_taken') {
+        showToast(chip.label, recordCompleted(chip.course_codes));
+      }
+    }
+  }, [projectProposals]);
+  const chat = useAdvisorChat(actOnReply);
 
   useEffect(() => {
     getApExams().then(setApExams).catch(console.error);
@@ -441,12 +451,15 @@ function Planner({
     }
   };
 
+  // A proposal is a whole week (the advisor builds around the current
+  // one), so keeping it replaces this schedule; undo restores it.
   const handleKeepProposal = (proposal: Proposal): void => {
     setProposals([]);
-    const id = createConfig(proposal.name, proposal.sectionIds);
-    showToast(`Kept as ${proposal.name}`, () => {
-      deleteConfig(id);
-    });
+    const before = activeConfig.section_ids;
+    overwriteConfig(proposal.sectionIds, activeConfig.id);
+    showToast(`Kept ${proposal.name} on ${activeConfig.name}`, () =>
+      overwriteConfig(before, activeConfig.id),
+    );
   };
 
   const handleSelectVariant = (configId: string): void => {

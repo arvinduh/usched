@@ -95,7 +95,10 @@ function Chips({
   readonly onProject: (chips: readonly Chip[]) => void;
 }): React.JSX.Element | null {
   const schedules = chips.filter((c) => c.action === 'propose_schedule').length;
-  const others = chips.filter((c) => c.action !== 'propose_schedule');
+  // Recorded courses were applied when the reply ended; the toast offered undo.
+  const others = chips.filter(
+    (c) => c.action !== 'propose_schedule' && c.action !== 'mark_taken',
+  );
   if (schedules === 0 && others.length === 0) {
     return null;
   }
