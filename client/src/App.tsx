@@ -20,6 +20,7 @@ import {
   getProgram,
   getPrograms,
   getTerms,
+  lookupCourses,
 } from './api/client';
 import { applyActionChip, proposalsOf } from './components/Chat/applyActionChip';
 import { useAdvisorChat } from './hooks/useAdvisorChat';
@@ -394,11 +395,24 @@ function Planner({
     );
   };
 
-  const handleRecordCompleted = (courseIds: readonly string[]): void => {
-    showToast(
-      `Marked ${courseIds.length} course${courseIds.length === 1 ? '' : 's'} taken`,
-      recordCompleted(courseIds),
-    );
+  // The catalog decides what is a course; anything else is named back.
+  const handleTaken = (codes: readonly string[]): void => {
+    setSearchText('');
+    lookupCourses(codes)
+      .then((known) => {
+        const found = new Set(known.map((c) => courseKey(c.code)));
+        const unknown = codes.filter((c) => !found.has(c)).map(displayCode);
+        const missing = unknown.length > 0 ? `; not USC courses: ${unknown.join(', ')}` : '';
+        if (known.length === 0) {
+          showToast(`Not USC courses: ${unknown.join(', ')}`);
+          return;
+        }
+        showToast(
+          `Marked ${known.length} course${known.length === 1 ? '' : 's'} taken${missing}`,
+          recordCompleted(known.map((c) => c.code)),
+        );
+      })
+      .catch(console.error);
   };
 
   const handleAsk = (text: string): void => {
@@ -551,6 +565,7 @@ function Planner({
             messages={chat.messages}
             busy={chat.isLoading}
             onAsk={handleAsk}
+            onTaken={handleTaken}
             onChip={handleChip}
             onProject={projectProposals}
             onNewChat={chat.clear}
@@ -575,7 +590,6 @@ function Planner({
                 completed={completed}
                 planned={planned}
                 onOpenCourse={openCode}
-                onRecordCompleted={handleRecordCompleted}
                 onBrowseGe={(letter) => setSearchText(`ge ${letter.toLowerCase()} `)}
               />
             }

@@ -3,8 +3,11 @@
  *
  * Recognized tokens ("ge b", "4+") become structured filters and are removed
  * from the free-text query; whatever remains is sent as keywords. Also
- * decides when the text reads as a question for the advisor.
+ * decides when the text reads as a question for the advisor, and when it
+ * records courses taken ("took CSCI 103L, MATH 125").
  */
+
+import { extractCourseCodes } from './degree';
 
 /**
  * A recognized filter token, with the exact text that produced it so the
@@ -65,4 +68,18 @@ export function parseQuery(text: string): ParsedQuery {
 export function looksLikeQuestion(text: string): boolean {
   const trimmed = text.trim();
   return trimmed.includes('?') || trimmed.split(/\s+/).length >= 3;
+}
+
+const TOOK = /^\s*(?:i\s+)?(?:took|taken|have taken|completed|finished|passed)\b/i;
+
+/**
+ * The course codes a "took ..." line names, as identities, or null when
+ * the text is not one. The catalog still decides which are courses.
+ */
+export function takenCodes(text: string): readonly string[] | null {
+  if (!TOOK.test(text)) {
+    return null;
+  }
+  const codes = extractCourseCodes(text.replace(TOOK, ''));
+  return codes.length > 0 ? codes : null;
 }

@@ -36,7 +36,8 @@ export function Welcome({ programs, onChoose, onSkip }: WelcomeProps): React.JSX
       <h1 className={styles.question}>What are you studying?</h1>
       <p className={styles.why}>
         Your major shapes your degree progress, the courses suggested to you, and
-        the advisor's answers. Next you'll mark the classes you've already taken.
+        the advisor's answers. Then type the classes you've taken, like “took
+        CSCI 103L, MATH 125”.
       </p>
       <ProgramSearch programs={programs} onChoose={onChoose} />
     </main>

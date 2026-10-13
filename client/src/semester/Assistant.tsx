@@ -12,10 +12,12 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, ListFilter, X } from 'lucide-react';
+import { ArrowUp, CircleCheck, ListFilter, X } from 'lucide-react';
 import type { CatalogSearch } from '../hooks/useCatalogSearch';
+import { displayCode } from '../lib/degree';
 import { NO_FILTER, activeFilterCount, courseMatches, sortCourses } from '../lib/filter';
 import type { DayPart, SectionFilter, SortKey } from '../lib/filter';
+import { takenCodes } from '../lib/query';
 import type { Chip, ChatMessage, Course, Section } from '../types';
 import { Composer } from './Composer';
 import { CourseLine } from './Course';
@@ -92,6 +94,8 @@ export interface AssistantProps {
   readonly messages: readonly ChatMessage[];
   readonly busy: boolean;
   readonly onAsk: (text: string) => void;
+  /** Records courses as taken, given as identities. */
+  readonly onTaken: (codes: readonly string[]) => void;
   readonly onChip: (chip: Chip) => void;
   readonly onProject: (chips: readonly Chip[]) => void;
   readonly onNewChat: () => void;
@@ -119,6 +123,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   const [panelOpen, setPanelOpen] = useState(false);
   const { text, setText, parsed, courses, isSearching, hasMore, loadMore } = search;
   const typing = text.trim() !== '';
+  const taken = takenCodes(text);
   const filterCount = activeFilterCount(filter) + parsed.tokens.length;
   const results = sortCourses(
     courses.filter((c) => courseMatches(c, filter, props.activeSections)),
@@ -203,72 +208,86 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
             ref={resultsLayer}
             onKeyDown={onResultsKey}
           >
-            <div className={styles.resultsHead}>
-              <div className={styles.chips}>
-                {parsed.tokens.map((token) => (
+            {!taken && (
+              <div className={styles.resultsHead}>
+                <div className={styles.chips}>
+                  {parsed.tokens.map((token) => (
+                    <button
+                      key={token.raw}
+                      type="button"
+                      className={`${styles.chip} ${styles.chipOn}`}
+                      onClick={() => setText(text.replace(token.raw, '').trim())}
+                    >
+                      {token.label}
+                      <X size={11} />
+                    </button>
+                  ))}
+                  {filterChips(filter).map((chip) => (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      className={`${styles.chip} ${styles.chipOn}`}
+                      onClick={() => setFilter(chip.clear)}
+                    >
+                      {chip.label}
+                      <X size={11} />
+                    </button>
+                  ))}
                   <button
-                    key={token.raw}
                     type="button"
-                    className={`${styles.chip} ${styles.chipOn}`}
-                    onClick={() => setText(text.replace(token.raw, '').trim())}
+                    className={`${styles.chip} ${panelOpen ? styles.chipActive : ''}`}
+                    aria-expanded={panelOpen}
+                    onClick={() => setPanelOpen((v) => !v)}
                   >
-                    {token.label}
-                    <X size={11} />
+                    <ListFilter size={12} />
+                    Filter
+                    {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
                   </button>
-                ))}
-                {filterChips(filter).map((chip) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    className={`${styles.chip} ${styles.chipOn}`}
-                    onClick={() => setFilter(chip.clear)}
-                  >
-                    {chip.label}
-                    <X size={11} />
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className={`${styles.chip} ${panelOpen ? styles.chipActive : ''}`}
-                  aria-expanded={panelOpen}
-                  onClick={() => setPanelOpen((v) => !v)}
-                >
-                  <ListFilter size={12} />
-                  Filter
-                  {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
-                </button>
-                <label className={styles.sort}>
-                  <span className={styles.srOnly}>Sort by</span>
-                  <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-                    {Object.entries(SORT_LABELS).map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className={styles.sort}>
+                    <span className={styles.srOnly}>Sort by</span>
+                    <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                      {Object.entries(SORT_LABELS).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {panelOpen && (
+                  <FilterPanel
+                    filter={filter}
+                    onFilter={setFilter}
+                    parsed={parsed}
+                    text={text}
+                    setText={setText}
+                  />
+                )}
               </div>
-              {panelOpen && (
-                <FilterPanel
-                  filter={filter}
-                  onFilter={setFilter}
-                  parsed={parsed}
-                  text={text}
-                  setText={setText}
-                />
-              )}
-            </div>
-            <button
-              type="button"
-              data-nav="ask"
-              className={styles.ask}
-              onClick={() => props.onAsk(text.trim())}
-            >
-              <ArrowUp size={12} />
-              Ask “{text.trim()}”
-            </button>
-            {results.map(line)}
-            {results.length === 0 && !hasMore && !isSearching && (
+            )}
+            {taken ? (
+              <button
+                type="button"
+                data-nav="taken"
+                className={styles.ask}
+                onClick={() => props.onTaken(taken)}
+              >
+                <CircleCheck size={12} />
+                Mark {taken.map(displayCode).join(', ')} taken
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-nav="ask"
+                className={styles.ask}
+                onClick={() => props.onAsk(text.trim())}
+              >
+                <ArrowUp size={12} />
+                Ask “{text.trim()}”
+              </button>
+            )}
+            {!taken && results.map(line)}
+            {!taken && results.length === 0 && !hasMore && !isSearching && (
               <p className={styles.empty}>
                 {courses.length > 0 ? 'Nothing matches these filters.' : 'No matching courses.'}
               </p>
@@ -288,6 +307,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
         inputRef={props.inputRef}
         onOpen={props.onOpenCourse}
         onAsk={props.onAsk}
+        onTaken={props.onTaken}
         onEscape={props.onEscape}
         onArrowUp={() =>
           resultsLayer.current?.querySelector<HTMLElement>('[data-nav]')?.focus()

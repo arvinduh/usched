@@ -2,15 +2,16 @@
  * The column's single input: ask the advisor or find a course.
  *
  * Matches appear in the column above as you type, so the input itself only
- * states what Enter will do: open the best match for course-like text, or
- * ask the advisor for questions. Cmd/Ctrl+Enter always asks. Routing
+ * states what Enter will do: record courses for "took CSCI 103L, MATH 125",
+ * open the best match for course-like text, or ask the advisor for
+ * questions. Cmd/Ctrl+Enter always asks. Routing
  * decisions live here; their effects belong to the caller.
  */
 
 import React from 'react';
 import { CornerDownLeft } from 'lucide-react';
 import { displayCode } from '../lib/degree';
-import { looksLikeQuestion } from '../lib/query';
+import { looksLikeQuestion, takenCodes } from '../lib/query';
 import type { Course } from '../types';
 import styles from './Assistant.module.css';
 
@@ -27,6 +28,8 @@ export interface ComposerProps {
   readonly inputRef: React.RefObject<HTMLInputElement | null>;
   readonly onOpen: (course: Course) => void;
   readonly onAsk: (text: string) => void;
+  /** Records courses as taken, given as identities. */
+  readonly onTaken: (codes: readonly string[]) => void;
   readonly onEscape: () => void;
   /** Moves focus up into the matches. */
   readonly onArrowUp: () => void;
@@ -36,15 +39,19 @@ export interface ComposerProps {
  * Renders the input and its Enter hint.
  */
 export function Composer(props: ComposerProps): React.JSX.Element {
-  const { text, setText, top, busy, inputRef, onOpen, onAsk, onEscape, onArrowUp } = props;
+  const { text, setText, top, busy, inputRef, onOpen, onAsk, onTaken, onEscape, onArrowUp } =
+    props;
   const query = text.trim();
+  const taken = takenCodes(text);
   // A question asks; anything else opens the best match when there is one.
-  const opens = query !== '' && !looksLikeQuestion(text) && top !== null;
+  const opens = query !== '' && !taken && !looksLikeQuestion(text) && top !== null;
 
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (opens && top && !(e.metaKey || e.ctrlKey)) {
+      if (taken && !(e.metaKey || e.ctrlKey)) {
+        onTaken(taken);
+      } else if (opens && top && !(e.metaKey || e.ctrlKey)) {
         onOpen(top);
       } else if (query && !busy) {
         onAsk(query);
@@ -75,7 +82,13 @@ export function Composer(props: ComposerProps): React.JSX.Element {
           {query ? (
             <>
               <CornerDownLeft size={11} />
-              {opens && top ? `Open ${displayCode(top.code)}` : busy ? 'Replying…' : 'Ask'}
+              {taken
+                ? `Mark ${taken.length} taken`
+                : opens && top
+                  ? `Open ${displayCode(top.code)}`
+                  : busy
+                    ? 'Replying…'
+                    : 'Ask'}
             </>
           ) : (
             <kbd className={styles.kbd}>/</kbd>

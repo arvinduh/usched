@@ -2,20 +2,18 @@
  * The student's degree, as the column beside the week shows it at rest.
  *
  * Composes the program picker, the requirement tree, the GE strip, and
- * credits (AP exams plus pasted transcripts). Unit totals live in the top
+ * credits (AP exams; courses taken are typed into the column's input). Unit totals live in the top
  * bar's meter, so they are not repeated here. All data arrives as props;
  * opening courses and plan edits go back through callbacks.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Check, Lock } from 'lucide-react';
-import { lookupCourses } from '../api/client';
-import { courseKey, displayCode, extractCourseCodes } from '../lib/degree';
+import { courseKey, displayCode } from '../lib/degree';
 import type {
   ApCredit,
   ApExam,
   GeProgress,
-  KnownCourse,
   Program,
   ProgramAudit,
   ProgramSummary,
@@ -45,7 +43,6 @@ export interface DegreeViewProps {
   /** Courses on the active week keyed by `courseKey`. */
   readonly planned: ReadonlySet<string>;
   readonly onOpenCourse: (code: string, title: string | null) => void;
-  readonly onRecordCompleted: (codes: readonly string[]) => void;
   readonly onBrowseGe: (letter: string) => void;
 }
 
@@ -112,9 +109,7 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
       <Credits
         exams={props.apExams}
         credits={props.apCredits}
-        completed={completed}
         onToggleAp={props.onToggleAp}
-        onRecord={props.onRecordCompleted}
       />
     </div>
   );
@@ -204,46 +199,13 @@ function GeStrip({
 function Credits({
   exams,
   credits,
-  completed,
   onToggleAp,
-  onRecord,
 }: {
   readonly exams: readonly ApExam[];
   readonly credits: readonly ApCredit[];
-  readonly completed: ReadonlySet<string>;
   readonly onToggleAp: (examId: string) => void;
-  readonly onRecord: (courseIds: readonly string[]) => void;
 }): React.JSX.Element {
-  const [pasted, setPasted] = useState('');
-  const candidates = useMemo(() => extractCourseCodes(pasted), [pasted]);
-  const lookupKey = candidates.join(',');
-  // The catalog decides what is a course; remembers which text it answered.
-  const [lookup, setLookup] = useState<{
-    readonly key: string;
-    readonly known: readonly KnownCourse[];
-  } | null>(null);
-  useEffect(() => {
-    if (!lookupKey) {
-      return;
-    }
-    let stale = false;
-    const timer = setTimeout(() => {
-      lookupCourses(lookupKey.split(','))
-        .then((known) => !stale && setLookup({ key: lookupKey, known }))
-        .catch(console.error);
-    }, 300);
-    return () => {
-      stale = true;
-      clearTimeout(timer);
-    };
-  }, [lookupKey]);
-
   const earned = new Set(credits.map((c) => c.exam_id));
-  const known = lookupKey && lookup?.key === lookupKey ? lookup.known : null;
-  const recognized = new Set(known?.map((c) => courseKey(c.code)));
-  const found = (known ?? []).filter((c) => !completed.has(courseKey(c.code)));
-  const unknown = known ? candidates.filter((k) => !recognized.has(k)) : [];
-
   return (
     <section>
       <h2 className={styles.heading}>Credits</h2>
@@ -273,42 +235,9 @@ function Credits({
           );
         })}
       </div>
-
-      <div className={styles.paste}>
-        <textarea
-          className={styles.pasteInput}
-          value={pasted}
-          onChange={(e) => setPasted(e.target.value)}
-          placeholder="Paste courses you've taken, like CSCI 103L, MATH 125"
-          rows={pasted ? 3 : 1}
-        />
-        {found.length > 0 && (
-          <div className={styles.pasteFound}>
-            <span className={styles.chips}>
-              {found.map((c) => (
-                <span key={c.code} className={styles.miniChip} title={c.title}>
-                  {displayCode(c.code)}
-                </span>
-              ))}
-            </span>
-            <button
-              type="button"
-              className={styles.primary}
-              onClick={() => {
-                onRecord(found.map((c) => c.code));
-                setPasted('');
-              }}
-            >
-              Mark {found.length} done
-            </button>
-          </div>
-        )}
-        {unknown.length > 0 && (
-          <p className={styles.pasteUnknown}>
-            Not USC courses: {unknown.map(displayCode).join(', ')}
-          </p>
-        )}
-      </div>
+      <p className={styles.creditsHint}>
+        Taken a course? Type “took CSCI 103L, MATH 125” below.
+      </p>
     </section>
   );
 }
