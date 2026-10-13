@@ -38,6 +38,7 @@ import { TopBar } from './shell/TopBar';
 import { Welcome } from './shell/Welcome';
 import {
   addSection,
+  countGeSeat,
   createConfig,
   cycleConfig,
   deleteConfig,
@@ -749,6 +750,12 @@ function Planner({
               go('planner');
               setSearchText(`ge ${letter.toLowerCase()} `);
             }}
+            onCountGe={(code, isFull) =>
+              showToast(
+                isFull ? `Cleared your ${code} count` : `Counted one ${code} course`,
+                countGeSeat(code, isFull),
+              )
+            }
           />
         </main>
       ) : (

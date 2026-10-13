@@ -298,6 +298,21 @@ export function recordCompleted(courseIds: readonly string[]): () => void {
 }
 
 /**
+ * Counts one more GE seat by hand, or clears the category's count once it
+ * is full, so repeated clicks cycle from empty to full and back. Returns
+ * the inverse.
+ */
+export function countGeSeat(code: string, isFull: boolean): () => void {
+  let before: Readonly<Record<string, number>> = {};
+  update((s) => {
+    before = s.geCounted;
+    const { [code]: count = 0, ...rest } = s.geCounted;
+    return { ...s, geCounted: isFull ? rest : { ...rest, [code]: count + 1 } };
+  });
+  return () => update((s) => ({ ...s, geCounted: before }));
+}
+
+/**
  * Adds or removes AP credit for an exam, recorded as a passing score of 5.
  */
 export function toggleApCredit(examId: string): void {
