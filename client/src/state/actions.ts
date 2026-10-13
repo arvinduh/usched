@@ -313,7 +313,14 @@ export function toggleApCredit(examId: string): void {
  * Sets the program audited on the degree view.
  */
 export function selectProgram(programId: string): void {
-  update((s) => ({ ...s, programId }));
+  update((s) => ({ ...s, programId, welcomed: true }));
+}
+
+/**
+ * Dismisses the first-run welcome without choosing a program.
+ */
+export function skipWelcome(): void {
+  update((s) => (s.welcomed ? s : { ...s, welcomed: true }));
 }
 
 /**

@@ -31,6 +31,7 @@ import { Assistant } from './semester/Assistant';
 import type { AssistantView } from './semester/Assistant';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
+import { Welcome } from './shell/Welcome';
 import {
   addSection,
   createConfig,
@@ -43,6 +44,7 @@ import {
   selectConfig,
   selectProgram,
   selectTerm,
+  skipWelcome,
   recordCompleted,
   toggleApCredit,
   toggleCompleted,
@@ -166,6 +168,7 @@ function Planner({
   const completedCourseIds = useStore((s) => s.completedCourseIds);
   const apCredits = useStore((s) => s.apCredits);
   const programId = useStore((s) => s.programId);
+  const welcomed = useStore((s) => s.welcomed);
 
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
   const [apExams, setApExams] = useState<readonly ApExam[]>([]);
@@ -550,6 +553,19 @@ function Planner({
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
+
+  if (!programId && !welcomed) {
+    return (
+      <Welcome
+        programs={programs}
+        onChoose={(id) => {
+          selectProgram(id);
+          setSpace('degree');
+        }}
+        onSkip={skipWelcome}
+      />
+    );
+  }
 
   return (
     <div className={styles.app}>
