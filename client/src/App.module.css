@@ -51,17 +51,6 @@
   padding-top: 16px;
 }
 
-.degree {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.degree > * {
-  max-width: 960px;
-  margin: 0 auto;
-}
-
 @media (max-width: 860px) {
   .semester {
     grid-template-columns: 1fr;

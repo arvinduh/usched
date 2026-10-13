@@ -27,17 +27,9 @@
 }
 
 .meter:hover,
-.meterOn {
-  background: var(--hover);
-}
-
 .label {
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.meterOn .label {
-  color: var(--text-primary);
 }
 
 .track {

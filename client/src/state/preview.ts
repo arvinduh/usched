@@ -3,7 +3,7 @@
  *
  * Hover, expansion, and advisor proposals change often and must never be
  * persisted until the user commits, so they live in their own store: only
- * the Library rows and the week subscribe, and the app root never re-renders
+ * the column's cards and the week subscribe, and the app root never re-renders
  * on hover.
  */
 
@@ -48,20 +48,6 @@ export function usePreview<T>(selector: (p: Preview) => T): T {
  */
 export function setExpanded(course: Course | null): void {
   preview.set({ ...preview.get(), expanded: course, focusId: null });
-}
-
-/**
- * Reports whether any course is expanded, for handlers outside React.
- */
-export function hasExpanded(): boolean {
-  return preview.get().expanded !== null;
-}
-
-/**
- * Collapses `course` if it is expanded, otherwise expands it.
- */
-export function toggleExpanded(course: Course): void {
-  setExpanded(preview.get().expanded?.code === course.code ? null : course);
 }
 
 /**

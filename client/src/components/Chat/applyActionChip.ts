@@ -3,9 +3,8 @@
  *
  * Small plan edits go straight to the store actions. Whole-schedule
  * suggestions become proposals the user keeps or discards on the week, and
- * anything that changes what the user is looking at goes through the
- * caller-supplied `ChipEffects`, so this module stays independent of the
- * app shell's view state.
+ * opening or searching goes through the caller-supplied `ChipEffects`, so
+ * this module stays independent of the app shell's view state.
  */
 
 import { enrollSection, toggleWatch } from '../../state/actions';
@@ -26,10 +25,7 @@ export function proposalsOf(chips: readonly Chip[]): readonly Proposal[] {
  * View-level effects a chip may trigger.
  */
 export interface ChipEffects {
-  /** Brings the week into view, keeping the conversation open. */
-  readonly showWeek: () => void;
-  readonly showDegree: () => void;
-  /** Leaves the conversation for the Library with this query. */
+  /** Opens a course by code, or searches for anything else. */
   readonly search: (query: string) => void;
 }
 
@@ -40,22 +36,13 @@ export function applyActionChip(chip: Chip, effects: ChipEffects): void {
   switch (chip.action) {
     case 'propose_schedule':
       setProposals([{ name: chip.name, sectionIds: chip.section_ids }]);
-      effects.showWeek();
       return;
     case 'enroll_section':
       // usePlanCourses hydrates the section once it is in the plan.
       enrollSection(chip.section_id);
-      effects.showWeek();
       return;
     case 'watch_course':
       toggleWatch(chip.course_code);
-      return;
-    case 'show':
-      if (chip.view === 'degree') {
-        effects.showDegree();
-      } else {
-        effects.showWeek();
-      }
       return;
     case 'search':
       effects.search(chip.query);

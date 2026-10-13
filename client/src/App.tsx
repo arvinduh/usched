@@ -3,15 +3,15 @@
  *
  * `App` resolves which term is being planned (the stored one, else the
  * newest with courses) and explains a missing catalog. `Planner` then
- * composes the two spaces (Semester: the Assistant pane beside the week;
- * Degree: the audit) under one top bar, and wires the plan store, catalog
- * search, server audits, advisor chat, and keyboard shortcuts together for
- * that term. Both own only view state; user-authored data lives in
+ * composes one surface for that term: the column (degree, search, the
+ * advisor, and course cards) beside the week, under one top bar. It wires
+ * the plan store, catalog search, server audits, advisor chat, and keyboard
+ * shortcuts together, and owns which course is open, since every surface
+ * opens courses into the same card. User-authored data lives in
  * `state/store`.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import {
   auditGe,
   auditProgram,
@@ -28,7 +28,8 @@ import { DegreeView } from './degree/DegreeView';
 import { courseKey, displayCode } from './lib/degree';
 import { totalUnits } from './lib/schedule';
 import { Assistant } from './semester/Assistant';
-import type { AssistantView } from './semester/Assistant';
+import { CourseCard } from './semester/Course';
+import type { CoursePlan } from './semester/Course';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
 import { Welcome } from './shell/Welcome';
@@ -51,7 +52,7 @@ import {
   toggleSection,
   toggleWatch,
 } from './state/actions';
-import { hasExpanded, setExpanded, setProposals } from './state/preview';
+import { setExpanded, setProposals } from './state/preview';
 import type { Proposal } from './state/preview';
 import { reset, useStore, useTermPlan } from './state/store';
 import { showToast, undoLast } from './state/toast';
@@ -71,9 +72,17 @@ import type {
 } from './types';
 import styles from './App.module.css';
 
-const MAX_SUGGESTIONS = 8;
+/** Text that names a course rather than a topic, e.g. "CSCI-104L". */
+const COURSE_CODE = /^[A-Za-z]{2,5}[- ]?\d{3}[A-Za-z]{0,4}$/;
 
-type Space = 'semester' | 'degree';
+/** The course whose card is open, as this term offers it. */
+interface Opened {
+  readonly code: string;
+  /** A title from whoever opened it, for courses this term lacks. */
+  readonly title: string | null;
+  /** Null when this term does not offer the course. */
+  readonly course: Course | null;
+}
 
 const PANE_KEY = 'usched:pane';
 const PANE_DEFAULT = 420;
@@ -156,11 +165,12 @@ function Planner({
   readonly term: number;
   readonly terms: readonly Term[];
 }): React.JSX.Element {
-  const [space, setSpace] = useState<Space>('semester');
-  const [view, setView] = useState<AssistantView>('chat');
   const searchInput = useRef<HTMLInputElement>(null);
   const semester = useRef<HTMLElement>(null);
   const [paneWidth, setPaneWidth] = useState(readPaneWidth);
+  const [opened, setOpened] = useState<Opened | null>(null);
+  // The latest open request, so a slow lookup never replaces a newer card.
+  const opening = useRef('');
 
   const configurations = useTermPlan((p) => p.configurations);
   const activeConfigId = useTermPlan((p) => p.activeConfigId);
@@ -190,28 +200,12 @@ function Planner({
     () => new Set(completedCourseIds.map(courseKey)),
     [completedCourseIds],
   );
-  // Program courses the student can take next: untaken and not locked. A
-  // few spares cover ones already planned or not offered this term, which
-  // drop out once the week and the catalog resolve.
-  const suggestionIds = useMemo(() => {
-    if (!program) {
-      return [];
-    }
-    const locked = new Set(Object.keys(audit?.locked ?? {}).map(courseKey));
-    const codes = program.requirements.flatMap((r) =>
-      r.slots.flat().flatMap((c) => (c.title ? [c.course.resolved ?? ''] : [])),
-    );
-    return [...new Set(codes)]
-      .filter((c) => c && !completed.has(courseKey(c)) && !locked.has(courseKey(c)))
-      .slice(0, MAX_SUGGESTIONS + 4);
-  }, [program, audit, completed]);
 
   const search = useCatalogSearch(term);
   const setSearchText = search.setText;
   const { coursesByCode, sectionsById, remember } = usePlanCourses(
     term,
     search.courses,
-    suggestionIds,
   );
   const projectProposals = useCallback((chips: readonly Chip[]): void => {
     const proposals = proposalsOf(chips);
@@ -286,6 +280,7 @@ function Planner({
     [scheduledCourseIds],
   );
   const watched = useMemo(() => new Set(watchedCourseIds), [watchedCourseIds]);
+  const activeIds = useMemo(() => new Set(activeSectionIds), [activeSectionIds]);
   const savedCourses = useMemo(
     () =>
       watchedCourseIds
@@ -293,86 +288,51 @@ function Planner({
         .filter((c): c is Course => c !== undefined),
     [watchedCourseIds, coursesByCode],
   );
-  const suggestions = useMemo(
-    () =>
-      suggestionIds
-        .filter((id) => !planned.has(courseKey(id)))
-        .map((code) => coursesByCode.get(code))
-        .filter((c): c is Course => c !== undefined)
-        .slice(0, MAX_SUGGESTIONS),
-    [suggestionIds, planned, coursesByCode],
-  );
 
   const plannedUnits = totalUnits(activeSections, coursesByCode);
   const degreeUnits =
     audit && program?.total_units
       ? { completed: audit.units, planned: plannedUnits, total: program.total_units }
       : null;
+  const termInfo = terms.find((t) => t.code === term);
+  const termName = termInfo ? `${termInfo.season} ${termInfo.year}` : String(term);
 
-  // Morph between spaces where the browser supports view transitions.
-  // Staying put skips it: a transition defers rendering, which would delay
-  // the search focus that usually follows.
-  const currentSpace = useRef(space);
-  useEffect(() => {
-    currentSpace.current = space;
-  }, [space]);
-  const go = useCallback((next: Space): void => {
-    if (next === currentSpace.current) {
-      return;
-    }
-    if ('startViewTransition' in document) {
-      // A skipped animation (hidden tab, rapid toggling) rejects `ready`;
-      // the state update itself still applies, so the rejection is noise.
-      document
-        .startViewTransition(() => flushSync(() => setSpace(next)))
-        .ready.catch(() => {});
-    } else {
-      setSpace(next);
-    }
-  }, []);
-
-  const focusComposer = useCallback((): void => {
-    go('semester');
-    requestAnimationFrame(() => searchInput.current?.focus());
-  }, [go]);
-
-  const showResults = useCallback(
-    (text: string): void => {
-      go('semester');
-      setView('results');
-      setSearchText(text);
-    },
-    [go, setSearchText],
-  );
-
-  // Opening a course expands it (ghosting its sections) and lists it first
-  // in the results, where its sections can be picked.
-  const handleOpenCourse = (course: Course): void => {
+  const openCourse = (course: Course): void => {
+    opening.current = course.code;
     remember(course);
     setExpanded(course);
-    showResults(displayCode(course.code));
+    setOpened({ code: course.code, title: course.title, course });
   };
 
-  const handleOpenCourseId = (code: string): void => {
-    // The advisor can name courses this term's catalog lacks; say so rather
-    // than leave an unexplained empty list.
+  // Courses named by code (degree chips, advisor replies) may not be offered
+  // this term; their card still opens, so they can be marked taken.
+  const openCode = (code: string, title: string | null = null): void => {
+    opening.current = code;
     getCourse(term, code)
-      .then(handleOpenCourse)
+      .then((course) => opening.current === code && openCourse(course))
       .catch(() => {
-        showToast(`${displayCode(code)} isn't offered this term`);
-        showResults(displayCode(code));
+        if (opening.current === code) {
+          setExpanded(null);
+          setOpened({ code, title, course: null });
+        }
       });
+  };
+
+  const closeCourse = useCallback((): void => {
+    opening.current = '';
+    setOpened(null);
+    setExpanded(null);
+  }, []);
+
+  const handleHome = (): void => {
+    closeCourse();
+    setSearchText('');
   };
 
   const handleSelectTerm = (next: number): void => {
     setProposals([]);
-    setExpanded(null);
+    closeCourse();
     selectTerm(next);
-  };
-
-  const handleToggleSave = (course: Course): void => {
-    remember(course);
-    toggleWatch(course.code);
   };
 
   const handleToggleSection = (section: Section, course: Course): void => {
@@ -429,21 +389,20 @@ function Planner({
   const handleToggleCompleted = (courseId: string): void => {
     const wasDone = completed.has(courseKey(courseId));
     showToast(
-      `${wasDone ? 'Unmarked' : 'Marked'} ${displayCode(courseId)}${wasDone ? '' : ' done'}`,
+      `${wasDone ? 'Unmarked' : 'Marked'} ${displayCode(courseId)}${wasDone ? '' : ' taken'}`,
       toggleCompleted(courseId),
     );
   };
 
   const handleRecordCompleted = (courseIds: readonly string[]): void => {
     showToast(
-      `Marked ${courseIds.length} course${courseIds.length === 1 ? '' : 's'} done`,
+      `Marked ${courseIds.length} course${courseIds.length === 1 ? '' : 's'} taken`,
       recordCompleted(courseIds),
     );
   };
 
   const handleAsk = (text: string): void => {
-    setExpanded(null);
-    setView('chat');
+    closeCourse();
     setSearchText('');
     chat.send(text, {
       term,
@@ -457,9 +416,8 @@ function Planner({
 
   const handleChip = (chip: Chip): void => {
     applyActionChip(chip, {
-      showWeek: () => go('semester'),
-      showDegree: () => go('degree'),
-      search: showResults,
+      search: (query) =>
+        COURSE_CODE.test(query.trim()) ? openCode(query.trim()) : setSearchText(query),
     });
   };
 
@@ -481,18 +439,29 @@ function Planner({
     reset();
     chat.clear();
     setProposals([]);
-    setExpanded(null);
+    closeCourse();
     search.setText('');
     showToast('All data erased');
   };
+
+  const isCardOpen = opened !== null;
+  // Escape peels one layer, from the input or anywhere: the card, then the
+  // search text.
+  const peel = useCallback((): void => {
+    if (isCardOpen) {
+      closeCourse();
+    } else {
+      setSearchText('');
+    }
+  }, [isCardOpen, closeCourse, setSearchText]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
-      if (mod && key === 'j') {
+      if ((mod && key === 'j') || (!mod && e.key === '/' && !isTyping(e.target))) {
         e.preventDefault();
-        focusComposer();
+        searchInput.current?.focus();
         return;
       }
       if (mod && key === 'z' && !isTyping(e.target)) {
@@ -505,14 +474,6 @@ function Planner({
         return;
       }
       switch (e.key) {
-        case '/':
-          e.preventDefault();
-          focusComposer();
-          return;
-        case 'd':
-        case 'D':
-          go(space === 'degree' ? 'semester' : 'degree');
-          return;
         case '[':
           cycleConfig(-1);
           return;
@@ -520,20 +481,13 @@ function Planner({
           cycleConfig(1);
           return;
         case 'Escape':
-          // Peel one layer: an open course, then the results, then the text.
-          if (hasExpanded()) {
-            setExpanded(null);
-          } else if (view === 'results') {
-            setView('chat');
-          } else {
-            setSearchText('');
-          }
+          peel();
           return;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, focusComposer, space, view, setSearchText]);
+  }, [peel]);
 
   // Drag the pane edge to resize. Moves write the CSS variable directly so
   // the app does not re-render per pointer event; the width is committed
@@ -561,17 +515,17 @@ function Planner({
   };
 
   if (!programId && !welcomed) {
-    return (
-      <Welcome
-        programs={programs}
-        onChoose={(id) => {
-          selectProgram(id);
-          setSpace('degree');
-        }}
-        onSkip={skipWelcome}
-      />
-    );
+    return <Welcome programs={programs} onChoose={selectProgram} onSkip={skipWelcome} />;
   }
+
+  const plan: CoursePlan = {
+    completed,
+    watched,
+    activeSectionIds: activeIds,
+    scheduledCourseIds,
+    onToggleSave: toggleWatch,
+    onToggleTaken: handleToggleCompleted,
+  };
 
   return (
     <div className={styles.app}>
@@ -580,96 +534,96 @@ function Planner({
         terms={terms}
         term={term}
         onSelectTerm={handleSelectTerm}
-        isDegreeOpen={space === 'degree'}
-        onToggleDegree={() => go(space === 'degree' ? 'semester' : 'degree')}
-        onHome={() => go('semester')}
+        onHome={handleHome}
         onCopySections={handleCopySections}
         onReset={handleReset}
       />
 
-      {space === 'semester' ? (
-        <main
-          ref={semester}
-          className={styles.semester}
-          style={{ '--pane': `${paneWidth}px` } as React.CSSProperties}
-        >
-          <aside className={styles.left}>
-            <Assistant
-              view={view}
-              onView={setView}
-              search={search}
-              inputRef={searchInput}
-              messages={chat.messages}
-              busy={chat.isLoading}
-              onAsk={handleAsk}
-              onChip={handleChip}
-              onProject={projectProposals}
-              onNewChat={chat.clear}
-              onOpenCourse={handleOpenCourse}
-              onOpenCourseId={handleOpenCourseId}
-              savedCourses={savedCourses}
-              suggestions={suggestions}
-              activeSections={activeSections}
-              scheduledCourseIds={scheduledCourseIds}
-              completed={completed}
-              watched={watched}
-              onToggleSave={handleToggleSave}
-              onToggleTaken={(course) => handleToggleCompleted(course.code)}
-              onToggleSection={handleToggleSection}
-              otherVariants={otherVariants}
-              onAddToVariant={handleAddToVariant}
-            />
-            <div
-              className={styles.resize}
-              onPointerDown={startResize}
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize the assistant pane"
-            />
-          </aside>
-          <section className={styles.right}>
-            <Week
-              configurations={configurations}
-              activeConfigId={activeConfig.id}
-              sections={activeSections}
-              sectionsById={sectionsById}
-              coursesByCode={coursesByCode}
-              scheduledCourseIds={scheduledCourseIds}
-              onSelectVariant={handleSelectVariant}
-              onRenameVariant={renameConfig}
-              onDeleteVariant={handleDeleteVariant}
-              onDuplicateVariant={duplicateActiveConfig}
-              onToggleSection={handleToggleSection}
-              onRemove={handleRemove}
-              onFocusCourse={handleOpenCourse}
-              onKeepProposal={handleKeepProposal}
-              onDiscardProposal={() => setProposals([])}
-            />
-          </section>
-        </main>
-      ) : (
-        <main className={styles.degree}>
-          <DegreeView
-            term={term}
-            programs={programs}
-            programId={programId}
-            onSelectProgram={selectProgram}
-            program={program}
-            audit={audit}
-            geProgress={geProgress}
-            apExams={apExams}
-            apCredits={apCredits}
-            onToggleAp={toggleApCredit}
-            completed={completed}
-            planned={planned}
-            plannedUnits={plannedUnits}
-            onToggleCompleted={handleToggleCompleted}
-            onRecordCompleted={handleRecordCompleted}
-            onFindSections={handleOpenCourseId}
-            onBrowseGe={(letter) => showResults(`ge ${letter.toLowerCase()} `)}
+      <main
+        ref={semester}
+        className={styles.semester}
+        style={{ '--pane': `${paneWidth}px` } as React.CSSProperties}
+      >
+        <aside className={styles.left}>
+          <Assistant
+            search={search}
+            inputRef={searchInput}
+            messages={chat.messages}
+            busy={chat.isLoading}
+            onAsk={handleAsk}
+            onChip={handleChip}
+            onProject={projectProposals}
+            onNewChat={chat.clear}
+            onEscape={peel}
+            onOpenCourse={openCourse}
+            onOpenCode={openCode}
+            savedCourses={savedCourses}
+            activeSections={activeSections}
+            plan={plan}
+            degree={
+              <DegreeView
+                term={term}
+                programs={programs}
+                programId={programId}
+                onSelectProgram={selectProgram}
+                program={program}
+                audit={audit}
+                geProgress={geProgress}
+                apExams={apExams}
+                apCredits={apCredits}
+                onToggleAp={toggleApCredit}
+                completed={completed}
+                planned={planned}
+                onOpenCourse={openCode}
+                onRecordCompleted={handleRecordCompleted}
+                onBrowseGe={(letter) => setSearchText(`ge ${letter.toLowerCase()} `)}
+              />
+            }
+            card={
+              opened && (
+                <CourseCard
+                  key={opened.code}
+                  course={opened.course}
+                  code={opened.code}
+                  title={opened.title}
+                  termName={termName}
+                  plan={plan}
+                  onToggleSection={handleToggleSection}
+                  otherVariants={otherVariants}
+                  onAddToVariant={handleAddToVariant}
+                  onClose={closeCourse}
+                />
+              )
+            }
           />
-        </main>
-      )}
+          <div
+            className={styles.resize}
+            onPointerDown={startResize}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the column"
+          />
+        </aside>
+        <section className={styles.right}>
+          <Week
+            configurations={configurations}
+            activeConfigId={activeConfig.id}
+            sections={activeSections}
+            sectionsById={sectionsById}
+            coursesByCode={coursesByCode}
+            scheduledCourseIds={scheduledCourseIds}
+            onSelectVariant={handleSelectVariant}
+            onRenameVariant={renameConfig}
+            onDeleteVariant={handleDeleteVariant}
+            onDuplicateVariant={duplicateActiveConfig}
+            onToggleSection={handleToggleSection}
+            onRemove={handleRemove}
+            onFocusCourse={openCourse}
+            onKeepProposal={handleKeepProposal}
+            onDiscardProposal={() => setProposals([])}
+          />
+        </section>
+      </main>
 
       <ToastHost />
     </div>

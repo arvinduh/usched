@@ -289,6 +289,12 @@ export function Week(props: WeekProps): React.JSX.Element {
                     }}
                     // Focusable so keyboard users reach the popover's actions.
                     tabIndex={0}
+                    onClick={(e) => {
+                      // The popover's own buttons act on the section instead.
+                      if (course && !(e.target as HTMLElement).closest('button')) {
+                        onFocusCourse(course);
+                      }
+                    }}
                     aria-label={`${displayCode(s.course_code)} ${s.type}, ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
                   >
                     <div
@@ -353,7 +359,7 @@ export function Week(props: WeekProps): React.JSX.Element {
 
         {timed.length === 0 && ghosts.length === 0 && (
           <p className={styles.empty}>
-            Press <kbd>/</kbd> to find a course
+            Type a course below, or ask for a schedule
           </p>
         )}
       </div>

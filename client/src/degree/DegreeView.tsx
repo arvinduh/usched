@@ -1,10 +1,10 @@
 /**
- * The Degree space: one calm column showing how far along the student is.
+ * The student's degree, as the column beside the week shows it at rest.
  *
- * Composes the program picker, a hero unit bar that includes this term's
- * planned units, the requirement tree, the GE strip, and credits (AP exams
- * plus pasted transcripts). All data arrives as props; plan edits and
- * navigation go back through callbacks.
+ * Composes the program picker, the requirement tree, the GE strip, and
+ * credits (AP exams plus pasted transcripts). Unit totals live in the top
+ * bar's meter, so they are not repeated here. All data arrives as props;
+ * opening courses and plan edits go back through callbacks.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -44,10 +44,8 @@ export interface DegreeViewProps {
   readonly completed: ReadonlySet<string>;
   /** Courses on the active week keyed by `courseKey`. */
   readonly planned: ReadonlySet<string>;
-  readonly plannedUnits: number;
-  readonly onToggleCompleted: (code: string) => void;
+  readonly onOpenCourse: (code: string, title: string | null) => void;
   readonly onRecordCompleted: (codes: readonly string[]) => void;
-  readonly onFindSections: (code: string) => void;
   readonly onBrowseGe: (letter: string) => void;
 }
 
@@ -55,7 +53,7 @@ export interface DegreeViewProps {
  * Renders the Degree space.
  */
 export function DegreeView(props: DegreeViewProps): React.JSX.Element {
-  const { program, audit, completed, planned, plannedUnits } = props;
+  const { program, audit, completed, planned } = props;
   const [hovered, setHovered] = useState<string | null>(null);
 
   const locked = useMemo(
@@ -82,15 +80,8 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
     highlighted,
     term: props.term,
     onHover: setHovered,
-    onToggle: props.onToggleCompleted,
-    onFind: props.onFindSections,
+    onOpen: props.onOpenCourse,
   };
-
-  const total = program?.total_units ?? 0;
-  const done = audit?.units ?? 0;
-  const share = (n: number): string =>
-    total > 0 ? `${Math.min(100, (n / total) * 100)}%` : '0%';
-  const remaining = Math.max(0, total - done - plannedUnits);
 
   return (
     <div className={styles.page}>
@@ -102,36 +93,9 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
 
       {program && (
         <>
-          {total > 0 && (
-            <div className={styles.hero}>
-              <p className={styles.heroFigure}>
-                {done}
-                <span className={styles.muted}> / {total}</span>
-              </p>
-              <div className={styles.heroBar}>
-                <span className={styles.heroDone} style={{ width: share(done) }} />
-                <span
-                  className={styles.heroPlanned}
-                  style={{ width: share(plannedUnits) }}
-                />
-              </div>
-              <p className={styles.heroLine}>
-                {plannedUnits > 0 && (
-                  <>
-                    <span className={styles.plus}>+{plannedUnits} this term</span>
-                    {' · '}
-                  </>
-                )}
-                {remaining} to go
-              </p>
-            </div>
-          )}
-
           <section className={styles.group}>
-            <header className={styles.headingRow}>
-              <h2 className={styles.heading}>Requirements</h2>
-              <Legend />
-            </header>
+            <h2 className={styles.heading}>Requirements</h2>
+            <Legend />
             <RequirementTree program={program} audit={audit} ctx={ctx} />
           </section>
         </>
@@ -157,8 +121,8 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
 }
 
 /**
- * Explains chip states: taken counts toward the degree already, this term
- * means a section is on the active week, and clicking marks a course taken.
+ * Explains chip states: taken counts toward the degree already, and this
+ * term means a section is on the active week.
  */
 function Legend(): React.JSX.Element {
   return (
@@ -171,7 +135,6 @@ function Legend(): React.JSX.Element {
       <span className={`${styles.miniChip} ${styles.locked}`}>
         <Lock size={9} /> Needs prerequisites
       </span>
-      <span className={styles.legendHint}>Click a course to mark it taken.</span>
     </span>
   );
 }
