@@ -6,13 +6,15 @@
  * is pinned by `usePlanCourses`, never read back from here.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { searchCourses } from '../api/client';
 import { parseQuery } from '../lib/query';
 import type { ParsedQuery } from '../lib/query';
 import type { Course } from '../types';
 
-const PAGE_SIZE = 100;
+// About two screens of results: enough to scroll into while the next page
+// loads, without rendering rows nobody sees.
+const PAGE_SIZE = 40;
 const DEBOUNCE_MS = 150;
 const NO_COURSES: readonly Course[] = [];
 
@@ -32,7 +34,8 @@ export interface CatalogSearch {
 
 /**
  * Re-queries `term`'s catalog 150 ms after the text settles and appends
- * further pages on demand. Empty text loads nothing: the Library shows saved
+ * further pages on demand. Results land in transitions, so rendering them
+ * never blocks typing. Empty text loads nothing: the Library shows saved
  * and suggested courses instead.
  */
 export function useCatalogSearch(term: number): CatalogSearch {
@@ -77,12 +80,17 @@ export function useCatalogSearch(term: number): CatalogSearch {
     const timer = setTimeout(() => {
       fetchPage(0)
         .then((items) => {
-          if (!stale) {
+          if (stale) {
+            return;
+          }
+          // Rendering a page of results yields to typing, so a keystroke
+          // never waits behind rows from the previous query.
+          startTransition(() => {
             setCourses(items);
             setResultKey(queryKey);
             setNextOffset(items.length);
             setHasMore(items.length >= PAGE_SIZE);
-          }
+          });
         })
         .catch(console.error);
     }, DEBOUNCE_MS);
@@ -102,12 +110,14 @@ export function useCatalogSearch(term: number): CatalogSearch {
         if (activeFetch.current !== fetchPage) {
           return;
         }
-        setNextOffset((prev) => prev + items.length);
-        setCourses((prev) => {
-          const seen = new Set(prev.map((c) => c.code));
-          return [...prev, ...items.filter((c) => !seen.has(c.code))];
+        startTransition(() => {
+          setNextOffset((prev) => prev + items.length);
+          setCourses((prev) => {
+            const seen = new Set(prev.map((c) => c.code));
+            return [...prev, ...items.filter((c) => !seen.has(c.code))];
+          });
+          setHasMore(items.length >= PAGE_SIZE);
         });
-        setHasMore(items.length >= PAGE_SIZE);
       })
       .catch(console.error)
       .finally(() => setIsLoadingMore(false));
