@@ -1,10 +1,11 @@
 """Google Gemini as the advisor's model, over the REST API.
 
-Streams `streamGenerateContent` as server-sent events. A reply that calls
-tools is answered by echoing the model's parts back unchanged (they carry
-the thought signatures Gemini requires), adding the tool results under the
-calls' ids, and asking again, for a bounded number of rounds; the last
-round forbids tools so the model must answer in words. Models are an
+Streams `streamGenerateContent` as server-sent events, one model turn of
+the shared tool loop (`llm.run`) at a time. Later turns echo the model's
+earlier parts back unchanged (they carry the thought signatures Gemini
+requires) followed by the tool results under the calls' ids; a turn
+without tools keeps their declarations but sets the calling mode to NONE.
+Models are an
 ordered list: while one is overloaded or out of free-tier quota, a request
 is retried once and then sent to the next, so a busy moment costs a pause
 rather than an error (each model has its own quota).
@@ -23,7 +24,6 @@ from server.src.agent import llm
 
 
 _API = "https://generativelanguage.googleapis.com/v1beta/models"
-_ROUNDS = 3  # Tool rounds before the model must answer.
 _TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 _CONFIG = {"maxOutputTokens": 2048, "temperature": 0.4}
 _RETRY_AFTER_S = 1.5
@@ -99,26 +99,33 @@ class Gemini:
       ]
     answered = False
     with httpx.Client(timeout=_TIMEOUT) as client:
-      for round_ in range(_ROUNDS):
+
+      def turn(
+        rounds: Sequence[llm.Round], allow_tools: bool
+      ) -> Iterator[str | llm.Step]:
+        nonlocal answered
+        request = {**body, "contents": contents + _replay(rounds)}
         if tools:
-          mode = "AUTO" if round_ < _ROUNDS - 1 else "NONE"
-          body["toolConfig"] = {"functionCallingConfig": {"mode": mode}}
+          mode = "AUTO" if allow_tools else "NONE"
+          request["toolConfig"] = {"functionCallingConfig": {"mode": mode}}
         parts: list[dict[str, Any]] = []
-        for part in self._attempts(client, {**body, "contents": contents}):
+        for part in self._attempts(client, request):
           parts.append(part)
           if part.get("text") and not part.get("thought"):
             answered = True
             yield part["text"]
-        calls = [p["functionCall"] for p in parts if "functionCall" in p]
-        if not calls:
-          break
-        contents.append({"role": "model", "parts": parts})
-        contents.append(
-          {
-            "role": "user",
-            "parts": [_result(call, execute) for call in calls],
-          }
+        yield llm.Step(
+          [
+            llm.Call(
+              p["functionCall"]["name"], p["functionCall"].get("args") or {}
+            )
+            for p in parts
+            if "functionCall" in p
+          ],
+          parts,
         )
+
+      yield from llm.run(turn, execute)
     if not answered:
       raise llm.ModelError("The advisor came back empty; try asking again.")
 
@@ -173,11 +180,29 @@ class Gemini:
       raise llm.ModelError(f"Couldn't reach Gemini ({e}).") from e
 
 
-def _result(call: Mapping[str, Any], execute: llm.Execute) -> dict[str, Any]:
-  """Runs one function call and answers it under the call's id."""
+def _replay(rounds: Sequence[llm.Round]) -> list[dict[str, Any]]:
+  """Each round as contents: the model's parts, then results under ids."""
+  contents: list[dict[str, Any]] = []
+  for r in rounds:
+    contents.append({"role": "model", "parts": r.step.raw})
+    calls = [p["functionCall"] for p in r.step.raw if "functionCall" in p]
+    contents.append(
+      {
+        "role": "user",
+        "parts": [
+          _response(call, out)
+          for call, out in zip(calls, r.results, strict=True)
+        ],
+      }
+    )
+  return contents
+
+
+def _response(call: Mapping[str, Any], result: str) -> dict[str, Any]:
+  """Answers one function call under its id, which Gemini 3 requires."""
   response: dict[str, Any] = {
     "name": call["name"],
-    "response": {"result": execute(call["name"], call.get("args") or {})},
+    "response": {"result": result},
   }
   if "id" in call:
     response["id"] = call["id"]

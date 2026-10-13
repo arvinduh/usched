@@ -5,11 +5,13 @@
  * slots: a loose chip is a course to take; chips gathered in a box are
  * alternatives, any one of which fills the slot. Nested requirements
  * indent beneath their parent. Chip fill encodes state (done, planned this
- * term, available, locked). Plan edits and navigation go to the caller.
+ * term, available, locked). Hovering a chip shows the course and lets the
+ * student mark it taken in place; clicking opens its card in the planner.
+ * Plan edits and navigation go to the caller.
  */
 
 import React from 'react';
-import { ArrowUpRight, Check, ExternalLink, Lock } from 'lucide-react';
+import { Check, ExternalLink, Lock } from 'lucide-react';
 import { uscCourseUrl } from '../api/client';
 import { courseKey, displayCode } from '../lib/degree';
 import type {
@@ -20,6 +22,7 @@ import type {
   RequirementProgress,
   Units,
 } from '../types';
+import { placePopover } from './popover';
 import styles from './Degree.module.css';
 
 /**
@@ -35,8 +38,9 @@ export interface ChipContext {
   /** Term for links to USC's Schedule of Classes. */
   readonly term: number;
   readonly onHover: (key: string | null) => void;
-  readonly onToggle: (code: string) => void;
-  readonly onFind: (code: string) => void;
+  /** Opens the course's card; `title` covers courses this term lacks. */
+  readonly onOpen: (code: string, title: string | null) => void;
+  readonly onToggleTaken: (code: string) => void;
 }
 
 type ChipState = 'done' | 'planned' | 'open' | 'locked';
@@ -202,15 +206,18 @@ function Chip({
   return (
     <span
       className={styles.chipWrap}
-      onMouseEnter={() => ctx.onHover(key)}
+      onMouseEnter={(e) => {
+        placePopover(e);
+        ctx.onHover(key);
+      }}
+      onFocus={placePopover}
       onMouseLeave={() => ctx.onHover(null)}
     >
       <button
         type="button"
         className={classes}
-        onClick={() => ctx.onToggle(code)}
-        aria-pressed={state === 'done'}
-        aria-label={`${displayCode(code)}, ${state}. Toggle done.`}
+        onClick={() => ctx.onOpen(code, choice.title)}
+        aria-label={`${displayCode(code)}, ${state}. Open.`}
       >
         {state === 'done' && <Check size={11} />}
         {state === 'locked' && <Lock size={10} />}
@@ -234,15 +241,14 @@ function Chip({
           </span>
         )}
         <span className={styles.popActions}>
-          {choice.title && (
-            <button
-              type="button"
-              className={styles.popLink}
-              onClick={() => ctx.onFind(code)}
-            >
-              Find sections <ArrowUpRight size={11} />
-            </button>
-          )}
+          <button
+            type="button"
+            className={styles.popAction}
+            onClick={() => ctx.onToggleTaken(code)}
+          >
+            <Check size={11} />
+            {state === 'done' ? 'Unmark taken' : 'Mark taken'}
+          </button>
           <a
             className={styles.popLink}
             href={uscCourseUrl(code, ctx.term)}

@@ -4,19 +4,30 @@ A calm course planner for USC students. Find classes, pick sections right on
 your week, and see how each choice moves you toward your degree. Everything you
 plan stays in your browser.
 
-- **Semester**: pick any fetched term from the top bar; each keeps its own
-  schedules. One input at the bottom of the left pane asks the advisor or finds
-  courses, and says what Enter will do as you type. Opening a course ghosts
-  every section onto your week; click a ghost to take it. Linked lectures, labs,
-  and quizzes stay together, and conflicts, units, missing components, and
-  D-clearance show up as you go.
-- **Degree**: pick your program by typing, mark what you've taken, and read its
-  requirement tree at a glance (loose chips mean take all, chips in a box mean
-  pick one). Hover a locked course to see what's blocking it.
-- **Advisor** (optional): answers from a brief of your real progress, next
-  courses, and week; searches the catalog and proposes whole schedules you keep
-  or discard. Courses it names that no source backs are flagged. Runs on Gemini
-  or a local Ollama model.
+Two places that work as one: the planner (your week, and beside it one column
+with one input) and your degree, which drops down from the top bar's meter.
+
+- **The input** does whatever you type: a course opens it, a question asks the
+  advisor, and "took CSCI 103L, MATH 125" marks courses taken. It always says
+  what Enter will do.
+- **The column** shows your saved courses, the degree courses you can take
+  next, and the conversation when you're not typing, and live matches while
+  you are.
+- **Your degree** (click the meter or press `D`) reads at a glance: loose chips
+  mean take all, chips in a box mean pick one; ✓ is taken, striped is on this
+  term's week. Hover a course to mark it taken; click it to plan it.
+- **One course card** opens from anywhere a course appears: the degree, search,
+  an advisor reply, or a block on the week. It shows prerequisites and
+  sections, and its sections ghost onto the week; click a ghost to take it.
+  Linked lectures, labs, and quizzes stay together, and conflicts, units,
+  missing components, and D-clearance show up as you go.
+- **The advisor** (optional, on Gemini) answers from a brief of your real
+  progress, next courses, and week. Schedules it proposes are built around
+  your week and appear on it right away: flip through the options and keep
+  one. Courses it names that the catalog lacks are flagged.
+
+Pick any fetched term from the top bar; each keeps its own schedules. The first
+visit asks for your program.
 
 ## Setup
 
@@ -30,9 +41,9 @@ npm install                # Node packages, then Python (uv sync)
 cp .env.example .env       # PowerShell: Copy-Item .env.example .env
 ```
 
-For the advisor, fill in either a Gemini key (free at
-[Google AI Studio](https://aistudio.google.com)) or an Ollama model in `.env`;
-`.env.example` explains each setting.
+For the advisor, fill in a Gemini key (free at
+[Google AI Studio](https://aistudio.google.com)) in `.env`; `.env.example`
+explains each setting. Without one, everything but the advisor works.
 
 ### Build the course catalog
 
@@ -67,14 +78,15 @@ stray "Terminate batch job (Y/N)?".
 
 | Key             | Action                                            |
 | :-------------- | :------------------------------------------------ |
-| `/`             | Search courses, or type a question to ask         |
-| `↑` `↓` `→` `←` | Move through results, expand and collapse courses |
-| `D`             | Switch between your week and your degree          |
+| `/` or `⌘J`     | Focus the input                                   |
+| `↑` `↓` `→`     | Move through matches; open the one under focus    |
+| `D`             | Open or close your degree                         |
+| `Esc`           | Close the degree, the course card, then the input |
 | `[` `]`         | Previous / next schedule variant                  |
-| `⌘J` / `Ctrl+J` | Ask the advisor                                   |
-| `⌘Z` / `Ctrl+Z` | Undo the last removal                             |
+| `⌘Enter`        | Ask the advisor even when the text names a course |
+| `⌘Z` / `Ctrl+Z` | Undo the last change                              |
 
-Right-click a section to add it to another variant. The `⋯` menu copies your
+Right-click a section to add it to another variant. The settings menu copies your
 section numbers for registration and resets all local data.
 
 ## Commands
@@ -90,8 +102,8 @@ section numbers for registration and resets all local data.
 | `npm run api`       | Regenerate client types after changing API models       |
 | `npm run test:live` | Test the configured advisor model for real (uses quota) |
 
-`check` runs no network calls; `test:live` talks to the real Gemini or Ollama
-your `.env` configures.
+`check` runs no network calls; `test:live` talks to the real Gemini your `.env`
+configures.
 
 ## Deploying
 
@@ -170,14 +182,14 @@ server/
     catalog/           Fetchers, pure parsers, schema, build, verify, publish
     data/              Read-only catalog queries and API models
     engine/            Schedule solver, degree and GE audits
-    agent/             Advisor: student brief, tools, chips, Gemini and
-                       Ollama providers, SSE streaming
+    agent/             Advisor: student brief, tools, chips, the Gemini
+                       model and its tool loop, SSE streaming
     routes/            Term-scoped catalog routes and chat
 tests/                 Pytest suites mirroring server/src
 client/src/
-  semester/            Search, course rows, ask pane, week canvas
+  semester/            The column, course lines and cards, the week
   degree/              Program picker, requirement chips, GE, credits
-  shell/               Top bar
+  shell/               Top bar and first-run welcome
   state/               Persisted plan store, previews, undo toasts
   lib/                 Pure schedule, query, and degree helpers
   ui/                  Shared glyphs, toast, context menu

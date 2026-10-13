@@ -363,10 +363,10 @@ export interface components {
          */
         ClosingEvent: {
             /** Action Chips */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Show"] | components["schemas"]["Search"])[];
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Search"])[];
             /**
              * Unverified
-             * @description Courses the reply names that no source established.
+             * @description Courses the reply names that the catalog does not have.
              */
             unverified: string[];
         };
@@ -884,24 +884,6 @@ export interface components {
             meetings: components["schemas"]["Meeting"][];
             /** Instructors */
             instructors: components["schemas"]["Instructor"][];
-        };
-        /**
-         * Show
-         * @description Switches the main view.
-         */
-        Show: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "show";
-            /** Label */
-            label: string;
-            /**
-             * View
-             * @enum {string}
-             */
-            view: "week" | "degree";
         };
         /**
          * Term

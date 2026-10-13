@@ -34,6 +34,8 @@ export interface PlanState {
   readonly apCredits: readonly ApCredit[];
   /** Chosen program, or empty until the student picks one. */
   readonly programId: string;
+  /** True once the first-run welcome was answered or skipped. */
+  readonly welcomed: boolean;
 }
 
 /** Bump the suffix when `PlanState` changes shape; old data is discarded. */
@@ -52,6 +54,7 @@ const DEFAULT_STATE: PlanState = {
   completedCourseIds: [],
   apCredits: [],
   programId: '',
+  welcomed: false,
 };
 
 /**

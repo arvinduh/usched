@@ -33,12 +33,34 @@
   line-height: 1.6;
 }
 
-.reply p:empty {
-  height: 0.6em;
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
+.text ul,
+.text ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 18px;
+}
+
+.text li::marker {
+  color: var(--text-muted);
+}
+
+.heading,
 .reply strong {
   font-weight: 550;
+}
+
+.unknownCode {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-decoration: underline dotted var(--warn);
+  text-underline-offset: 3px;
 }
 
 .code {
@@ -55,6 +77,25 @@
   text-decoration-color: var(--accent);
 }
 
+/* The degree's grammar: taken is checked and settled, this term striped. */
+.codeTaken {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-primary);
+  text-decoration-color: var(--hairline-strong);
+}
+
+.codePlanned {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--accent) 14%, transparent) 0 2px,
+    transparent 2px 5px
+  );
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -69,6 +110,9 @@
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 26px;
   padding: 0 11px;
   border-radius: 999px;

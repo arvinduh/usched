@@ -40,18 +40,29 @@ def test_details_include_requisites_seats_and_an_enroll_chip(conn):
 
 def test_solve_offers_each_option_as_a_proposal(conn):
   result = tools.solve_schedule(
-    conn, TERM, ["CSCI-104L"], excluded_days=["friday"]
+    conn, TERM, [], ["CSCI-104L"], excluded_days=["friday"]
   )
   assert result.content.startswith("Option 1")
   proposals = [c for c in result.chips if isinstance(c, chips.ProposeSchedule)]
   assert proposals and proposals[0].section_ids
-  absent = tools.solve_schedule(conn, TERM, ["CSCI-104L", "NOPE-1"])
+  absent = tools.solve_schedule(conn, TERM, [], ["CSCI-104L", "NOPE-1"])
   assert absent.content == "Not offered this term: NOPE-1."
 
 
+def test_solve_fits_courses_around_the_week_and_keeps_it(conn):
+  # CHEM 251x's 17367 meets Mon 14:00, as does CSCI 104L's lecture 29905.
+  result = tools.solve_schedule(conn, TERM, ["17367"], ["CSCI-104L"])
+  proposals = [c for c in result.chips if isinstance(c, chips.ProposeSchedule)]
+  assert proposals
+  for proposal in proposals:
+    assert "17367" in proposal.section_ids
+    assert "29905" not in proposal.section_ids
+  assert "Keeps your week: CHEM-251x 17367" in result.content
+
+
 def test_execute_reports_unknown_tools_and_bad_arguments(conn):
-  assert "Unknown tool" in tools.execute("nope", {}, conn, TERM).content
-  bad = tools.execute("search_courses", {"q": "x"}, conn, TERM)
+  assert "Unknown tool" in tools.execute("nope", {}, conn, TERM, []).content
+  bad = tools.execute("search_courses", {"q": "x"}, conn, TERM, [])
   assert bad.content.startswith("Bad arguments for search_courses")
 
 
@@ -83,25 +94,22 @@ def test_a_student_without_a_program_still_gets_a_brief(conn):
   assert facts.next_codes == []
 
 
-def test_the_reply_check_flags_only_ungrounded_courses():
+def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(conn):
   grounded = {"CSCI-104", "MATH-225"}
   reply = "Take CSCI 104L, then MATH-225g. CSCI 999 also looks fun."
-  assert advisor.unverified(reply, grounded) == ["CSCI 999"]
-  assert advisor.unverified("No courses here.", grounded) == []
+  assert advisor.unverified(reply, grounded, conn) == ["CSCI 999"]
+  assert advisor.unverified("No courses here.", grounded, conn) == []
+  # Never named by a source, but real: the catalog knows it.
+  assert advisor.unverified("CSCI 445L is a fine elective.", set(), conn) == []
 
 
-def test_closing_chips_prefer_tools_then_invited_views_then_next_steps():
+def test_closing_chips_prefer_tools_then_next_steps():
   search = chips.Search(label="Show CSCI-104L", query="CSCI-104L")
-  assert advisor.closing_chips("hi", [search], ["MATH-226"]) == [
+  assert advisor.closing_chips([search], ["MATH-226"]) == [
     search,
     chips.Search(label="Show MATH-226", query="MATH-226"),
   ]
-  week = advisor.closing_chips("fix my schedule", [], [])
-  assert [c.label for c in week] == ["Open week"]
-  assert [c.label for c in advisor.closing_chips("hi", [], [])] == [
-    "Open degree",
-    "Open week",
-  ]
+  assert advisor.closing_chips([], []) == []
 
 
 def _events(stream: Iterator[str]) -> list[Any]:

@@ -1,6 +1,6 @@
 """Action chips: one-tap follow-ups the advisor attaches to a reply.
 
-Each chip is a typed command the client applies to its plan or view. The
+Each chip is a typed command the client applies to its plan or opens. The
 union is discriminated by `action`, so the generated client types narrow
 on it and an unknown or malformed chip fails validation here, not
 silently in the browser.
@@ -36,14 +36,6 @@ class WatchCourse(pydantic.BaseModel):
   course_code: str
 
 
-class Show(pydantic.BaseModel):
-  """Switches the main view."""
-
-  action: Literal["show"] = "show"
-  label: str
-  view: Literal["week", "degree"]
-
-
 class Search(pydantic.BaseModel):
   """Runs a course search."""
 
@@ -53,6 +45,6 @@ class Search(pydantic.BaseModel):
 
 
 Chip = Annotated[
-  ProposeSchedule | EnrollSection | WatchCourse | Show | Search,
+  ProposeSchedule | EnrollSection | WatchCourse | Search,
   pydantic.Field(discriminator="action"),
 ]

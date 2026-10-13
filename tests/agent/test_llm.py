@@ -1,12 +1,14 @@
-"""Tests for choosing a model, and live tests of the real providers.
+"""Tests for configuring the model, the shared tool loop, and live Gemini.
 
-Live tests talk to the configured Gemini or Ollama and spend real quota,
-so they run only on request: `npm run test:live`.
+Live tests talk to the configured Gemini and spend real quota, so they run
+only on request: `npm run test:live`.
 """
+
+from collections.abc import Iterator, Sequence
 
 import pytest
 
-from server.src.agent import gemini, llm, ollama
+from server.src.agent import gemini, llm
 
 
 TOOLS = [
@@ -32,24 +34,52 @@ def test_a_gemini_key_selects_gemini_with_the_configured_models():
 
 
 def test_missing_configuration_says_what_to_set():
-  assert "GEMINI_API_KEY" in (
-    llm.from_env({"USCHED_LLM_PROVIDER": "gemini"}).unavailable() or ""
-  )
+  assert "GEMINI_API_KEY" in (llm.from_env({}).unavailable() or "")
   assert "GEMINI_MODELS" in (
     llm.from_env({"GEMINI_API_KEY": "k"}).unavailable() or ""
   )
-  local = llm.from_env({})
-  assert isinstance(local, ollama.Ollama)
-  assert "OLLAMA_MODEL" in (local.unavailable() or "")
 
 
-def test_the_provider_can_be_forced_but_not_invented():
-  forced = llm.from_env(
-    {"GEMINI_API_KEY": "k", "USCHED_LLM_PROVIDER": "ollama"}
-  )
-  assert isinstance(forced, ollama.Ollama)
-  with pytest.raises(ValueError, match="gemini or ollama"):
-    llm.from_env({"USCHED_LLM_PROVIDER": "openai"})
+def _scripted(*turns: Sequence[llm.Call]):
+  """A model turn that calls the given tools in order, then answers."""
+  seen: list[tuple[int, bool]] = []
+
+  def turn(
+    rounds: Sequence[llm.Round], allow_tools: bool
+  ) -> Iterator[str | llm.Step]:
+    seen.append((len(rounds), allow_tools))
+    calls = (
+      turns[len(rounds)] if allow_tools and len(rounds) < len(turns) else []
+    )
+    if not calls:
+      yield "Done."
+    yield llm.Step(list(calls), None)
+
+  return turn, seen
+
+
+def test_the_loop_feeds_each_round_its_results_then_answers():
+  search = llm.Call("search_courses", {"query": "ai"})
+  solve = llm.Call("solve_schedule", {"course_codes": ["CSCI-360"]})
+  turn, seen = _scripted([search], [solve])
+  ran: list[str] = []
+
+  def execute(name: str, args: object) -> str:
+    del args
+    ran.append(name)
+    return f"{name} result"
+
+  assert "".join(llm.run(turn, execute)) == "Done."
+  assert ran == ["search_courses", "solve_schedule"]
+  assert seen == [(0, True), (1, True), (2, False)]
+
+
+def test_the_loop_forbids_tools_after_its_rounds():
+  call = llm.Call("search_courses", {})
+  turn, seen = _scripted(*[[call]] * (llm.TOOL_ROUNDS + 2))
+  text = "".join(llm.run(turn, lambda name, args: "r"))
+  assert text == "Done."
+  assert [allowed for _, allowed in seen] == [True] * llm.TOOL_ROUNDS + [False]
 
 
 @pytest.mark.live

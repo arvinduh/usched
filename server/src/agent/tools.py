@@ -64,8 +64,10 @@ TOOLS = [
   ),
   llm.Tool(
     "solve_schedule",
-    "Builds conflict-free weekly schedules that take every listed course, "
-    "honoring day, time, and instructor preferences.",
+    "Builds conflict-free schedules that add every listed course to the "
+    "student's week, keeping the sections already on it and honoring day, "
+    "time, and instructor preferences. List a course already on the week "
+    "to re-pick its sections.",
     {
       "type": "object",
       "properties": {
@@ -237,6 +239,7 @@ def _minute(clock: str) -> int | None:
 def solve_schedule(
   conn: sqlite3.Connection,
   term: int,
+  week: Sequence[str],
   course_codes: Sequence[str],
   excluded_days: Sequence[str] = (),
   earliest_start_time: str = "",
@@ -245,12 +248,21 @@ def solve_schedule(
   excluded_instructors: Sequence[str] = (),
   min_rating: float | None = None,
 ) -> ToolResult:
-  """Finds the three best schedules and offers each as a proposal."""
+  """Finds the three best ways to add courses to the week; offers each.
+
+  Sections already on the week (`week`, by number) stay fixed unless
+  their course is listed, so each proposal is the whole resulting week.
+  """
   courses = catalog_db.courses(conn, term, list(course_codes))
   found_codes = {codes.identity(c.code) for c in courses}
   missing = [c for c in course_codes if codes.identity(c) not in found_codes]
   if missing:
     return ToolResult(f"Not offered this term: {', '.join(missing)}.")
+  kept = [
+    s
+    for s in catalog_db.sections(conn, term, list(week))
+    if codes.identity(s.course_code) not in found_codes
+  ]
   prefs = schedule.Preferences(
     excluded_days=frozenset(
       d for d in map(_weekday, excluded_days) if d is not None
@@ -261,13 +273,18 @@ def solve_schedule(
     excluded=tuple(p.lower() for p in excluded_instructors if p),
     min_rating=min_rating,
   )
-  options = schedule.solve(courses, prefs)
+  options = schedule.solve(courses, prefs, around=kept)
   if not options:
     return ToolResult(
-      "No conflict-free schedule takes all of "
-      f"{', '.join(c.code for c in courses)}; suggest dropping one."
+      "No conflict-free schedule adds all of "
+      f"{', '.join(c.code for c in courses)} to the week; suggest dropping "
+      "one, or listing a course already on the week to re-pick it."
     )
-  lines = []
+  lines = (
+    [f"Keeps your week: {', '.join(f'{s.course_code} {s.id}' for s in kept)}"]
+    if kept
+    else []
+  )
   actions: list[chips.Chip] = []
   for n, option in enumerate(options, 1):
     rating = option.average_rating
@@ -285,7 +302,7 @@ def solve_schedule(
       chips.ProposeSchedule(
         label=f"Preview option {n}",
         name=f"Option {n}",
-        section_ids=[s.id for s in option.sections],
+        section_ids=[s.id for s in kept] + [s.id for s in option.sections],
       )
     )
   return ToolResult("\n".join(lines), actions)
@@ -303,13 +320,20 @@ def execute(
   arguments: Mapping[str, Any],
   conn: sqlite3.Connection,
   term: int,
+  week: Sequence[str],
 ) -> ToolResult:
-  """Runs a tool by name; bad names or arguments become text for the model."""
+  """Runs a tool by name; bad names or arguments become text for the model.
+
+  A tool that declares a `week` parameter receives the student's week
+  (section numbers) from the request, never from the model.
+  """
   tool = _TOOLS.get(name)
   if tool is None:
     return ToolResult(f"Unknown tool '{name}'.")
+  signature = inspect.signature(tool)
+  context = {"week": week} if "week" in signature.parameters else {}
   try:
-    bound = inspect.signature(tool).bind(conn, term, **arguments)
+    bound = signature.bind(conn, term, **context, **arguments)
   except TypeError as e:
     return ToolResult(f"Bad arguments for {name}: {e}")
   return tool(*bound.args, **bound.kwargs)

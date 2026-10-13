@@ -1,17 +1,14 @@
 """The language-model interface the advisor talks to, and its configuration.
 
-A provider takes a system prompt, the conversation so far, the student's
-message, and tools, and streams reply text. Each provider runs its own
-tool loop, since their wire formats differ, calling back into the advisor
-to execute a tool. Which provider runs is configuration:
+A model takes a system prompt, the conversation so far, the student's
+message, and tools, and streams reply text. The tool loop (`run`) lives
+here, apart from any wire format, so the model module only translates one
+turn, and tests fake a whole model behind the `Model` protocol. The model
+is Gemini, configured by the environment:
 
-  USCHED_LLM_PROVIDER   gemini | ollama; default gemini when GEMINI_API_KEY
-                        is set, else ollama
-  GEMINI_API_KEY        Google AI Studio key (hosted deployments)
+  GEMINI_API_KEY        Google AI Studio key
   GEMINI_MODELS         comma-separated, preferred first; later ones take
                         over while earlier ones are busy or out of quota
-  OLLAMA_HOST           Ollama's address, default its own 127.0.0.1:11434
-  OLLAMA_MODEL          the model tag to use
 
 Model names are configuration, never code: they change monthly, and the
 advisor says which variable to set when one is missing.
@@ -42,6 +39,65 @@ class Turn:
 
 # Runs a tool by name with the model's arguments and returns text for it.
 Execute = Callable[[str, Mapping[str, Any]], str]
+
+# Rounds of tool calls a reply may make before it must answer in words.
+TOOL_ROUNDS = 2
+
+
+@dataclasses.dataclass(frozen=True)
+class Call:
+  """A tool the model asked to run."""
+
+  name: str
+  arguments: Mapping[str, Any]
+
+
+@dataclasses.dataclass(frozen=True)
+class Step:
+  """How a model turn ended: the tools it called, if any.
+
+  Attributes:
+    calls: Tools to run before the next turn; empty when it answered.
+    raw: The provider's own record of the turn, echoed back verbatim on
+      later turns (Gemini's carry thought signatures it requires).
+  """
+
+  calls: Sequence[Call]
+  raw: Any
+
+
+@dataclasses.dataclass(frozen=True)
+class Round:
+  """A finished tool round: the turn that called tools, and their results."""
+
+  step: Step
+  results: Sequence[str]
+
+
+# One model turn: given the rounds so far and whether tools are allowed,
+# streams reply text, then yields the Step that ended the turn.
+ModelTurn = Callable[[Sequence[Round], bool], Iterator[str | Step]]
+
+
+def run(turn: ModelTurn, execute: Execute) -> Iterator[str]:
+  """Runs the tool loop every provider shares, streaming reply text.
+
+  Each turn may call tools, whose results feed the next; after
+  `TOOL_ROUNDS` rounds, one more turn forbids tools, so a reply always
+  ends in words.
+  """
+  rounds: list[Round] = []
+  for n in range(TOOL_ROUNDS + 1):
+    step: Step | None = None
+    for event in turn(rounds, n < TOOL_ROUNDS):
+      if isinstance(event, Step):
+        step = event
+      else:
+        yield event
+    if step is None or not step.calls:
+      return
+    results = [execute(c.name, c.arguments) for c in step.calls]
+    rounds.append(Round(step, results))
 
 
 class ModelError(Exception):
@@ -74,17 +130,8 @@ class Model(Protocol):
 
 
 def from_env(env: Mapping[str, str] = os.environ) -> Model:
-  """Builds the provider `env` selects (see the module doc)."""
-  from server.src.agent import gemini, ollama
+  """Builds the model `env` configures (see the module doc)."""
+  from server.src.agent import gemini
 
-  key = env.get("GEMINI_API_KEY", "")
-  provider = env.get("USCHED_LLM_PROVIDER") or ("gemini" if key else "ollama")
-  if provider == "gemini":
-    models = [m.strip() for m in env.get("GEMINI_MODELS", "").split(",")]
-    return gemini.Gemini(key, [m for m in models if m])
-  if provider == "ollama":
-    return ollama.Ollama(
-      env.get("OLLAMA_HOST", "http://127.0.0.1:11434"),
-      env.get("OLLAMA_MODEL", ""),
-    )
-  raise ValueError(f"USCHED_LLM_PROVIDER must be gemini or ollama: {provider}")
+  models = [m.strip() for m in env.get("GEMINI_MODELS", "").split(",")]
+  return gemini.Gemini(env.get("GEMINI_API_KEY", ""), [m for m in models if m])

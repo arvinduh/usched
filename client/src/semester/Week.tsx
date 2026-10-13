@@ -1,7 +1,8 @@
 /**
  * The week canvas: the active variant's sections as blocks, plus ghosts of
- * the course being browsed. While the advisor proposes a schedule, the week
- * shows that proposal instead, dashed, until the user keeps or discards it.
+ * the course being browsed. While the advisor proposes schedules, the week
+ * projects one at a time in their place, dashing the sections it would add,
+ * until the user flips to another, keeps one, or discards them.
  *
  * Owns layout only: fitting the hour range to the content, splitting
  * overlapping blocks into lanes, and texturing blocks by section type. Ghost
@@ -9,7 +10,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Copy, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Plus, X } from 'lucide-react';
 import {
   WEEKDAYS,
   bySectionOrder,
@@ -23,7 +24,7 @@ import {
 import type { TimedMeeting } from '../lib/schedule';
 import { displayCode } from '../lib/degree';
 import { formatHour, formatRange } from '../lib/time';
-import { setFocus, usePreview } from '../state/preview';
+import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/preview';
 import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import { RatingPair } from '../ui/Glyphs';
@@ -128,7 +129,9 @@ export function Week(props: WeekProps): React.JSX.Element {
   } = props;
   const expanded = usePreview((p) => p.expanded);
   const focusId = usePreview((p) => p.focusId);
-  const proposal = usePreview((p) => p.proposal);
+  const proposal = usePreview(shownProposal);
+  const proposalCount = usePreview((p) => p.proposals.length);
+  const shownIndex = usePreview((p) => p.shown);
 
   // The proposal, when present, replaces the active variant on screen.
   const proposed = useMemo(
@@ -151,6 +154,8 @@ export function Week(props: WeekProps): React.JSX.Element {
     [props.scheduledCourseIds, scheduledCourseIds],
   );
 
+  // Sections already on the real week stay solid inside a proposal.
+  const kept = useMemo(() => new Set(props.sections.map((s) => s.id)), [props.sections]);
   const timed = useMemo(() => sections.filter(isTimed), [sections]);
   const activeIds = useMemo(() => new Set(sections.map((s) => s.id)), [sections]);
   const ghosts = useMemo(
@@ -211,6 +216,19 @@ export function Week(props: WeekProps): React.JSX.Element {
           )}
           {proposal && (
             <>
+              {proposalCount > 1 && (
+                <span className={styles.cycle}>
+                  <button type="button" onClick={() => cycleProposal(-1)} aria-label="Previous option">
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className={styles.num}>
+                    {shownIndex + 1} of {proposalCount}
+                  </span>
+                  <button type="button" onClick={() => cycleProposal(1)} aria-label="Next option">
+                    <ChevronRight size={14} />
+                  </button>
+                </span>
+              )}
               <button type="button" className={styles.keep} onClick={() => onKeepProposal(proposal)}>
                 Keep
               </button>
@@ -261,7 +279,7 @@ export function Week(props: WeekProps): React.JSX.Element {
                   <div
                     key={b.key}
                     className={`${styles.block} ${overlapping.has(s.id) ? styles.clash : ''} ${
-                      proposal ? styles.proposed : ''
+                      proposal && !kept.has(s.id) ? styles.proposed : ''
                     }`}
                     style={{
                       top: pct(b.start),
@@ -271,6 +289,12 @@ export function Week(props: WeekProps): React.JSX.Element {
                     }}
                     // Focusable so keyboard users reach the popover's actions.
                     tabIndex={0}
+                    onClick={(e) => {
+                      // The popover's own buttons act on the section instead.
+                      if (course && !(e.target as HTMLElement).closest('button')) {
+                        onFocusCourse(course);
+                      }
+                    }}
                     aria-label={`${displayCode(s.course_code)} ${s.type}, ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
                   >
                     <div
@@ -335,7 +359,7 @@ export function Week(props: WeekProps): React.JSX.Element {
 
         {timed.length === 0 && ghosts.length === 0 && (
           <p className={styles.empty}>
-            Press <kbd>/</kbd> to find a course
+            Type a course below, or ask for a schedule
           </p>
         )}
       </div>
