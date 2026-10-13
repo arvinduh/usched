@@ -7,11 +7,11 @@
  * and components; this module only edits user-authored data.
  */
 
-import { courseKey } from '../lib/degree';
-import { displaces } from '../lib/schedule';
+import { courseKey } from '../degree/_degree';
+import { displaces } from '../semester/_schedule';
 import { update, updateTerm } from './store';
-import type { TermPlan } from './store';
-import type { ScheduleConfiguration, Section } from '../types';
+import type { ScheduleConfiguration, TermPlan } from './store';
+import type { components } from '../api/schema';
 
 function toggle(ids: readonly string[], id: string): readonly string[] {
   return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
@@ -198,8 +198,8 @@ export function dropSection(sectionId: string, configId?: string): () => void {
  */
 function withSection(
   c: ScheduleConfiguration,
-  section: Section,
-  courseSections: readonly Section[],
+  section: components['schemas']['Section'],
+  courseSections: readonly components['schemas']['Section'][],
 ): ScheduleConfiguration {
   const rivals = new Set(
     courseSections.filter((x) => displaces(section, x)).map((x) => x.id),
@@ -218,8 +218,8 @@ function withSection(
  * same-type sibling.
  */
 export function addSection(
-  section: Section,
-  courseSections: readonly Section[],
+  section: components['schemas']['Section'],
+  courseSections: readonly components['schemas']['Section'][],
   configId?: string,
 ): void {
   updateTerm((s) =>
@@ -234,8 +234,8 @@ export function addSection(
  * when adding.
  */
 export function toggleSection(
-  section: Section,
-  courseSections: readonly Section[],
+  section: components['schemas']['Section'],
+  courseSections: readonly components['schemas']['Section'][],
 ): void {
   updateTerm((s) =>
     editConfig(s, s.activeConfigId, (c) =>

@@ -4,7 +4,7 @@ import pathlib
 
 import pytest
 
-from server.src.catalog import parse_courses
+from server.db.ingest import _parse_courses
 
 
 FIXTURE = (
@@ -13,8 +13,8 @@ FIXTURE = (
 
 
 @pytest.fixture(scope="module")
-def page() -> parse_courses.CoursePage:
-  return parse_courses.parse_page(FIXTURE, 22)
+def page() -> _parse_courses.CoursePage:
+  return _parse_courses.parse_page(FIXTURE, 22)
 
 
 @pytest.fixture(scope="module")
@@ -23,10 +23,10 @@ def by_code(page):
 
 
 def test_index_navigation_and_page_count():
-  assert parse_courses.course_index_navoid(FIXTURE) == 9384
-  assert parse_courses.page_count(FIXTURE) == 131
+  assert _parse_courses.course_index_navoid(FIXTURE) == 9384
+  assert _parse_courses.page_count(FIXTURE) == 131
   with pytest.raises(ValueError):
-    parse_courses.course_index_navoid("<html></html>")
+    _parse_courses.course_index_navoid("<html></html>")
 
 
 def test_codes_keep_catalogue_spelling(by_code):
@@ -86,7 +86,7 @@ def test_departments_come_from_headings(page):
 
 
 def test_ge_statements_and_extra_prose():
-  page = parse_courses.parse_page(
+  page = _parse_courses.parse_page(
     "<h2>Anthropology</h2><li><h3>ANTH 123gp Global Health</h3>Units: 2, 4"
     "<hr>Health across cultures.<br>Credit on acceptance of thesis.<br>"
     "Satisfies New General Education in Category C: Social Analysis<br>"

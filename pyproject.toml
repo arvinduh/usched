@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-catalog = "server.catalog:cli_main"
+catalog = "server.db.ingest.cli:cli_main"
 
 [build-system]
 requires = ["hatchling"]

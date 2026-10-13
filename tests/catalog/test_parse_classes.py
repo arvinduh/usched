@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from server.src.catalog import parse_classes
+from server.db.ingest import _parse_classes
 
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
@@ -14,9 +14,9 @@ TERM = 20271
 
 
 @pytest.fixture(scope="module")
-def listing() -> parse_classes.Listing:
+def listing() -> _parse_classes.Listing:
   raw = json.loads((FIXTURES / "listing.json").read_text(encoding="utf-8"))
-  return parse_classes.parse_listing(raw, TERM)
+  return _parse_classes.parse_listing(raw, TERM)
 
 
 def test_course_codes_keep_usc_suffix_case(listing):
@@ -98,7 +98,7 @@ def test_every_meeting_pattern_is_kept(listing):
   for m in listing.meetings:
     by_section[m.section_id].append(m)
   assert max(len(v) for v in by_section.values()) > 1
-  thursday = parse_classes.DAY_BITS["Thu"]
+  thursday = _parse_classes.DAY_BITS["Thu"]
   assert by_section["17523"][0].days == thursday
 
 
@@ -119,23 +119,23 @@ def test_co_taught_sections_keep_every_instructor_in_order(listing):
 
 def test_department_listed_under_two_schools_keeps_the_first():
   raw = json.loads((FIXTURES / "schools.json").read_text(encoding="utf-8"))
-  schools, departments = parse_classes.parse_schools(raw)
+  schools, departments = _parse_classes.parse_schools(raw)
   anat = [d for d in departments if d.code == "ANAT"]
   assert len(anat) == 1
   assert {s.code for s in schools} >= {"DNTR", "MEDK"}
 
 
 def test_instructor_key_normalizes_spacing_and_case():
-  assert parse_classes.instructor_key(" Carter ", "SLOCUM") == "carter slocum"
+  assert _parse_classes.instructor_key(" Carter ", "SLOCUM") == "carter slocum"
   assert (
-    parse_classes.parse_instructor({"firstName": "", "lastName": ""}) is None
+    _parse_classes.parse_instructor({"firstName": "", "lastName": ""}) is None
   )
 
 
 def test_sequence_letters_join_the_code_before_the_suffix():
   raw = json.loads((FIXTURES / "listing.json").read_text(encoding="utf-8"))
   course = dict(raw["courses"][0], sequence="A", suffix="L", geCode="35")
-  parsed = parse_classes.parse_listing({"courses": [course]}, TERM)
+  parsed = _parse_classes.parse_listing({"courses": [course]}, TERM)
   (code,) = {c.code for c in parsed.courses}
   assert code.endswith("AL")
   assert [g.usc_ge_code for g in parsed.usc_ge_codes] == ["35"]

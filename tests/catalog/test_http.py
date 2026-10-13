@@ -7,7 +7,7 @@ from http import server as http_server
 import httpx
 import pytest
 
-from server.src.catalog import http
+from server.db.ingest import _http
 
 
 class _Server(http_server.ThreadingHTTPServer):
@@ -61,12 +61,12 @@ def _url(server: _Server) -> str:
 
 def test_rate_limits_are_retried(busy_then_ok):
   with httpx.Client() as client:
-    response = http.request(client, "GET", _url(busy_then_ok))
+    response = _http.request(client, "GET", _url(busy_then_ok))
   assert response.text == "ok"
   assert busy_then_ok.requests == 2
 
 
 def test_client_errors_are_not_retried(missing):
   with httpx.Client() as client, pytest.raises(httpx.HTTPStatusError):
-    http.request(client, "GET", _url(missing))
+    _http.request(client, "GET", _url(missing))
   assert missing.requests == 1

@@ -7,48 +7,52 @@ from typing import Any
 
 import pytest
 
-from server.src.agent import advisor, brief, chips, tools
-from server.src.data import catalog_models as m
+from server.agent import _brief, _chips, _tools, advisor
+from server.db import models
 
 
 TERM = 20271
 
 
 def test_search_lists_matches_with_search_chips(conn):
-  result = tools.search_courses(conn, TERM, "data structures")
+  result = _tools.search_courses(conn, TERM, "data structures")
   assert result.content.startswith("CSCI-104L: Data Structures (4 units)")
-  assert chips.Search(label="Show CSCI-104L", query="CSCI-104L") in result.chips
+  assert (
+    _chips.Search(label="Show CSCI-104L", query="CSCI-104L") in result.chips
+  )
 
 
 def test_details_include_requisites_seats_and_an_enroll_chip(conn):
-  result = tools.get_course_details(conn, TERM, "csci-104l")
+  result = _tools.get_course_details(conn, TERM, "csci-104l")
   assert "Prerequisites:" in result.content
   assert "D-clearance" in result.content
-  assert any(isinstance(c, chips.EnrollSection) for c in result.chips)
-  missing = tools.get_course_details(conn, TERM, "NOPE-1")
+  assert any(isinstance(c, _chips.EnrollSection) for c in result.chips)
+  missing = _tools.get_course_details(conn, TERM, "NOPE-1")
   assert missing.content == "NOPE-1 is not offered this term."
 
 
 def test_solve_offers_each_option_as_a_proposal(conn):
-  result = tools.solve_schedule(
+  result = _tools.solve_schedule(
     conn, TERM, [], ["CSCI-104L"], excluded_days=["friday"]
   )
   assert result.content.startswith("Option 1")
-  proposals = [c for c in result.chips if isinstance(c, chips.ProposeSchedule)]
+  proposals = [c for c in result.chips if isinstance(c, _chips.ProposeSchedule)]
   assert proposals and proposals[0].section_ids
-  absent = tools.solve_schedule(conn, TERM, [], ["CSCI-104L", "NOPE-1"])
+  absent = _tools.solve_schedule(conn, TERM, [], ["CSCI-104L", "NOPE-1"])
   assert absent.content == "Not offered this term: NOPE-1."
 
 
 def test_solve_applies_filters_and_names_what_blocks_a_week(conn):
   # Only 104L's group-B lecture (29989, Tue/Thu 8:00) ends by noon.
-  morning = tools.solve_schedule(
+  morning = _tools.solve_schedule(
     conn, TERM, [], ["CSCI-104L"], latest_end_time="12:00", goals=["easy"]
   )
-  proposals = [c for c in morning.chips if isinstance(c, chips.ProposeSchedule)]
+  proposals = [
+    c for c in morning.chips if isinstance(c, _chips.ProposeSchedule)
+  ]
   assert proposals and all("29989" in p.section_ids for p in proposals)
   assert "days" in morning.content and "min between classes" in morning.content
-  blocked = tools.solve_schedule(
+  blocked = _tools.solve_schedule(
     conn,
     TERM,
     [],
@@ -61,7 +65,7 @@ def test_solve_applies_filters_and_names_what_blocks_a_week(conn):
   assert "Dropping the days off would allow one" in blocked.content
   assert (
     "Unknown goals: fun"
-    in tools.solve_schedule(
+    in _tools.solve_schedule(
       conn, TERM, [], ["CSCI-104L"], goals=["fun"]
     ).content
   )
@@ -69,8 +73,8 @@ def test_solve_applies_filters_and_names_what_blocks_a_week(conn):
 
 def test_solve_fits_courses_around_the_week_and_keeps_it(conn):
   # CHEM 251x's 17367 meets Mon 14:00, as does CSCI 104L's lecture 29905.
-  result = tools.solve_schedule(conn, TERM, ["17367"], ["CSCI-104L"])
-  proposals = [c for c in result.chips if isinstance(c, chips.ProposeSchedule)]
+  result = _tools.solve_schedule(conn, TERM, ["17367"], ["CSCI-104L"])
+  proposals = [c for c in result.chips if isinstance(c, _chips.ProposeSchedule)]
   assert proposals
   for proposal in proposals:
     assert "17367" in proposal.section_ids
@@ -80,7 +84,7 @@ def test_solve_fits_courses_around_the_week_and_keeps_it(conn):
 
 def test_edit_week_swaps_removes_and_previews_the_result(conn):
   # 29989 is CSCI 104L's group-B lecture; it swaps out lecture 29905.
-  result = tools.edit_week(
+  result = _tools.edit_week(
     conn,
     TERM,
     ["17367", "29905"],
@@ -88,44 +92,44 @@ def test_edit_week_swaps_removes_and_previews_the_result(conn):
     remove_courses=["CHEM 251x"],
   )
   (proposal,) = result.chips
-  assert isinstance(proposal, chips.ProposeSchedule)
+  assert isinstance(proposal, _chips.ProposeSchedule)
   assert proposal.section_ids == ["29989"]
   # Group A's lecture comes with a lab and a quiz to pick.
-  partial = tools.edit_week(conn, TERM, [], add_sections=["29905"])
+  partial = _tools.edit_week(conn, TERM, [], add_sections=["29905"])
   assert "CSCI-104L still needs a Lab and a Quiz" in partial.content
-  unchanged = tools.edit_week(conn, TERM, ["17367"], remove_sections=["1"])
+  unchanged = _tools.edit_week(conn, TERM, ["17367"], remove_sections=["1"])
   assert unchanged.content == "That leaves the week unchanged."
-  assert tools.edit_week(conn, TERM, [], add_sections=["0"]).content == (
+  assert _tools.edit_week(conn, TERM, [], add_sections=["0"]).content == (
     "Not sections this term: 0."
   )
 
 
 def test_mark_taken_records_only_catalog_courses(conn):
-  result = tools.mark_taken(conn, TERM, ["csci 103l", "FAKE 999"])
+  result = _tools.mark_taken(conn, TERM, ["csci 103l", "FAKE 999"])
   assert result.chips == [
-    chips.MarkTaken(label="Marked CSCI-103L taken", course_codes=["CSCI-103L"])
+    _chips.MarkTaken(label="Marked CSCI-103L taken", course_codes=["CSCI-103L"])
   ]
   assert result.content == "Marked taken: CSCI-103L. Not USC courses: FAKE 999."
 
 
 def test_execute_reports_unknown_tools_and_bad_arguments(conn):
-  assert "Unknown tool" in tools.execute("nope", {}, conn, TERM, []).content
-  bad = tools.execute("search_courses", {"q": "x"}, conn, TERM, [])
+  assert "Unknown tool" in _tools.execute("nope", {}, conn, TERM, []).content
+  bad = _tools.execute("search_courses", {"q": "x"}, conn, TERM, [])
   assert bad.content.startswith("Bad arguments for search_courses")
 
 
-STUDENT = brief.Student(
+STUDENT = _brief.Student(
   term=TERM,
   program_id="computer-science-bs",
   section_ids=["29905"],
   shortlisted=["CSCI-420"],
   completed=["CSCI-103L"],
-  ap_credits=[m.ApCredit(exam_id="AP_CALC_BC", score=5)],
+  ap_credits=[models.ApCredit(exam_id="AP_CALC_BC", score=5)],
 )
 
 
 def test_the_brief_states_progress_next_steps_and_the_week(conn):
-  facts = brief.build(conn, STUDENT)
+  facts = _brief.build(conn, STUDENT)
   assert "Planning: Spring 2027" in facts.text
   assert "Program: Computer Science (BS)" in facts.text
   assert "Open GE categories:" in facts.text
@@ -141,30 +145,30 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
 
 def test_the_brief_counts_ge_seats_the_student_filled_by_hand(conn):
   every = {f"GE-{letter}": 9 for letter in "ABCDEFGH"}
-  text = brief.build(conn, dataclasses.replace(STUDENT, ge_counted=every)).text
+  text = _brief.build(conn, dataclasses.replace(STUDENT, ge_counted=every)).text
   assert "Open GE categories: none" in text
 
 
 def test_the_brief_says_what_is_on_screen_and_the_other_schedules(conn):
   student = dataclasses.replace(
     STUDENT,
-    variants=[brief.Variant("B", ["17367"])],
-    screen=brief.Screen(
+    variants=[_brief.Variant("B", ["17367"])],
+    screen=_brief.Screen(
       page="planner",
       open_course="CSCI-445Lx",
-      proposal=brief.Variant("Option 2", ["30386", "29910"]),
+      proposal=_brief.Variant("Option 2", ["30386", "29910"]),
     ),
   )
-  text = brief.build(conn, student).text
+  text = _brief.build(conn, student).text
   assert "Other schedule B: CHEM-251x (17367)" in text
   assert "On screen: the planner" in text
   assert "Open course: CSCI-445Lx" in text
   assert "proposal Option 2: CSCI-445Lx (30386, 29910), not yet kept" in text
-  assert "CHEM-251" in brief.build(conn, student).grounded
+  assert "CHEM-251" in _brief.build(conn, student).grounded
 
 
 def test_a_student_without_a_program_still_gets_a_brief(conn):
-  facts = brief.build(conn, dataclasses.replace(STUDENT, program_id=None))
+  facts = _brief.build(conn, dataclasses.replace(STUDENT, program_id=None))
   assert "Program: not chosen" in facts.text
   assert "Can take next" not in facts.text
 
@@ -183,11 +187,11 @@ def test_history_remembers_what_each_reply_offered(conn):
     role="assistant",
     content="Two ways to fit it.",
     action_chips=[
-      chips.ProposeSchedule(
+      _chips.ProposeSchedule(
         label="Preview option 1", name="Option 1", section_ids=["17367"]
       ),
-      chips.WatchCourse(label="Save", course_code="CSCI-104L"),
-      chips.Search(label="Show MATH-226", query="MATH-226"),
+      _chips.WatchCourse(label="Save", course_code="CSCI-104L"),
+      _chips.Search(label="Show MATH-226", query="MATH-226"),
     ],
   )
   assert advisor.remembered(conn, TERM, turn) == (
@@ -199,7 +203,7 @@ def test_history_remembers_what_each_reply_offered(conn):
 
 
 def test_chips_come_only_from_what_the_model_did():
-  search = chips.Search(label="Show CSCI-104L", query="CSCI-104L")
+  search = _chips.Search(label="Show CSCI-104L", query="CSCI-104L")
   assert advisor.closing_chips([search, search]) == [search]
   assert advisor.closing_chips([]) == []
 

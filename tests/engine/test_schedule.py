@@ -1,27 +1,31 @@
 """Tests for bundling sections and solving schedules."""
 
-from server.src.data import catalog_models as m
-from server.src.engine import schedule
+from server.db import models
+from server.engine import schedule
 
 
-MON, TUE, WED = m.Weekday.MON, m.Weekday.TUE, m.Weekday.WED
+MON, TUE, WED = (
+  models.Weekday.MON,
+  models.Weekday.TUE,
+  models.Weekday.WED,
+)
 
 
 def _section(
   sid: str,
   kind: str = "Lecture",
   link: str | None = None,
-  days: tuple[m.Weekday, ...] = (MON,),
+  days: tuple[models.Weekday, ...] = (MON,),
   start: int | None = 600,
   end: int | None = 650,
   teacher: str = "Ann Lee",
   rating: float | None = None,
   cancelled: bool = False,
-) -> m.Section:
+) -> models.Section:
   rmp = (
     None
     if rating is None
-    else m.Rating(
+    else models.Rating(
       rmp_id=1,
       rating=rating,
       difficulty=None,
@@ -29,7 +33,7 @@ def _section(
       would_take_again=None,
     )
   )
-  return m.Section(
+  return models.Section(
     term=20271,
     id=sid,
     course_code="X-1",
@@ -46,13 +50,15 @@ def _section(
     description=None,
     notes=None,
     syllabus_url=None,
-    meetings=[m.Meeting(days=list(days), start_minute=start, end_minute=end)],
-    instructors=[m.Instructor(key=teacher.lower(), name=teacher, rmp=rmp)],
+    meetings=[
+      models.Meeting(days=list(days), start_minute=start, end_minute=end)
+    ],
+    instructors=[models.Instructor(key=teacher.lower(), name=teacher, rmp=rmp)],
   )
 
 
-def _course(code: str, *sections: m.Section) -> m.Course:
-  return m.Course(
+def _course(code: str, *sections: models.Section) -> models.Course:
+  return models.Course(
     term=20271,
     code=code,
     department=code.split("-")[0],
@@ -60,14 +66,16 @@ def _course(code: str, *sections: m.Section) -> m.Course:
     suffix="",
     title=code,
     description="",
-    units=m.Units(min=4, max=4),
+    units=models.Units(min=4, max=4),
     recommended_prep=None,
     duplicate_credit=None,
     course_notes=None,
     term_notes=None,
     is_cross_listed=False,
     ge=[],
-    requisites=m.Requisites(prerequisite=[], corequisite=[], concurrent=[]),
+    requisites=models.Requisites(
+      prerequisite=[], corequisite=[], concurrent=[]
+    ),
     restrictions=[],
     sections=list(sections),
   )

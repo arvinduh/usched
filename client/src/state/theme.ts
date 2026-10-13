@@ -10,7 +10,7 @@
  */
 
 import { STORAGE_KEYS } from '../config';
-import { createExternalStore, useSelector } from '../lib/externalStore';
+import { createExternalStore, useSelector } from './_externalStore';
 
 /** A theme choice. */
 export type Theme = 'system' | 'light' | 'dark';

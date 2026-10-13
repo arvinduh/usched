@@ -13,17 +13,10 @@
 
 import React from 'react';
 import { Check, ExternalLink, Lock, Search } from 'lucide-react';
-import { uscCourseUrl } from '../api/client';
-import { courseKey, displayCode } from '../lib/degree';
-import type {
-  Program,
-  ProgramAudit,
-  Requirement,
-  RequirementChoice,
-  RequirementProgress,
-  Units,
-} from '../types';
-import { placePopover } from './popover';
+import { uscCourseUrl } from '../config';
+import { courseKey, displayCode } from './_degree';
+import type { components } from '../api/schema';
+import { placePopover } from './_popover';
 import styles from './Degree.module.css';
 
 /**
@@ -49,7 +42,7 @@ type ChipState = 'done' | 'planned' | 'open' | 'locked';
 /** Notes longer than this collapse behind their first line. */
 const LONG_NOTES = 160;
 
-function codeOf(choice: RequirementChoice): string {
+function codeOf(choice: components['schemas']['RequirementChoice']): string {
   return choice.course.resolved ?? choice.course.code;
 }
 
@@ -63,7 +56,7 @@ function stateOf(key: string, ctx: ChipContext): ChipState {
   return ctx.locked.has(key) ? 'locked' : 'open';
 }
 
-function unitsText(units: Units): string {
+function unitsText(units: components['schemas']['Units']): string {
   return units.min === units.max ? `${units.min}` : `${units.min}–${units.max}`;
 }
 
@@ -75,18 +68,18 @@ export function RequirementTree({
   audit,
   ctx,
 }: {
-  readonly program: Program;
-  readonly audit: ProgramAudit | null;
+  readonly program: components['schemas']['Program'];
+  readonly audit: components['schemas']['ProgramAudit'] | null;
   readonly ctx: ChipContext;
 }): React.JSX.Element {
-  const children = new Map<number | null, Requirement[]>();
+  const children = new Map<number | null, components['schemas']['Requirement'][]>();
   for (const req of program.requirements) {
     const siblings = children.get(req.parent) ?? [];
     siblings.push(req);
     children.set(req.parent, siblings);
   }
   const progress = new Map(audit?.requirements.map((p) => [p.position, p]));
-  const render = (req: Requirement, depth: number): React.JSX.Element => (
+  const render = (req: components['schemas']['Requirement'], depth: number): React.JSX.Element => (
     <RequirementNode
       key={req.position}
       req={req}
@@ -107,8 +100,8 @@ function RequirementNode({
   ctx,
   children,
 }: {
-  readonly req: Requirement;
-  readonly progress: RequirementProgress | undefined;
+  readonly req: components['schemas']['Requirement'];
+  readonly progress: components['schemas']['RequirementProgress'] | undefined;
   readonly depth: number;
   readonly ctx: ChipContext;
   readonly children: React.ReactNode;
@@ -189,7 +182,7 @@ function Chip({
   ctx,
   faded,
 }: {
-  readonly choice: RequirementChoice;
+  readonly choice: components['schemas']['RequirementChoice'];
   readonly ctx: ChipContext;
   readonly faded: boolean;
 }): React.JSX.Element {

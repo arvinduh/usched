@@ -10,14 +10,14 @@
 import React from 'react';
 import { APP_NAME } from '../config';
 import { ProgramSearch } from '../degree/DegreePicker';
-import type { ProgramSummary } from '../types';
+import type { components } from '../api/schema';
 import styles from './Welcome.module.css';
 
 /**
  * Properties for the welcome screen.
  */
 export interface WelcomeProps {
-  readonly programs: readonly ProgramSummary[];
+  readonly programs: readonly components['schemas']['ProgramSummary'][];
   readonly onChoose: (programId: string) => void;
   readonly onSkip: () => void;
 }

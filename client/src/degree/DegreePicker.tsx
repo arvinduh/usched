@@ -9,8 +9,8 @@
 
 import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { ProgramSummary } from '../types';
-import { indexPrograms, LEVELS, levelOf, rankPrograms, type Level } from './match';
+import type { components } from '../api/schema';
+import { indexPrograms, LEVELS, levelOf, rankPrograms, type Level } from './_degree';
 import styles from './Degree.module.css';
 
 /**
@@ -18,13 +18,13 @@ import styles from './Degree.module.css';
  */
 export interface DegreePickerProps {
   /** Degrees and minors; other program kinds are not offered here. */
-  readonly programs: readonly ProgramSummary[];
+  readonly programs: readonly components['schemas']['ProgramSummary'][];
   readonly selectedId: string;
   readonly onSelect: (programId: string) => void;
 }
 
 /** The chip text for a program: its degree type, or Minor. */
-function typeOf(p: ProgramSummary): string {
+function typeOf(p: components['schemas']['ProgramSummary']): string {
   return p.degree_type ?? (p.kind === 'minor' ? 'Minor' : '');
 }
 
@@ -47,8 +47,8 @@ export function TypeChip({ type }: { readonly type: string }): React.JSX.Element
  * another program shares its title.
  */
 function useProgramDetail(
-  programs: readonly ProgramSummary[],
-): (p: ProgramSummary) => string {
+  programs: readonly components['schemas']['ProgramSummary'][],
+): (p: components['schemas']['ProgramSummary']) => string {
   const sharedTitles = useMemo(() => {
     const seen = new Set<string>();
     const shared = new Set<string>();
@@ -67,7 +67,7 @@ function useProgramDetail(
  * Properties for the program combobox.
  */
 export interface ProgramSearchProps {
-  readonly programs: readonly ProgramSummary[];
+  readonly programs: readonly components['schemas']['ProgramSummary'][];
   readonly onChoose: (programId: string) => void;
   /** Leaving the input (blur or Escape); omit to keep it open. */
   readonly onCancel?: () => void;
@@ -194,7 +194,7 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
  * Properties for one program in the combobox's list.
  */
 interface ProgramOptionProps {
-  readonly program: ProgramSummary;
+  readonly program: components['schemas']['ProgramSummary'];
   readonly detail: string;
   readonly position: number;
   readonly isActive: boolean;

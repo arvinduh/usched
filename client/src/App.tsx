@@ -24,13 +24,13 @@ import {
   getTerms,
   lookupCourses,
 } from './api/client';
-import { applyActionChip, proposalsOf } from './components/Chat/applyActionChip';
-import { useAdvisorChat } from './hooks/useAdvisorChat';
-import { useCatalogSearch } from './hooks/useCatalogSearch';
+import { applyActionChip, proposalsOf } from './semester/assistant/_applyActionChip';
+import { useAdvisorChat } from './semester/assistant/_useAdvisorChat';
+import { useCatalogSearch } from './semester/_search/useCatalogSearch';
 import { DegreeView } from './degree/DegreeView';
-import { courseKey, displayCode } from './lib/degree';
-import { isTimed, totalUnits } from './lib/schedule';
-import { Assistant } from './semester/Assistant';
+import { courseKey, displayCode } from './degree/_degree';
+import { isTimed, totalUnits } from './semester/_schedule';
+import { Assistant } from './semester/assistant/Assistant';
 import { CourseCard } from './semester/Course';
 import type { CoursePlan } from './semester/Course';
 import { Week } from './semester/Week';
@@ -59,21 +59,11 @@ import {
 import { setExpanded, setProposals, shownProposal, usePreview } from './state/preview';
 import type { Proposal } from './state/preview';
 import { reset, useStore, useTermPlan } from './state/store';
+import type { ScheduleConfiguration } from './state/store';
 import { showToast, undoLast } from './state/toast';
 import { usePlanCourses } from './state/usePlanCourses';
 import { ToastHost } from './ui/Toast';
-import type {
-  ApExam,
-  Chip,
-  Course,
-  GeProgress,
-  Program,
-  ProgramAudit,
-  ProgramSummary,
-  ScheduleConfiguration,
-  Section,
-  Term,
-} from './types';
+import type { components } from './api/schema';
 import styles from './App.module.css';
 
 /** Text that names a course rather than a topic, e.g. "CSCI-104L". */
@@ -93,7 +83,7 @@ interface Opened {
   /** A title from whoever opened it, for courses this term lacks. */
   readonly title: string | null;
   /** Null when this term does not offer the course. */
-  readonly course: Course | null;
+  readonly course: components['schemas']['Course'] | null;
 }
 
 const PANE_KEY = 'usched:pane';
@@ -135,7 +125,7 @@ function isTyping(target: EventTarget | null): boolean {
  * Loads the plannable terms and renders the planner for the chosen one.
  */
 export function App(): React.JSX.Element {
-  const [terms, setTerms] = useState<readonly Term[] | null>(null);
+  const [terms, setTerms] = useState<readonly components['schemas']['Term'][] | null>(null);
   const [failed, setFailed] = useState(false);
   const stored = useStore((s) => s.term);
 
@@ -175,7 +165,7 @@ function Planner({
   terms,
 }: {
   readonly term: number;
-  readonly terms: readonly Term[];
+  readonly terms: readonly components['schemas']['Term'][];
 }): React.JSX.Element {
   const searchInput = useRef<HTMLInputElement>(null);
   const semester = useRef<HTMLElement>(null);
@@ -195,19 +185,19 @@ function Planner({
   const programId = useStore((s) => s.programId);
   const welcomed = useStore((s) => s.welcomed);
 
-  const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
-  const [apExams, setApExams] = useState<readonly ApExam[]>([]);
+  const [programs, setPrograms] = useState<readonly components['schemas']['ProgramSummary'][]>([]);
+  const [apExams, setApExams] = useState<readonly components['schemas']['ApExam'][]>([]);
   // Fetched results remember what they answer, so a stale one is never
   // shown for a newly chosen program or term.
-  const [loadedProgram, setLoadedProgram] = useState<Program | null>(null);
+  const [loadedProgram, setLoadedProgram] = useState<components['schemas']['Program'] | null>(null);
   const [loadedAudit, setLoadedAudit] = useState<{
     readonly key: string;
-    readonly audit: ProgramAudit;
+    readonly audit: components['schemas']['ProgramAudit'];
   } | null>(null);
   const auditKey = `${term}|${programId}`;
   const program = loadedProgram?.id === programId ? loadedProgram : null;
   const audit = loadedAudit?.key === auditKey ? loadedAudit.audit : null;
-  const [geProgress, setGeProgress] = useState<readonly GeProgress[] | null>(
+  const [geProgress, setGeProgress] = useState<readonly components['schemas']['GeProgress'][] | null>(
     null,
   );
 
@@ -242,17 +232,21 @@ function Planner({
   const goRef = useRef<(next: Space) => void>(() => {});
   // A finished reply acts at once: proposals land on the week, and courses
   // the student said they took are recorded, with undo.
-  const projectProposals = useCallback((chips: readonly Chip[]): void => {
-    const proposals = proposalsOf(chips);
-    if (proposals.length > 0) {
-      goRef.current('planner');
-      setProposals(proposals);
-    }
-  }, []);
-  const actOnReply = useCallback((chips: readonly Chip[]): void => {
-    projectProposals(chips);
-    for (const chip of chips) {
-      if (chip.action === 'mark_taken') {
+  const projectProposals = useCallback(
+    (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]): void => {
+      const proposals = proposalsOf(chips);
+      if (proposals.length > 0) {
+        goRef.current('planner');
+        setProposals(proposals);
+      }
+    },
+    [],
+  );
+  const actOnReply = useCallback(
+    (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]): void => {
+      projectProposals(chips);
+      for (const chip of chips) {
+        if (chip.action === 'mark_taken') {
         showToast(chip.label, recordCompleted(chip.course_codes));
       }
     }
@@ -305,7 +299,7 @@ function Planner({
     () =>
       activeSectionIds
         .map((id) => sectionsById.get(id))
-        .filter((s): s is Section => s !== undefined),
+        .filter((s): s is components['schemas']['Section'] => s !== undefined),
     [activeSectionIds, sectionsById],
   );
   const scheduledCourseIds = useMemo(
@@ -329,7 +323,7 @@ function Planner({
     () =>
       watchedCourseIds
         .map((code) => coursesByCode.get(code))
-        .filter((c): c is Course => c !== undefined),
+        .filter((c): c is components['schemas']['Course'] => c !== undefined),
     [watchedCourseIds, coursesByCode],
   );
 
@@ -338,7 +332,7 @@ function Planner({
       nextUpIds
         .filter((id) => !planned.has(courseKey(id)))
         .map((code) => coursesByCode.get(code))
-        .filter((c): c is Course => c !== undefined)
+        .filter((c): c is components['schemas']['Course'] => c !== undefined)
         .slice(0, NEXT_UP),
     [nextUpIds, planned, coursesByCode],
   );
@@ -419,7 +413,7 @@ function Planner({
     }
   }, [go]);
 
-  const openCourse = (course: Course): void => {
+  const openCourse = (course: components['schemas']['Course']): void => {
     opening.current = course.code;
     remember(course);
     setExpanded(course);
@@ -451,7 +445,7 @@ function Planner({
   // the week shows the open card's sections, if any.
   const expanded = usePreview((p) => p.expanded);
   const resting = opened?.course ?? null;
-  const pickBlock = (course: Course): void => {
+  const pickBlock = (course: components['schemas']['Course']): void => {
     if (expanded?.code === course.code) {
       setExpanded(resting);
     } else if (course.sections.some((s) => isTimed(s) && !activeIds.has(s.id))) {
@@ -491,14 +485,17 @@ function Planner({
     selectTerm(next);
   };
 
-  const handleToggleSection = (section: Section, course: Course): void => {
+  const handleToggleSection = (
+    section: components['schemas']['Section'],
+    course: components['schemas']['Course'],
+  ): void => {
     remember(course);
     toggleSection(section, course.sections);
   };
 
   const handleAddToVariant = (
-    section: Section,
-    course: Course,
+    section: components['schemas']['Section'],
+    course: components['schemas']['Course'],
     configId: string | null,
   ): void => {
     remember(course);
@@ -533,7 +530,7 @@ function Planner({
     selectConfig(configId);
   };
 
-  const handleRemove = (section: Section): void => {
+  const handleRemove = (section: components['schemas']['Section']): void => {
     const undo = dropSection(section.id);
     showToast(
       `Removed ${displayCode(section.course_code)} ${section.type.toLowerCase()}`,
@@ -601,7 +598,9 @@ function Planner({
     });
   };
 
-  const handleChip = (chip: Chip): void => {
+  const handleChip = (
+    chip: components['schemas']['ClosingEvent']['action_chips'][number],
+  ): void => {
     applyActionChip(chip, {
       search: (query) =>
         COURSE_CODE.test(query.trim()) ? openCode(query.trim()) : setSearchText(`>${query}`),

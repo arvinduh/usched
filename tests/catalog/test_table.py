@@ -2,7 +2,7 @@
 
 import dataclasses
 
-from server.src.catalog import build
+from server.db.ingest import build
 
 
 @dataclasses.dataclass(frozen=True)

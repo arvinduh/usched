@@ -10,11 +10,11 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Settings } from 'lucide-react';
-import { ResetButton } from '../components/ResetButton/ResetButton';
+import { ResetButton } from './_reset/ResetButton';
 import { APP_NAME } from '../config';
 import { setTheme, useTheme } from '../state/theme';
 import type { Theme } from '../state/theme';
-import type { Term } from '../types';
+import type { components } from '../api/schema';
 import { Select } from '../ui/Select';
 import styles from './TopBar.module.css';
 
@@ -33,7 +33,7 @@ export interface DegreeUnits {
 export interface TopBarProps {
   readonly units: DegreeUnits | null;
   /** Terms that can be planned (fetched ones), newest first. */
-  readonly terms: readonly Term[];
+  readonly terms: readonly components['schemas']['Term'][];
   readonly term: number;
   readonly onSelectTerm: (term: number) => void;
   readonly isDegreeOpen: boolean;

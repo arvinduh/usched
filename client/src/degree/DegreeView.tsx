@@ -9,17 +9,10 @@
 
 import React, { useMemo, useState } from 'react';
 import { Check, Lock, Search } from 'lucide-react';
-import { courseKey, displayCode } from '../lib/degree';
-import type {
-  ApCredit,
-  ApExam,
-  GeProgress,
-  Program,
-  ProgramAudit,
-  ProgramSummary,
-} from '../types';
+import { courseKey, displayCode } from './_degree';
+import type { components } from '../api/schema';
 import { DegreePicker } from './DegreePicker';
-import { placePopover } from './popover';
+import { placePopover } from './_popover';
 import { RequirementTree } from './Requirement';
 import type { ChipContext } from './Requirement';
 import styles from './Degree.module.css';
@@ -30,14 +23,14 @@ import styles from './Degree.module.css';
 export interface DegreeViewProps {
   /** The planning term, for links and prerequisite checks. */
   readonly term: number;
-  readonly programs: readonly ProgramSummary[];
+  readonly programs: readonly components['schemas']['ProgramSummary'][];
   readonly programId: string;
   readonly onSelectProgram: (programId: string) => void;
-  readonly program: Program | null;
-  readonly audit: ProgramAudit | null;
-  readonly geProgress: readonly GeProgress[] | null;
-  readonly apExams: readonly ApExam[];
-  readonly apCredits: readonly ApCredit[];
+  readonly program: components['schemas']['Program'] | null;
+  readonly audit: components['schemas']['ProgramAudit'] | null;
+  readonly geProgress: readonly components['schemas']['GeProgress'][] | null;
+  readonly apExams: readonly components['schemas']['ApExam'][];
+  readonly apCredits: readonly components['schemas']['ApCredit'][];
   readonly onToggleAp: (examId: string) => void;
   /** Completed courses keyed by `courseKey`. */
   readonly completed: ReadonlySet<string>;
@@ -183,13 +176,13 @@ function GeStrip({
   onBrowse,
   onCount,
 }: {
-  readonly progress: readonly GeProgress[];
-  readonly apExams: readonly ApExam[];
+  readonly progress: readonly components['schemas']['GeProgress'][];
+  readonly apExams: readonly components['schemas']['ApExam'][];
   readonly onBrowse: (letter: string) => void;
   readonly onCount: (code: string, isFull: boolean) => void;
 }): React.JSX.Element {
   const examNames = new Map(apExams.map((e) => [e.id, e.name]));
-  const filled = (p: GeProgress): number => p.courses.length + p.exams.length + p.counted;
+  const filled = (p: components['schemas']['GeProgress']): number => p.courses.length + p.exams.length + p.counted;
   const required = progress.reduce((n, p) => n + p.required_count, 0);
   const satisfied = progress.reduce(
     (n, p) => n + Math.min(filled(p), p.required_count),
@@ -268,8 +261,8 @@ function Credits({
   credits,
   onToggleAp,
 }: {
-  readonly exams: readonly ApExam[];
-  readonly credits: readonly ApCredit[];
+  readonly exams: readonly components['schemas']['ApExam'][];
+  readonly credits: readonly components['schemas']['ApCredit'][];
   readonly onToggleAp: (examId: string) => void;
 }): React.JSX.Element {
   const earned = new Set(credits.map((c) => c.exam_id));

@@ -8,11 +8,11 @@ from collections.abc import Iterable, Iterator, Sequence
 
 import pytest
 
-from server.src.agent import gemini, llm
+from server.agent import _llm
 
 
 TOOLS = [
-  llm.Tool(
+  _llm.Tool(
     "search_courses",
     "Searches this term's courses by code, title, or topic.",
     {
@@ -25,47 +25,47 @@ TOOLS = [
 
 
 def test_a_gemini_key_selects_gemini_with_the_configured_models():
-  model = llm.from_env(
+  model = _llm.from_env(
     {"GEMINI_API_KEY": "k", "GEMINI_MODELS": " lite-a , lite-b ,"}
   )
-  assert isinstance(model, gemini.Gemini)
+  assert isinstance(model, _llm.Gemini)
   assert model.name == "lite-a, lite-b"
   assert model.unavailable() is None
 
 
 def test_missing_configuration_says_what_to_set():
-  assert "GEMINI_API_KEY" in (llm.from_env({}).unavailable() or "")
+  assert "GEMINI_API_KEY" in (_llm.from_env({}).unavailable() or "")
   assert "GEMINI_MODELS" in (
-    llm.from_env({"GEMINI_API_KEY": "k"}).unavailable() or ""
+    _llm.from_env({"GEMINI_API_KEY": "k"}).unavailable() or ""
   )
 
 
-def _text(events: Iterable[llm.Event]) -> str:
+def _text(events: Iterable[_llm.Event]) -> str:
   """The answer a reply streams, without its thoughts and steps."""
   return "".join(e for e in events if isinstance(e, str))
 
 
-def _scripted(*turns: Sequence[llm.Call]):
+def _scripted(*turns: Sequence[_llm.Call]):
   """A model turn that calls the given tools in order, then answers."""
   seen: list[tuple[int, bool]] = []
 
   def turn(
-    rounds: Sequence[llm.Round], allow_tools: bool
-  ) -> Iterator[str | llm.Step]:
+    rounds: Sequence[_llm.Round], allow_tools: bool
+  ) -> Iterator[str | _llm.Step]:
     seen.append((len(rounds), allow_tools))
     calls = (
       turns[len(rounds)] if allow_tools and len(rounds) < len(turns) else []
     )
     if not calls:
       yield "Done."
-    yield llm.Step(list(calls), None)
+    yield _llm.Step(list(calls), None)
 
   return turn, seen
 
 
 def test_the_loop_feeds_each_round_its_results_then_answers():
-  search = llm.Call("search_courses", {"query": "ai"})
-  solve = llm.Call("solve_schedule", {"course_codes": ["CSCI-360"]})
+  search = _llm.Call("search_courses", {"query": "ai"})
+  solve = _llm.Call("solve_schedule", {"course_codes": ["CSCI-360"]})
   turn, seen = _scripted([search], [solve])
   ran: list[str] = []
 
@@ -74,10 +74,10 @@ def test_the_loop_feeds_each_round_its_results_then_answers():
     ran.append(name)
     return f"{name} result"
 
-  events = list(llm.run(turn, execute))
+  events = list(_llm.run(turn, execute))
   assert _text(events) == "Done."
   # Each tool is announced as it starts, before its result feeds the model.
-  assert [e.call for e in events if isinstance(e, llm.Acting)] == [
+  assert [e.call for e in events if isinstance(e, _llm.Acting)] == [
     search,
     solve,
   ]
@@ -86,10 +86,10 @@ def test_the_loop_feeds_each_round_its_results_then_answers():
 
 
 def test_the_loop_forbids_tools_after_its_rounds():
-  call = llm.Call("search_courses", {})
-  turn, seen = _scripted(*[[call]] * (llm.TOOL_ROUNDS + 2))
-  assert _text(llm.run(turn, lambda name, args: "r")) == "Done."
-  assert [allowed for _, allowed in seen] == [True] * llm.TOOL_ROUNDS + [False]
+  call = _llm.Call("search_courses", {})
+  turn, seen = _scripted(*[[call]] * (_llm.TOOL_ROUNDS + 2))
+  assert _text(_llm.run(turn, lambda name, args: "r")) == "Done."
+  assert [allowed for _, allowed in seen] == [True] * _llm.TOOL_ROUNDS + [False]
 
 
 @pytest.mark.live

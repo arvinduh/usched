@@ -15,9 +15,9 @@ from typing import Any
 
 import pytest
 
-from server.src.agent import advisor, brief, chips
-from server.src.data import catalog_db
-from server.src.engine import schedule
+from server.agent import _brief, _chips, advisor
+from server.db import store
+from server.engine import schedule
 
 
 pytestmark = pytest.mark.live
@@ -76,7 +76,7 @@ def _ask(conn, model, message: str, **fields: Any) -> Outcome:
 
 def _assert_valid_week(conn, section_ids: Sequence[str]) -> None:
   """Every section exists this term and no two overlap."""
-  sections = catalog_db.sections(conn, TERM, list(section_ids))
+  sections = store.sections(conn, TERM, list(section_ids))
   assert {s.id for s in sections} == set(section_ids)
   for i, a in enumerate(sections):
     for b in sections[i + 1 :]:
@@ -84,9 +84,7 @@ def _assert_valid_week(conn, section_ids: Sequence[str]) -> None:
 
 
 def _courses(conn, section_ids: Sequence[str]) -> set[str]:
-  return {
-    s.course_code for s in catalog_db.sections(conn, TERM, list(section_ids))
-  }
+  return {s.course_code for s in store.sections(conn, TERM, list(section_ids))}
 
 
 def test_fitting_a_course_around_the_week(conn, live_model):
@@ -110,7 +108,7 @@ def test_a_schedule_honors_a_free_day(conn, live_model):
   for week in out.proposals():
     _assert_valid_week(conn, week)
     assert {"CSCI-104L", "CSCI-445Lx"} <= _courses(conn, week)
-    for s in catalog_db.sections(conn, TERM, week):
+    for s in store.sections(conn, TERM, week):
       assert all("Fri" not in m.days for m in s.meetings), s.id
 
 
@@ -149,7 +147,7 @@ def test_this_course_means_the_open_card(conn, live_model):
     conn,
     live_model,
     "Is this course a good fit for me?",
-    screen=brief.Screen(open_course="CSCI-445Lx"),
+    screen=_brief.Screen(open_course="CSCI-445Lx"),
   )
   assert "445" in out.text
 
@@ -162,12 +160,12 @@ def test_a_follow_up_refers_to_an_earlier_option(conn, live_model):
       role="assistant",
       content="Two options fit; option 2 keeps your Mondays light.",
       action_chips=[
-        chips.ProposeSchedule(
+        _chips.ProposeSchedule(
           label="Preview option 1",
           name="Option 1",
           section_ids=["30386", "29911", CHEM_251],
         ),
-        chips.ProposeSchedule(
+        _chips.ProposeSchedule(
           label="Preview option 2", name="Option 2", section_ids=option_2
         ),
       ],

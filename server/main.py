@@ -19,29 +19,29 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from server import config
-from server.src.agent import llm
-from server.src.data import catalog_db
-from server.src.routes import catalog, chat
+from server.agent import _llm
+from server.db import store
+from server.routes import catalog, chat
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
   """Opens the catalog and the advisor model, and reports what they offer."""
   logging.set_verbosity(logging.INFO)
-  app.state.catalog = catalog_db.CatalogDb()
+  app.state.catalog = store.CatalogDb()
   try:
     conn = app.state.catalog.connect()
   except FileNotFoundError as e:
     logging.warning("%s", e)
   else:
     with contextlib.closing(conn):
-      fetched = [t for t in catalog_db.terms(conn) if t.has_courses]
+      fetched = [t for t in store.terms(conn) if t.has_courses]
       logging.info(
         "Catalog has %s.",
         ", ".join(f"{t.season} {t.year}" for t in fetched) or "no terms",
       )
 
-  app.state.model = llm.from_env()
+  app.state.model = _llm.from_env()
   reason = app.state.model.unavailable()
   if reason:
     logging.warning("Advisor model %s: %s", app.state.model.name, reason)

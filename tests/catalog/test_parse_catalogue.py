@@ -4,11 +4,11 @@ import pathlib
 
 import pytest
 
-from server.src.catalog import parse_catalogue
+from server.db.ingest import _parse_catalogue
 
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-CS = parse_catalogue.ProgramLink(32086, "Computer Science (BS)")
+CS = _parse_catalogue.ProgramLink(32086, "Computer Science (BS)")
 
 # Mirrors Acalog markup: "or" as its own paragraph, a nested h5 rule, a unit
 # range, footnotes after the total, and a "Return to" school link.
@@ -36,18 +36,18 @@ SYNTHETIC = """
 
 
 @pytest.fixture(scope="module")
-def cs() -> parse_catalogue.ProgramPage:
+def cs() -> _parse_catalogue.ProgramPage:
   html = (FIXTURES / "program-cs.html").read_text(encoding="utf-8")
-  return parse_catalogue.parse_program(html, 22, CS, "computer-science-bs")
+  return _parse_catalogue.parse_program(html, 22, CS, "computer-science-bs")
 
 
 @pytest.fixture(scope="module")
-def sample() -> parse_catalogue.ProgramPage:
-  link = parse_catalogue.ProgramLink(1, "Sample (BA)")
-  return parse_catalogue.parse_program(SYNTHETIC, 22, link, "sample-ba")
+def sample() -> _parse_catalogue.ProgramPage:
+  link = _parse_catalogue.ProgramLink(1, "Sample (BA)")
+  return _parse_catalogue.parse_program(SYNTHETIC, 22, link, "sample-ba")
 
 
-def _slots(page: parse_catalogue.ProgramPage) -> list[list[str]]:
+def _slots(page: _parse_catalogue.ProgramPage) -> list[list[str]]:
   slots: dict[tuple[int, int], list[str]] = {}
   for c in page.choices:
     slots.setdefault((c.requirement_position, c.slot), []).append(c.listed_code)
@@ -110,12 +110,12 @@ def test_ge_lists_and_names():
   <h2>Writing</h2>
   <li class="acalog-course">WRIT 150 Writing Units: 4</li>
   """
-  courses = parse_catalogue.parse_ge_lists(page, 22)
+  courses = _parse_catalogue.parse_ge_lists(page, 22)
   assert {(g.ge_code, g.listed_code) for g in courses} == {
     ("GE-A", "AHIS-120g"),
     ("GE-G", "AHIS-120g"),
   }
-  assert parse_catalogue.ge_category_names(page) == {
+  assert _parse_catalogue.ge_category_names(page) == {
     "GE-A": "The Arts",
     "GE-G": "Global Perspectives I",
   }
@@ -144,15 +144,15 @@ def test_ge_lists_and_names():
   ],
 )
 def test_program_identity(title, expected):
-  assert parse_catalogue.program_identity(title) == expected
+  assert _parse_catalogue.program_identity(title) == expected
 
 
 def test_program_ids_disambiguate_repeated_titles():
   links = [
-    parse_catalogue.ProgramLink(1, "Computer Science (BS)"),
-    parse_catalogue.ProgramLink(2, "Computer Science (BS)"),
+    _parse_catalogue.ProgramLink(1, "Computer Science (BS)"),
+    _parse_catalogue.ProgramLink(2, "Computer Science (BS)"),
   ]
-  assert parse_catalogue.program_ids(links) == {
+  assert _parse_catalogue.program_ids(links) == {
     1: "computer-science-bs",
     2: "computer-science-bs-2",
   }
@@ -174,15 +174,17 @@ def test_program_ids_disambiguate_repeated_titles():
 )
 def test_program_totals_and_not_subtotals(line, total):
   page = f"<h1>Sample (BS)</h1><h2>Core (8 units)</h2><p>{line}</p>"
-  link = parse_catalogue.ProgramLink(1, "Sample (BS)")
-  parsed = parse_catalogue.parse_program(page, 22, link, "sample-bs")
+  link = _parse_catalogue.ProgramLink(1, "Sample (BS)")
+  parsed = _parse_catalogue.parse_program(page, 22, link, "sample-bs")
   assert parsed.program.total_units == total
 
 
 def test_units_written_after_a_heading_label():
   page = "<h1>Sample (BA)</h1><h2>Elective Units: 6</h2><h2>Units: 4-8</h2>"
-  link = parse_catalogue.ProgramLink(1, "Sample (BA)")
-  reqs = parse_catalogue.parse_program(page, 22, link, "sample-ba").requirements
+  link = _parse_catalogue.ProgramLink(1, "Sample (BA)")
+  reqs = _parse_catalogue.parse_program(
+    page, 22, link, "sample-ba"
+  ).requirements
   assert [(r.title, r.units_min, r.units_max) for r in reqs] == [
     ("Elective", 6.0, 6.0),
     ("Units: 4-8", 4.0, 8.0),

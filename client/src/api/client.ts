@@ -2,28 +2,12 @@
  * Typed calls to the usched API, one function per route.
  *
  * Course and section routes are scoped by term. Shapes come from the
- * generated schema through `types`; this module owns only URLs, encoding,
+ * generated schema; this module owns only URLs, encoding,
  * and turning non-2xx responses into errors.
  */
 
-import type {
-  ApCredit,
-  ApExam,
-  ChatRequest,
-  ClosingEvent,
-  Course,
-  GeCategory,
-  GeProgress,
-  KnownCourse,
-  Program,
-  ProgramAudit,
-  ProgramSummary,
-  Section,
-  Term,
-} from '../types';
-import { API_BASE_URL, uscCourseUrl } from '../config';
-
-export { uscCourseUrl };
+import type { components } from './schema';
+import { API_BASE_URL } from '../config';
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`);
@@ -46,7 +30,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 /** Lists every term, newest first. */
-export function getTerms(): Promise<readonly Term[]> {
+export function getTerms(): Promise<readonly components['schemas']['Term'][]> {
   return get('/terms');
 }
 
@@ -63,7 +47,7 @@ export interface CourseQuery {
 export function searchCourses(
   term: number,
   query: CourseQuery,
-): Promise<readonly Course[]> {
+): Promise<readonly components['schemas']['Course'][]> {
   const params = new URLSearchParams();
   if (query.q) {
     params.set('q', query.q);
@@ -88,7 +72,7 @@ export function searchCourses(
 export function getCourses(
   term: number,
   codes: readonly string[],
-): Promise<readonly Course[]> {
+): Promise<readonly components['schemas']['Course'][]> {
   if (codes.length === 0) {
     return Promise.resolve([]);
   }
@@ -96,7 +80,10 @@ export function getCourses(
 }
 
 /** Loads one course as offered in a term; rejects when it is not. */
-export function getCourse(term: number, code: string): Promise<Course> {
+export function getCourse(
+  term: number,
+  code: string,
+): Promise<components['schemas']['Course']> {
   return get(`/terms/${term}/courses/${encodeURIComponent(code)}`);
 }
 
@@ -104,7 +91,7 @@ export function getCourse(term: number, code: string): Promise<Course> {
 export function getSections(
   term: number,
   ids: readonly string[],
-): Promise<readonly Section[]> {
+): Promise<readonly components['schemas']['Section'][]> {
   if (ids.length === 0) {
     return Promise.resolve([]);
   }
@@ -117,17 +104,17 @@ export function getSections(
  */
 export function lookupCourses(
   codes: readonly string[],
-): Promise<readonly KnownCourse[]> {
+): Promise<readonly components['schemas']['KnownCourse'][]> {
   return get(`/courses?codes=${encodeURIComponent(codes.join(','))}`);
 }
 
 /** Lists the current catalogue's programs. */
-export function getPrograms(): Promise<readonly ProgramSummary[]> {
+export function getPrograms(): Promise<readonly components['schemas']['ProgramSummary'][]> {
   return get('/programs');
 }
 
 /** Loads a program's requirement tree. */
-export function getProgram(id: string): Promise<Program> {
+export function getProgram(id: string): Promise<components['schemas']['Program']> {
   return get(`/programs/${encodeURIComponent(id)}`);
 }
 
@@ -136,9 +123,9 @@ export function auditProgram(
   term: number,
   id: string,
   completed: readonly string[],
-  apCredits: readonly ApCredit[],
+  apCredits: readonly components['schemas']['ApCredit'][],
   geCounted: Readonly<Record<string, number>>,
-): Promise<ProgramAudit> {
+): Promise<components['schemas']['ProgramAudit']> {
   return post(`/terms/${term}/programs/${encodeURIComponent(id)}/audit`, {
     completed,
     ap_credits: apCredits,
@@ -147,21 +134,21 @@ export function auditProgram(
 }
 
 /** Lists GE categories and how many courses each needs. */
-export function getGeCategories(): Promise<readonly GeCategory[]> {
+export function getGeCategories(): Promise<readonly components['schemas']['GeCategory'][]> {
   return get('/ge-categories');
 }
 
 /** Shows how courses, AP exams, and seats counted by hand fill each GE. */
 export function auditGe(
   completed: readonly string[],
-  apCredits: readonly ApCredit[],
+  apCredits: readonly components['schemas']['ApCredit'][],
   geCounted: Readonly<Record<string, number>>,
-): Promise<readonly GeProgress[]> {
+): Promise<readonly components['schemas']['GeProgress'][]> {
   return post('/ge-audit', { completed, ap_credits: apCredits, ge_counted: geCounted });
 }
 
 /** Lists AP exams USC grants credit for. */
-export function getApExams(): Promise<readonly ApExam[]> {
+export function getApExams(): Promise<readonly components['schemas']['ApExam'][]> {
   return get('/ap-exams');
 }
 
@@ -173,7 +160,7 @@ export interface ChatHandlers {
   /** A piece of the advisor's reasoning summary. */
   readonly onThought: (text: string) => void;
   /** The reply's last event: chips and any unverified courses. */
-  readonly onClose: (event: ClosingEvent) => void;
+  readonly onClose: (event: components['schemas']['ClosingEvent']) => void;
   readonly onDone: () => void;
 }
 
@@ -184,7 +171,7 @@ export interface ChatHandlers {
  * whether the stream ends, fails, or is aborted.
  */
 export function streamChat(
-  request: ChatRequest,
+  request: components['schemas']['ChatRequest'],
   { onToken, onStep, onThought, onClose, onDone }: ChatHandlers,
 ): () => void {
   const controller = new AbortController();
@@ -230,7 +217,7 @@ export function streamChat(
             | { readonly token: string }
             | { readonly step: string }
             | { readonly thought: string }
-            | ClosingEvent;
+            | components['schemas']['ClosingEvent'];
           if ('token' in parsed) {
             onToken(parsed.token);
           } else if ('step' in parsed) {

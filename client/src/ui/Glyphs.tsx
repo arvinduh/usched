@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { Dumbbell, Star } from 'lucide-react';
-import { WEEKDAYS } from '../lib/schedule';
+import { WEEKDAYS } from '../semester/_schedule';
 import { textureBackground } from './encoding';
 import styles from './Glyphs.module.css';
 

@@ -11,8 +11,17 @@
  */
 
 import { STORAGE_KEYS } from '../config';
-import { createExternalStore, useSelector } from '../lib/externalStore';
-import type { ApCredit, ScheduleConfiguration } from '../types';
+import { createExternalStore, useSelector } from './_externalStore';
+import type { components } from '../api/schema';
+
+/**
+ * One schedule variant of a term: the sections the student picked.
+ */
+export interface ScheduleConfiguration {
+  readonly id: string;
+  readonly name: string;
+  readonly section_ids: readonly string[];
+}
 
 /**
  * One term's plan: schedule variants and shortlisted courses.
@@ -32,7 +41,7 @@ export interface PlanState {
   /** Plans by term code; a term without one reads as `EMPTY_TERM_PLAN`. */
   readonly terms: Readonly<Record<number, TermPlan>>;
   readonly completedCourseIds: readonly string[];
-  readonly apCredits: readonly ApCredit[];
+  readonly apCredits: readonly components['schemas']['ApCredit'][];
   /** GE seats counted by hand (credit the catalog cannot place), by code. */
   readonly geCounted: Readonly<Record<string, number>>;
   /** Chosen program, or empty until the student picks one. */

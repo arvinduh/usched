@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from server.src.catalog import build, cache, parse_catalogue
+from server.db.ingest import _cache, _parse_catalogue, build
 
 
 @pytest.fixture(scope="module")
@@ -162,14 +162,14 @@ def test_foreign_keys_hold(db):
 
 def test_build_without_a_fetch_fails_clearly(tmp_path):
   with pytest.raises(FileNotFoundError):
-    build.build(cache.RawCache(tmp_path / "empty"), tmp_path / "x.db")
+    build.build(_cache.RawCache(tmp_path / "empty"), tmp_path / "x.db")
 
 
 def test_a_silent_bachelors_page_gets_the_policy_minimum():
-  page = parse_catalogue.parse_program(
+  page = _parse_catalogue.parse_program(
     "<h1>Sample (BS)</h1><h2>Core</h2>",
     22,
-    parse_catalogue.ProgramLink(1, "Sample (BS)"),
+    _parse_catalogue.ProgramLink(1, "Sample (BS)"),
     "sample-bs",
   ).program
   assert (page.total_units, page.total_units_stated) == (None, False)

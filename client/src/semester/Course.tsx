@@ -12,20 +12,20 @@
 
 import React, { useCallback, useState } from 'react';
 import { ArrowLeft, Bookmark, Check, CircleCheck, Lock } from 'lucide-react';
-import { courseKey, displayCode } from '../lib/degree';
+import { courseKey, displayCode } from '../degree/_degree';
 import {
   compatible,
   groupByType,
   missingComponents,
   timedMeetings,
   unmetPrereqs,
-} from '../lib/schedule';
-import { formatRange } from '../lib/time';
+} from './_schedule';
+import { formatRange } from './_time';
 import { setFocus, usePreview } from '../state/preview';
 import { ContextMenu } from '../ui/ContextMenu';
 import { DayStrip, RatingPair, SeatNote, TypeSwatch } from '../ui/Glyphs';
 import { hueFor } from '../ui/encoding';
-import type { Course, CourseRef, RequisiteGroup, Section, Units } from '../types';
+import type { components } from '../api/schema';
 import styles from './Course.module.css';
 
 /**
@@ -46,23 +46,23 @@ export interface CoursePlan {
  * Properties for a course line.
  */
 export interface CourseLineProps {
-  readonly course: Course;
+  readonly course: components['schemas']['Course'];
   readonly plan: CoursePlan;
-  readonly onOpen: (course: Course) => void;
+  readonly onOpen: (course: components['schemas']['Course']) => void;
 }
 
 interface MenuState {
   readonly x: number;
   readonly y: number;
-  readonly section: Section;
+  readonly section: components['schemas']['Section'];
 }
 
-function refCode(ref: CourseRef): string {
+function refCode(ref: components['schemas']['CourseRef']): string {
   return displayCode(ref.resolved ?? ref.code);
 }
 
-function prereqLabel(groups: readonly RequisiteGroup[]): string {
-  const group = (g: RequisiteGroup): string => {
+function prereqLabel(groups: readonly components['schemas']['RequisiteGroup'][]): string {
+  const group = (g: components['schemas']['RequisiteGroup']): string => {
     const options = g.options.map((o) => o.map(refCode).join(' and '));
     return g.required_count > 1
       ? `${g.required_count} of ${options.join(', ')}`
@@ -72,7 +72,7 @@ function prereqLabel(groups: readonly RequisiteGroup[]): string {
 }
 
 /** Units as a label, or null for the usual four. */
-function unitsLabel(units: Units): string | null {
+function unitsLabel(units: components['schemas']['Units']): string | null {
   if (units.min === units.max) {
     return units.min === 4 ? null : `${units.min}u`;
   }
@@ -181,19 +181,22 @@ export function CourseLine({ course, plan, onOpen }: CourseLineProps): React.JSX
  */
 export interface CourseCardProps {
   /** The course as this term offers it, or null when it is not offered. */
-  readonly course: Course | null;
+  readonly course: components['schemas']['Course'] | null;
   readonly code: string;
   /** A title for a course this term lacks, when the opener knew one. */
   readonly title: string | null;
   readonly termName: string;
   readonly plan: CoursePlan;
-  readonly onToggleSection: (section: Section, course: Course) => void;
+  readonly onToggleSection: (
+    section: components['schemas']['Section'],
+    course: components['schemas']['Course'],
+  ) => void;
   /** Variants other than the active one, for "Add to" in the menu. */
   readonly otherVariants: readonly { readonly id: string; readonly name: string }[];
   /** Adds to the given variant, or to a new one when `configId` is null. */
   readonly onAddToVariant: (
-    section: Section,
-    course: Course,
+    section: components['schemas']['Section'],
+    course: components['schemas']['Course'],
     configId: string | null,
   ) => void;
   readonly onClose: () => void;
@@ -355,7 +358,7 @@ function SectionRow({
   onToggle,
   onMenu,
 }: {
-  readonly section: Section;
+  readonly section: components['schemas']['Section'];
   readonly ink: string;
   readonly fill: string;
   readonly isChosen: boolean;

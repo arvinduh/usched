@@ -19,8 +19,8 @@ import {
   missingComponents,
   timedMeetings,
   totalUnits,
-} from '../lib/schedule';
-import type { TimedMeeting } from '../lib/schedule';
+} from './_schedule';
+import type { TimedMeeting } from './_schedule';
 import {
   DAYS_OF_WEEK,
   DEFAULT_END_HOUR,
@@ -28,14 +28,15 @@ import {
   EXTENDED_DAYS_OF_WEEK,
   OVERLOAD_UNITS,
 } from '../config';
-import { displayCode } from '../lib/degree';
-import { formatHour, formatRange } from '../lib/time';
+import { displayCode } from '../degree/_degree';
+import { formatHour, formatRange } from './_time';
 import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/preview';
 import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
+import type { ScheduleConfiguration } from '../state/store';
 import { RatingPair } from '../ui/Glyphs';
 import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
-import type { Course, ScheduleConfiguration, Section, Weekday } from '../types';
+import type { components } from '../api/schema';
 import styles from './Week.module.css';
 
 /**
@@ -45,19 +46,22 @@ export interface WeekProps {
   readonly configurations: readonly ScheduleConfiguration[];
   readonly activeConfigId: string;
   /** Sections of the active variant that have resolved records. */
-  readonly sections: readonly Section[];
-  readonly sectionsById: ReadonlyMap<string, Section>;
-  readonly coursesByCode: ReadonlyMap<string, Course>;
+  readonly sections: readonly components['schemas']['Section'][];
+  readonly sectionsById: ReadonlyMap<string, components['schemas']['Section']>;
+  readonly coursesByCode: ReadonlyMap<string, components['schemas']['Course']>;
   readonly scheduledCourseIds: readonly string[];
   readonly onSelectVariant: (configId: string) => void;
   readonly onRenameVariant: (configId: string, name: string) => void;
   readonly onDeleteVariant: (config: ScheduleConfiguration) => void;
   readonly onDuplicateVariant: () => void;
-  readonly onToggleSection: (section: Section, course: Course) => void;
-  readonly onRemove: (section: Section) => void;
-  readonly onFocusCourse: (course: Course) => void;
+  readonly onToggleSection: (
+    section: components['schemas']['Section'],
+    course: components['schemas']['Course'],
+  ) => void;
+  readonly onRemove: (section: components['schemas']['Section']) => void;
+  readonly onFocusCourse: (course: components['schemas']['Course']) => void;
   /** Shows a clicked block's other sections on the week, or hides them. */
-  readonly onPickBlock: (course: Course) => void;
+  readonly onPickBlock: (course: components['schemas']['Course']) => void;
   /** Stops showing a block's other sections: a press on the empty week. */
   readonly onClearPick: () => void;
   readonly onKeepProposal: (proposal: Proposal) => void;
@@ -72,10 +76,10 @@ interface Lane {
 /** One timed meeting of a section: what the canvas draws. */
 interface Block extends TimedMeeting {
   readonly key: string;
-  readonly section: Section;
+  readonly section: components['schemas']['Section'];
 }
 
-function blocksOf(sections: readonly Section[]): readonly Block[] {
+function blocksOf(sections: readonly components['schemas']['Section'][]): readonly Block[] {
   return sections.flatMap((section) =>
     timedMeetings(section).map((m, i) => ({
       ...m,
@@ -164,7 +168,7 @@ export function Week(props: WeekProps): React.JSX.Element {
     () =>
       proposal?.sectionIds
         .map((id) => sectionsById.get(id))
-        .filter((s): s is Section => s !== undefined) ?? null,
+        .filter((s): s is components['schemas']['Section'] => s !== undefined) ?? null,
     [proposal, sectionsById],
   );
   const sections = proposed ?? props.sections;
@@ -200,7 +204,7 @@ export function Week(props: WeekProps): React.JSX.Element {
   const hi = Math.max(DEFAULT_END_HOUR, ...everything.map((b) => Math.ceil(b.end / 60)));
   const span = (hi - lo) * 60;
   const pct = (minute: number): string => `${((minute - lo * 60) / span) * 100}%`;
-  const days: readonly Weekday[] = everything.some((b) => b.days.includes('Sat'))
+  const days: readonly components['schemas']['Weekday'][] = everything.some((b) => b.days.includes('Sat'))
     ? EXTENDED_DAYS_OF_WEEK
     : DAYS_OF_WEEK;
   const hours = Array.from({ length: hi - lo }, (_, i) => lo + i);
@@ -553,8 +557,8 @@ function Popover({
   onRemove,
   note,
 }: {
-  readonly section: Section;
-  readonly course: Course | undefined;
+  readonly section: components['schemas']['Section'];
+  readonly course: components['schemas']['Course'] | undefined;
   readonly flip: boolean;
   readonly onRemove: (() => void) | undefined;
   /** What a click on the block does, when that is not obvious. */

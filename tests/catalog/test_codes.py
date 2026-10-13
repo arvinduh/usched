@@ -2,7 +2,7 @@
 
 import pytest
 
-from server.src.catalog import codes
+from server.db.ingest import codes
 
 
 @pytest.mark.parametrize(

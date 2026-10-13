@@ -4,8 +4,8 @@ import pathlib
 
 import pytest
 
-from server.src.agent import llm
-from server.src.catalog import build, cache, classes_api, rmp
+from server.agent import _llm
+from server.db.ingest import _cache, _classes_api, _rmp, build
 
 
 FIXTURES = pathlib.Path(__file__).parent / "catalog" / "fixtures"
@@ -59,29 +59,29 @@ RMP_SEARCH = {
 
 
 @pytest.fixture
-def live_model() -> llm.Model:
+def live_model() -> _llm.Model:
   """The model .env configures, as the server builds it; skips if unset."""
   from server import main  # noqa: F401  # Loads .env, like the server.
 
-  model = llm.from_env()
+  model = _llm.from_env()
   if reason := model.unavailable():
     pytest.skip(reason)
   return model
 
 
 @pytest.fixture(scope="session")
-def catalog_raw(tmp_path_factory) -> cache.RawCache:
+def catalog_raw(tmp_path_factory) -> _cache.RawCache:
   """A small raw cache standing in for a fetch."""
-  raw = cache.RawCache(tmp_path_factory.mktemp("raw"))
+  raw = _cache.RawCache(tmp_path_factory.mktemp("raw"))
   listing = (FIXTURES / "listing.json").read_text(encoding="utf-8")
   schools = (FIXTURES / "schools.json").read_text(encoding="utf-8")
-  raw.write_json(classes_api.TERMS_KEY, TERMS)
+  raw.write_json(_classes_api.TERMS_KEY, TERMS)
   for term in (20271, 20263):
-    raw.write_text(classes_api.schools_key(term), schools)
-    raw.write_text(classes_api.listing_key(term, "ENGV", "CSCI"), listing)
+    raw.write_text(_classes_api.schools_key(term), schools)
+    raw.write_text(_classes_api.listing_key(term, "ENGV", "CSCI"), listing)
   # The same listing under a second school must deduplicate, not collide.
-  raw.write_text(classes_api.listing_key(20271, "DRNS", "CHEM"), listing)
-  raw.write_json(rmp.search_key("carter slocum"), RMP_SEARCH)
+  raw.write_text(_classes_api.listing_key(20271, "DRNS", "CHEM"), listing)
+  raw.write_json(_rmp.search_key("carter slocum"), RMP_SEARCH)
   raw.write_text("catalogue/22/index.html", INDEX)
   raw.write_text(
     "catalogue/22/programs/32086.html",

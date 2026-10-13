@@ -6,14 +6,14 @@ import fastapi
 import pytest
 from fastapi import testclient
 
-from server.src.data import catalog_db
-from server.src.routes import catalog
+from server.db import store
+from server.routes import catalog
 
 
 def _client(path: pathlib.Path) -> testclient.TestClient:
   app = fastapi.FastAPI()
   app.include_router(catalog.router)
-  app.state.catalog = catalog_db.CatalogDb(path)
+  app.state.catalog = store.CatalogDb(path)
   return testclient.TestClient(app)
 
 
