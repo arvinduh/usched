@@ -130,7 +130,9 @@ def stream(
     grounded = set(facts.grounded)
 
     def execute(name: str, arguments: Mapping[str, Any]) -> str:
-      result = tools.execute(name, arguments, conn, request.term)
+      result = tools.execute(
+        name, arguments, conn, request.term, request.section_ids
+      )
       from_tools.extend(result.chips)
       grounded.update(codes.mentions(result.content))
       return result.content

@@ -163,14 +163,25 @@ def solve(
   courses: Sequence[m.Course],
   prefs: Preferences = NO_PREFERENCES,
   limit: int = 3,
+  around: Sequence[m.Section] = (),
 ) -> list[Schedule]:
   """Finds the best conflict-free schedules that take every course.
 
-  Courses without a registrable bundle make the problem unsolvable, so
-  the result is empty. Each course contributes its best few bundles, which
-  bounds the search to `_PER_COURSE ** len(courses)` combinations.
+  Sections in `around` are fixed (the rest of the student's week): no
+  bundle may overlap them, and they are not part of the result. Courses
+  without a registrable bundle that fits make the problem unsolvable, so
+  the result is empty. Each course contributes its best few fitting
+  bundles, which bounds the search to `_PER_COURSE ** len(courses)`
+  combinations.
   """
-  options = [bundles(c.sections, prefs)[:_PER_COURSE] for c in courses]
+  options = [
+    [
+      b
+      for b in bundles(c.sections, prefs)
+      if not any(overlaps(s, f) for s in b for f in around)
+    ][:_PER_COURSE]
+    for c in courses
+  ]
   if not options or not all(options):
     return []
   found: list[Schedule] = []
