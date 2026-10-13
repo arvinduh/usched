@@ -114,6 +114,23 @@ function layoutLanes(dayBlocks: readonly Block[]): ReadonlyMap<string, Lane> {
 }
 
 /**
+ * Keys of a day's blocks that overlap another block that day. A section
+ * whose Monday meeting clashes is not marked on its free Wednesday.
+ */
+function clashesOn(dayBlocks: readonly Block[]): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const [i, a] of dayBlocks.entries()) {
+    for (const b of dayBlocks.slice(i + 1)) {
+      if (a.start < b.end && b.start < a.end) {
+        keys.add(a.key);
+        keys.add(b.key);
+      }
+    }
+  }
+  return keys;
+}
+
+/**
  * Renders variant tabs, the time grid, blocks, ghosts, and the trays for
  * TBA sections and courses missing a component.
  */
@@ -165,15 +182,7 @@ export function Week(props: WeekProps): React.JSX.Element {
         : [],
     [expanded, proposal, activeIds],
   );
-  const { overlapping, overlapCount } = useMemo(() => {
-    const pairs = findOverlaps(timed);
-    const ids = new Set<string>();
-    for (const { a, b } of pairs) {
-      ids.add(a.id);
-      ids.add(b.id);
-    }
-    return { overlapping: ids, overlapCount: pairs.length };
-  }, [timed]);
+  const overlapCount = useMemo(() => findOverlaps(timed).length, [timed]);
 
   const blocks = useMemo(() => blocksOf(timed), [timed]);
   const ghostBlocks = useMemo(() => blocksOf(ghosts), [ghosts]);
@@ -258,11 +267,11 @@ export function Week(props: WeekProps): React.JSX.Element {
 
         {days.map((day) => {
           const dayBlocks = blocks.filter((b) => b.days.includes(day));
-          const lanes = layoutLanes(dayBlocks);
-          // Ghosts share lanes among themselves so same-time options sit
-          // side by side instead of hiding one another.
           const dayGhosts = ghostBlocks.filter((b) => b.days.includes(day));
-          const ghostLanes = layoutLanes(dayGhosts);
+          // Blocks and ghosts share lanes, so anything meeting at the same
+          // time sits side by side; nothing is drawn over a chosen class.
+          const lanes = layoutLanes([...dayBlocks, ...dayGhosts]);
+          const clashing = clashesOn(dayBlocks);
           const flipPopover = day === 'Fri' || day === 'Sat';
           return (
             <div key={day} className={styles.column}>
@@ -278,9 +287,9 @@ export function Week(props: WeekProps): React.JSX.Element {
                 return (
                   <div
                     key={b.key}
-                    className={`${styles.block} ${overlapping.has(s.id) ? styles.clash : ''} ${
+                    className={`${styles.block} ${clashing.has(b.key) ? styles.clash : ''} ${
                       proposal && !kept.has(s.id) ? styles.proposed : ''
-                    }`}
+                    } ${focusId === s.id ? styles.blockFocus : ''}`}
                     style={{
                       top: pct(b.start),
                       height: `calc(${pct(b.end)} - ${pct(b.start)})`,
@@ -289,6 +298,9 @@ export function Week(props: WeekProps): React.JSX.Element {
                     }}
                     // Focusable so keyboard users reach the popover's actions.
                     tabIndex={0}
+                    // Pairs with the card: its row for this section lights up.
+                    onMouseEnter={() => setFocus(s.id)}
+                    onMouseLeave={() => setFocus(null)}
                     onClick={(e) => {
                       // The popover's own buttons act on the section instead.
                       if (course && !(e.target as HTMLElement).closest('button')) {
@@ -326,7 +338,7 @@ export function Week(props: WeekProps): React.JSX.Element {
                     const g = b.section;
                     const hue = hueFor(g.course_code, hueOrder);
                     const bad = clashes(g, timed);
-                    const lane = ghostLanes.get(b.key) ?? { lane: 0, lanes: 1 };
+                    const lane = lanes.get(b.key) ?? { lane: 0, lanes: 1 };
                     return (
                       <button
                         key={b.key}

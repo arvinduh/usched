@@ -80,7 +80,8 @@ async def _relay(
     200: {
       "model": advisor.ClosingEvent,
       "description": (
-        "An event stream of `{token}` events, then one ClosingEvent, then "
+        "An event stream of `{token}` (answer text), `{thought}` (reasoning) "
+        "and `{step}` (a tool starting) events, then one ClosingEvent, then "
         "`[DONE]`."
       ),
     }

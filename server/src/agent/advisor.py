@@ -106,14 +106,13 @@ _HISTORY_TURNS = 6
 _MAX_CHIPS = 4
 
 
-def closing_chips(
-  from_tools: Sequence[chips.Chip], next_codes: Sequence[str]
-) -> list[chips.Chip]:
-  """Picks up to four chips: the tools' first, then courses to take next."""
-  found: list[chips.Chip] = list(from_tools)
-  if len(found) < 2:
-    found += [chips.Search(label=f"Show {c}", query=c) for c in next_codes[:2]]
-  unique = {c.label: c for c in reversed(found)}
+def closing_chips(from_tools: Sequence[chips.Chip]) -> list[chips.Chip]:
+  """Up to four chips, all from what the model did; the last of a label wins.
+
+  A reply that used no tools ends with none: a chip is a follow-up to
+  something the advisor actually looked up or built, never filler.
+  """
+  unique = {c.label: c for c in reversed(from_tools)}
   return list(reversed(unique.values()))[:_MAX_CHIPS]
 
 
@@ -171,9 +170,12 @@ def _token(text: str) -> str:
 def stream(
   request: ChatRequest, conn: sqlite3.Connection, model: llm.Model
 ) -> Iterator[str]:
-  """Yields SSE events: tokens, then one closing event, then `[DONE]`."""
+  """Yields SSE events, then one closing event, then `[DONE]`.
+
+  Events are `{token}` for answer text, `{thought}` for the model's
+  reasoning summary, and `{step}` as each tool starts, in words.
+  """
   from_tools: list[chips.Chip] = []
-  next_codes: list[str] = []
   flagged: list[str] = []
   reason = model.unavailable()
   if reason:
@@ -192,7 +194,6 @@ def stream(
         screen=request.screen,
       ),
     )
-    next_codes = facts.next_codes
     grounded = set(facts.grounded)
 
     def execute(name: str, arguments: Mapping[str, Any]) -> str:
@@ -205,7 +206,7 @@ def stream(
 
     reply: list[str] = []
     try:
-      for token in model.reply(
+      for event in model.reply(
         f"{SYSTEM_PROMPT}\n{facts.text}",
         [
           llm.Turn(t.role, remembered(conn, request.term, t))
@@ -215,13 +216,19 @@ def stream(
         tools.TOOLS,
         execute,
       ):
-        reply.append(token)
-        yield _token(token)
+        match event:
+          case str():
+            reply.append(event)
+            yield _token(event)
+          case llm.Thought(text=text):
+            yield _event({"thought": text})
+          case llm.Acting(call=call):
+            yield _event({"step": tools.describe(call.name, call.arguments)})
     except llm.ModelError as e:
       yield _token(f"\n\n{e}")
     flagged = unverified("".join(reply), grounded, conn)
   closing = ClosingEvent(
-    action_chips=closing_chips(from_tools, next_codes),
+    action_chips=closing_chips(from_tools),
     unverified=flagged,
   )
   yield _event(closing.model_dump())

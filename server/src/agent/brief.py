@@ -70,12 +70,10 @@ class Brief:
   Attributes:
     text: Prompt context, one fact per line.
     grounded: Identities of every course the text names.
-    next_codes: Program courses the student can take next, best first.
   """
 
   text: str
   grounded: frozenset[str]
-  next_codes: list[str]
 
 
 def _term_name(conn: sqlite3.Connection, term: int) -> str:
@@ -91,13 +89,13 @@ def _listed(codes_: Sequence[str]) -> str:
 
 def _program_lines(
   conn: sqlite3.Connection, student: Student, planned: set[str]
-) -> tuple[list[str], list[str]]:
-  """Progress, next courses, and locked courses; also the next codes."""
+) -> list[str]:
+  """Progress, next courses, and locked courses."""
   program = (
     catalog_db.program(conn, student.program_id) if student.program_id else None
   )
   if program is None:
-    return ["Program: not chosen"], []
+    return ["Program: not chosen"]
   audit = audits.program(
     conn, student.term, program, student.completed, student.ap_credits
   )
@@ -140,7 +138,7 @@ def _program_lines(
     for code, needs in list(audit.locked.items())[:_LOCKED]
   ]
   lines.append(f"Locked by prerequisites: {_listed(blocked)}")
-  return lines, ready
+  return lines
 
 
 def _week_lines(
@@ -211,7 +209,7 @@ def _screen_lines(conn: sqlite3.Connection, student: Student) -> list[str]:
 def build(conn: sqlite3.Connection, student: Student) -> Brief:
   """Builds the brief for one message."""
   week, planned = _week_lines(conn, student)
-  program, ready = _program_lines(conn, student, planned)
+  program = _program_lines(conn, student, planned)
   ge = audits.general_education(conn, student.completed, student.ap_credits)
   open_ge = [
     f"{p.code} {p.name} ({len(p.courses) + len(p.exams)} of {p.required_count})"
@@ -229,4 +227,4 @@ def build(conn: sqlite3.Connection, student: Student) -> Brief:
     *_screen_lines(conn, student),
   ]
   text = "\n".join(lines)
-  return Brief(text, frozenset(codes.mentions(text)), ready)
+  return Brief(text, frozenset(codes.mentions(text)))

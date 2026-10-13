@@ -99,20 +99,53 @@ TOOLS = [
   llm.Tool(
     "solve_schedule",
     "Builds conflict-free schedules that add every listed course to the "
-    "student's week, keeping the sections already on it and honoring day, "
-    "time, and instructor preferences. List a course already on the week "
-    "to re-pick its sections.",
+    "student's week, keeping the sections already on it. Filters are hard "
+    "(a week breaking one is never offered); goals rank the weeks that "
+    "remain, first goal first. Map wishes onto them: 'no Fridays' is "
+    "excluded_days; 'nothing after 6' is latest_end_time 18:00; 'mornings "
+    "free' is earliest_start_time; 'keep lunch free' is keep_free; 'only "
+    "three days on campus' is max_days; 'best professors' is the rating "
+    "goal; 'no breaks' or 'back to back' is compact; 'easy' is easy. List a "
+    "course already on the week to re-pick its sections.",
     {
       "type": "object",
       "properties": {
         "course_codes": _CODES,
+        "goals": {
+          "type": "array",
+          "items": {"type": "string", "enum": [g.value for g in schedule.Goal]},
+          "description": "What to maximize, most important first. Default "
+          "['rating', 'compact'].",
+        },
         "excluded_days": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "Days to keep free, e.g. ['Friday'].",
+          "description": "Days with no class, e.g. ['Friday'].",
         },
         "earliest_start_time": {"type": "string", "description": "HH:MM."},
         "latest_end_time": {"type": "string", "description": "HH:MM."},
+        "keep_free": {
+          "type": "array",
+          "description": "Times with no class, e.g. lunch.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Default every weekday.",
+              },
+              "start": {"type": "string", "description": "HH:MM."},
+              "end": {"type": "string", "description": "HH:MM."},
+            },
+            "required": ["start", "end"],
+          },
+        },
+        "max_days": {
+          "type": "integer",
+          "description": "Most days on campus, counting the current week.",
+        },
+        "open_seats_only": {"type": "boolean"},
         "preferred_instructors": {
           "type": "array",
           "items": {"type": "string"},
@@ -270,14 +303,32 @@ def _minute(clock: str) -> int | None:
   return int(hours) * 60 + int(minutes or 0)
 
 
+def _window(spec: Mapping[str, Any]) -> schedule.Window | None:
+  start, end = _minute(spec.get("start", "")), _minute(spec.get("end", ""))
+  if start is None or end is None:
+    return None
+  days = frozenset(
+    d for d in map(_weekday, spec.get("days") or []) if d is not None
+  ) or frozenset(m.Weekday) - {m.Weekday.SAT, m.Weekday.SUN}
+  return schedule.Window(days, start, end)
+
+
+def _span(minutes: int | None) -> str:
+  return _clock(minutes) if minutes is not None else "TBA"
+
+
 def solve_schedule(
   conn: sqlite3.Connection,
   term: int,
   week: Sequence[str],
   course_codes: Sequence[str],
+  goals: Sequence[str] = (),
   excluded_days: Sequence[str] = (),
   earliest_start_time: str = "",
   latest_end_time: str = "",
+  keep_free: Sequence[Mapping[str, Any]] = (),
+  max_days: int | None = None,
+  open_seats_only: bool = False,
   preferred_instructors: Sequence[str] = (),
   excluded_instructors: Sequence[str] = (),
   min_rating: float | None = None,
@@ -286,33 +337,55 @@ def solve_schedule(
 
   Sections already on the week (`week`, by number) stay fixed unless
   their course is listed, so each proposal is the whole resulting week.
+  When no week meets every filter, says which filters block it.
   """
   courses = catalog_db.courses(conn, term, list(course_codes))
   found_codes = {codes.identity(c.code) for c in courses}
   missing = [c for c in course_codes if codes.identity(c) not in found_codes]
   if missing:
     return ToolResult(f"Not offered this term: {', '.join(missing)}.")
+  known = {g.value for g in schedule.Goal}
+  if unknown := [g for g in goals if g not in known]:
+    return ToolResult(f"Unknown goals: {', '.join(unknown)}.")
   kept = [
     s
     for s in catalog_db.sections(conn, term, list(week))
     if codes.identity(s.course_code) not in found_codes
   ]
   prefs = schedule.Preferences(
-    excluded_days=frozenset(
-      d for d in map(_weekday, excluded_days) if d is not None
+    filters=schedule.Filters(
+      excluded_days=frozenset(
+        d for d in map(_weekday, excluded_days) if d is not None
+      ),
+      earliest_start=_minute(earliest_start_time),
+      latest_end=_minute(latest_end_time),
+      keep_free=tuple(w for w in map(_window, keep_free) if w is not None),
+      max_days=max_days,
+      excluded=tuple(p.lower() for p in excluded_instructors if p),
+      min_rating=min_rating,
+      open_seats_only=open_seats_only,
     ),
-    earliest_start=_minute(earliest_start_time),
-    latest_end=_minute(latest_end_time),
+    goals=tuple(schedule.Goal(g) for g in goals)
+    or schedule.NO_PREFERENCES.goals,
     preferred=tuple(p.lower() for p in preferred_instructors if p),
-    excluded=tuple(p.lower() for p in excluded_instructors if p),
-    min_rating=min_rating,
   )
   options = schedule.solve(courses, prefs, around=kept)
   if not options:
+    listed = ", ".join(c.code for c in courses)
+    if blocking := schedule.blockers(courses, prefs, around=kept):
+      return ToolResult(
+        f"No week adds {listed} and meets every filter. Dropping "
+        f"{' or '.join(blocking)} would allow one; ask which to give up."
+      )
+    if prefs.filters != schedule.Filters():
+      return ToolResult(
+        f"No week adds {listed} and meets these filters together, and no "
+        "single filter is to blame: suggest relaxing several, or dropping a "
+        "course."
+      )
     return ToolResult(
-      "No conflict-free schedule adds all of "
-      f"{', '.join(c.code for c in courses)} to the week; suggest dropping "
-      "one, or listing a course already on the week to re-pick it."
+      f"No conflict-free week adds all of {listed}; suggest dropping one, "
+      "or listing a course already on the week to re-pick it."
     )
   lines = (
     [f"Keeps your week: {', '.join(f'{s.course_code} {s.id}' for s in kept)}"]
@@ -321,13 +394,14 @@ def solve_schedule(
   )
   actions: list[chips.Chip] = []
   for n, option in enumerate(options, 1):
-    rating = option.average_rating
-    lines.append(
-      f"Option {n}: average rating {rating if rating is not None else 'n/a'}"
-      + (
-        f", {option.violations} preference misses" if option.violations else ""
-      )
-    )
+    facts = [
+      f"rating {option.average_rating if option.average_rating else 'n/a'}",
+      f"difficulty {option.average_difficulty or 'n/a'}",
+      f"{option.days} days",
+      f"{option.gap_minutes} min between classes",
+      f"{_span(option.first_start)}-{_span(option.last_end)}",
+    ]
+    lines.append(f"Option {n}: {', '.join(facts)}")
     lines += [
       f"  {s.course_code} {s.id} {s.type}: {when(s)} | {who(s)}"
       for s in option.sections
@@ -426,6 +500,26 @@ def mark_taken(
     else []
   )
   return ToolResult(" ".join(filter(None, lines)), actions)
+
+
+def describe(name: str, arguments: Mapping[str, Any]) -> str:
+  """What a tool call is doing, in words a student reads while it runs."""
+  listed = ", ".join(arguments.get("course_codes") or [])
+  match name:
+    case "search_courses":
+      return f"Searching courses for “{arguments.get('query', '')}”"
+    case "get_course_details":
+      return f"Reading {arguments.get('course_code', 'a course')}"
+    case "solve_schedule":
+      return (
+        f"Building schedules with {listed}" if listed else "Building schedules"
+      )
+    case "edit_week":
+      return "Editing your week"
+    case "mark_taken":
+      return f"Recording {listed} as taken" if listed else "Recording courses"
+    case _:
+      return "Working"
 
 
 _TOOLS: Mapping[str, Callable[..., ToolResult]] = {

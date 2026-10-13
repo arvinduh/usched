@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Check } from 'lucide-react';
 import type { Chip, ChatMessage } from '../types';
 import { Reply } from './Reply';
 import type { CourseState } from './Reply';
@@ -26,13 +26,15 @@ export interface ThreadProps {
   readonly onOpenCourse: (courseId: string) => void;
   readonly onNewChat: () => void;
   readonly stateOf: (courseId: string) => CourseState;
+  /** True while the last reply is still streaming. */
+  readonly busy: boolean;
 }
 
 /**
  * Renders the transcript, keeping the newest message in view.
  */
 export function Thread(props: ThreadProps): React.JSX.Element {
-  const { messages, onChip, onProject, onOpenCourse, onNewChat, stateOf } = props;
+  const { messages, onChip, onProject, onOpenCourse, onNewChat, stateOf, busy } = props;
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,6 +53,21 @@ export function Thread(props: ThreadProps): React.JSX.Element {
           </p>
         ) : (
           <div key={i} className={styles.reply}>
+            {(m.steps?.length || m.thinking) && (
+              <Work
+                steps={m.steps ?? []}
+                thinking={m.thinking ?? ''}
+                live={busy && i === messages.length - 1}
+                reply={(text) => (
+                  <Reply
+                    text={text}
+                    unverified={new Set()}
+                    onOpenCourse={onOpenCourse}
+                    stateOf={stateOf}
+                  />
+                )}
+              />
+            )}
             {m.content ? (
               <Reply
                 text={m.content}
@@ -58,7 +75,7 @@ export function Thread(props: ThreadProps): React.JSX.Element {
                 onOpenCourse={onOpenCourse}
                 stateOf={stateOf}
               />
-            ) : (
+            ) : m.steps?.length || m.thinking ? null : (
               <span className={styles.thinking} aria-label="Thinking">
                 <span />
                 <span />
@@ -116,5 +133,45 @@ function Chips({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * What the advisor did for a reply: while it works, the step under way;
+ * after, a quiet summary that opens to every step and its reasoning.
+ */
+function Work({
+  steps,
+  thinking,
+  live,
+  reply,
+}: {
+  readonly steps: readonly string[];
+  readonly thinking: string;
+  readonly live: boolean;
+  /** Renders the reasoning the way replies render. */
+  readonly reply: (text: string) => React.ReactNode;
+}): React.JSX.Element {
+  const counted = steps.length === 1 ? '1 step' : `${steps.length} steps`;
+  const summary = live
+    ? `${steps.at(-1) ?? 'Thinking'}…`
+    : [thinking && 'Thought', steps.length > 0 && counted].filter(Boolean).join(' · ');
+  return (
+    <details className={styles.work}>
+      <summary className={`${styles.workSummary} ${live ? styles.live : ''}`}>
+        {summary}
+      </summary>
+      {steps.length > 0 && (
+        <ol className={styles.steps}>
+          {steps.map((step, i) => (
+            <li key={i}>
+              <Check size={11} aria-hidden />
+              {step}
+            </li>
+          ))}
+        </ol>
+      )}
+      {thinking && <div className={styles.thought}>{reply(thinking)}</div>}
+    </details>
   );
 }

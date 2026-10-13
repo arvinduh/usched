@@ -14,6 +14,9 @@ import fastapi
 import uvicorn
 from absl import logging
 from fastapi import staticfiles
+from fastapi.middleware import gzip
+from starlette.responses import Response
+from starlette.types import Scope
 
 from server.src.agent import llm
 from server.src.data import catalog_db
@@ -71,6 +74,9 @@ app = fastapi.FastAPI(
   version="0.1.0",
   lifespan=lifespan,
 )
+# A search page is ~200KB of JSON and compresses about tenfold. Starlette
+# leaves text/event-stream alone, so the advisor still streams token by token.
+app.add_middleware(gzip.GZipMiddleware, minimum_size=1024)
 
 app.include_router(catalog.router)
 app.include_router(chat.router)
@@ -85,8 +91,33 @@ def health_check() -> dict[str, str]:
 # In production the built client is served from here, so the page and the
 # API share one origin. During development Vite serves it and proxies /api.
 _CLIENT = Path(__file__).resolve().parents[1] / "client" / "dist"
+
+
+class _Client(staticfiles.StaticFiles):
+  """The built client: hashed assets cache for good, the page never does.
+
+  Vite names each file in assets/ by its content, so a cached copy is never
+  stale; the page that names them must be rechecked to pick up a rebuild.
+  """
+
+  def file_response(
+    self,
+    full_path: str | os.PathLike[str],
+    stat_result: os.stat_result,
+    scope: Scope,
+    status_code: int = 200,
+  ) -> Response:
+    response = super().file_response(full_path, stat_result, scope, status_code)
+    response.headers["Cache-Control"] = (
+      "public, max-age=31536000, immutable"
+      if Path(full_path).parent.name == "assets"
+      else "no-cache"
+    )
+    return response
+
+
 if _CLIENT.is_dir():
-  app.mount("/", staticfiles.StaticFiles(directory=_CLIENT, html=True))
+  app.mount("/", _Client(directory=_CLIENT, html=True))
 
 
 if __name__ == "__main__":

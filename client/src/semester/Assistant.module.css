@@ -189,23 +189,6 @@
   margin-left: auto;
 }
 
-.sort select {
-  height: 24px;
-  border: none;
-  background: none;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
 .panel {
   margin: 4px 12px 8px;
   padding: 10px 12px;

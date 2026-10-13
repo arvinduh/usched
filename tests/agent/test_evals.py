@@ -65,7 +65,7 @@ def _ask(conn, model, message: str, **fields: Any) -> Outcome:
     payload = json.loads(body)
     if "token" in payload:
       text.append(payload["token"])
-    else:
+    elif "action_chips" in payload:
       closing = payload
   outcome = Outcome(
     "".join(text), closing["action_chips"], closing["unverified"]

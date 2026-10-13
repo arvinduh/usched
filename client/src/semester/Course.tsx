@@ -21,7 +21,7 @@ import {
   unmetPrereqs,
 } from '../lib/schedule';
 import { formatRange } from '../lib/time';
-import { setFocus } from '../state/preview';
+import { setFocus, usePreview } from '../state/preview';
 import { ContextMenu } from '../ui/ContextMenu';
 import { DayStrip, RatingPair, SeatMeter, TypeSwatch } from '../ui/Glyphs';
 import { hueFor } from '../ui/encoding';
@@ -366,13 +366,17 @@ function SectionRow({
   readonly onToggle: () => void;
   readonly onMenu: (x: number, y: number) => void;
 }): React.JSX.Element {
+  // Lit while the pointer is on this section's block on the week.
+  const isFocused = usePreview((p) => p.focusId === section.id);
   const [instructor, ...coTeachers] = section.instructors;
   const rated = section.instructors.find((i) => i.rmp?.rating != null)?.rmp;
   const meetings = timedMeetings(section);
   return (
     <button
       type="button"
-      className={`${styles.section} ${isOffGroup ? styles.offGroup : ''}`}
+      className={`${styles.section} ${isOffGroup ? styles.offGroup : ''} ${
+        isFocused ? styles.sectionFocus : ''
+      }`}
       title={isOffGroup ? 'Choosing this switches to its group' : undefined}
       style={isChosen ? { background: fill } : undefined}
       aria-pressed={isChosen}

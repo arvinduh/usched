@@ -41,12 +41,12 @@ export function hueFor(
 /**
  * Builds the CSS background that draws a section type's texture in `color`:
  * Lecture solid, Discussion empty (the outline carries it), Lab hatched,
- * Quiz dotted, and combined types split half solid.
+ * and Quiz dotted. Combined types (Lecture/Lab, Lecture/Discussion) are
+ * lectures first and draw solid; their label names the rest.
  */
 export function textureBackground(sectionType: string, color: string): string {
   const hatch = `repeating-linear-gradient(45deg, ${color} 0 1.5px, transparent 1.5px 4px)`;
   const dots = `radial-gradient(${color} 0.9px, transparent 1.2px) 0 0 / 4px 4px`;
-  const half = `linear-gradient(90deg, ${color} 50%, transparent 50%)`;
   switch (sectionType) {
     case 'Lecture':
       return color;
@@ -56,10 +56,6 @@ export function textureBackground(sectionType: string, color: string): string {
       return hatch;
     case 'Quiz':
       return dots;
-    case 'Lecture/Lab':
-      return `${half}, ${hatch}`;
-    case 'Lecture/Discussion':
-      return half;
     default:
       return color;
   }

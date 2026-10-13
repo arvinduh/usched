@@ -80,6 +80,8 @@ export function useAdvisorChat(
     setIsLoading(true);
 
     let content = '';
+    let steps: readonly string[] = [];
+    let thinking = '';
     abort.current = streamChat(
       {
         message: text,
@@ -102,6 +104,14 @@ export function useAdvisorChat(
         onToken: (token) => {
           content += token;
           patchReply({ content });
+        },
+        onStep: (step) => {
+          steps = [...steps, step];
+          patchReply({ steps });
+        },
+        onThought: (text) => {
+          thinking += text;
+          patchReply({ thinking });
         },
         onClose: (event) => {
           patchReply({ chips: event.action_chips, unverified: event.unverified });

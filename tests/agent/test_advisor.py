@@ -40,6 +40,33 @@ def test_solve_offers_each_option_as_a_proposal(conn):
   assert absent.content == "Not offered this term: NOPE-1."
 
 
+def test_solve_applies_filters_and_names_what_blocks_a_week(conn):
+  # Only 104L's group-B lecture (29989, Tue/Thu 8:00) ends by noon.
+  morning = tools.solve_schedule(
+    conn, TERM, [], ["CSCI-104L"], latest_end_time="12:00", goals=["easy"]
+  )
+  proposals = [c for c in morning.chips if isinstance(c, chips.ProposeSchedule)]
+  assert proposals and all("29989" in p.section_ids for p in proposals)
+  assert "days" in morning.content and "min between classes" in morning.content
+  blocked = tools.solve_schedule(
+    conn,
+    TERM,
+    [],
+    ["CSCI-104L"],
+    excluded_days=["Tuesday", "Thursday"],
+    latest_end_time="12:00",
+  )
+  assert blocked.chips == []
+  # Group A's quiz meets Thursday too, so only the days off block it.
+  assert "Dropping the days off would allow one" in blocked.content
+  assert (
+    "Unknown goals: fun"
+    in tools.solve_schedule(
+      conn, TERM, [], ["CSCI-104L"], goals=["fun"]
+    ).content
+  )
+
+
 def test_solve_fits_courses_around_the_week_and_keeps_it(conn):
   # CHEM 251x's 17367 meets Mon 14:00, as does CSCI 104L's lecture 29905.
   result = tools.solve_schedule(conn, TERM, ["17367"], ["CSCI-104L"])
@@ -105,7 +132,10 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
   # The scheduled lecture still needs its lab and quiz.
   assert "CSCI-104L still needs a Lab and a Quiz" in facts.text
   # Courses already scheduled are not suggested again.
-  assert "CSCI-104" not in {c.split("L")[0] for c in facts.next_codes}
+  (next_line,) = [
+    line for line in facts.text.splitlines() if line.startswith("Can take")
+  ]
+  assert "CSCI-104" not in next_line
   assert {"CSCI-104", "CSCI-420", "CSCI-103"} <= facts.grounded
 
 
@@ -130,7 +160,7 @@ def test_the_brief_says_what_is_on_screen_and_the_other_schedules(conn):
 def test_a_student_without_a_program_still_gets_a_brief(conn):
   facts = brief.build(conn, dataclasses.replace(STUDENT, program_id=None))
   assert "Program: not chosen" in facts.text
-  assert facts.next_codes == []
+  assert "Can take next" not in facts.text
 
 
 def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(conn):
@@ -162,13 +192,10 @@ def test_history_remembers_what_each_reply_offered(conn):
   assert advisor.remembered(conn, TERM, plain) == "hi"
 
 
-def test_closing_chips_prefer_tools_then_next_steps():
+def test_chips_come_only_from_what_the_model_did():
   search = chips.Search(label="Show CSCI-104L", query="CSCI-104L")
-  assert advisor.closing_chips([search], ["MATH-226"]) == [
-    search,
-    chips.Search(label="Show MATH-226", query="MATH-226"),
-  ]
-  assert advisor.closing_chips([], []) == []
+  assert advisor.closing_chips([search, search]) == [search]
+  assert advisor.closing_chips([]) == []
 
 
 def _events(stream: Iterator[str]) -> list[Any]:

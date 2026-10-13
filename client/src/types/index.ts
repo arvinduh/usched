@@ -57,6 +57,10 @@ export interface ChatMessage {
   readonly id: string;
   readonly role: 'user' | 'assistant';
   readonly content: string;
+  /** Tools the advisor ran while replying, in words, in order. */
+  readonly steps?: readonly string[];
+  /** The advisor's reasoning summary for this reply. */
+  readonly thinking?: string;
   readonly chips?: readonly Chip[];
   /** Courses the reply names that the catalog does not have. */
   readonly unverified?: readonly string[];

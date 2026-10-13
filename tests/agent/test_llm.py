@@ -4,7 +4,7 @@ Live tests talk to the configured Gemini and spend real quota, so they run
 only on request: `npm run test:live`.
 """
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 
 import pytest
 
@@ -40,6 +40,11 @@ def test_missing_configuration_says_what_to_set():
   )
 
 
+def _text(events: Iterable[llm.Event]) -> str:
+  """The answer a reply streams, without its thoughts and steps."""
+  return "".join(e for e in events if isinstance(e, str))
+
+
 def _scripted(*turns: Sequence[llm.Call]):
   """A model turn that calls the given tools in order, then answers."""
   seen: list[tuple[int, bool]] = []
@@ -69,7 +74,13 @@ def test_the_loop_feeds_each_round_its_results_then_answers():
     ran.append(name)
     return f"{name} result"
 
-  assert "".join(llm.run(turn, execute)) == "Done."
+  events = list(llm.run(turn, execute))
+  assert _text(events) == "Done."
+  # Each tool is announced as it starts, before its result feeds the model.
+  assert [e.call for e in events if isinstance(e, llm.Acting)] == [
+    search,
+    solve,
+  ]
   assert ran == ["search_courses", "solve_schedule"]
   assert seen == [(0, True), (1, True), (2, False)]
 
@@ -77,8 +88,7 @@ def test_the_loop_feeds_each_round_its_results_then_answers():
 def test_the_loop_forbids_tools_after_its_rounds():
   call = llm.Call("search_courses", {})
   turn, seen = _scripted(*[[call]] * (llm.TOOL_ROUNDS + 2))
-  text = "".join(llm.run(turn, lambda name, args: "r"))
-  assert text == "Done."
+  assert _text(llm.run(turn, lambda name, args: "r")) == "Done."
   assert [allowed for _, allowed in seen] == [True] * llm.TOOL_ROUNDS + [False]
 
 
@@ -92,7 +102,7 @@ def test_live_model_answers_and_calls_tools(live_model):
     calls.append(name)
     return "CSCI-467: Introduction to Machine Learning (4 units)"
 
-  text = "".join(
+  text = _text(
     live_model.reply(
       "You help USC students. Use search_courses to find courses.",
       [],

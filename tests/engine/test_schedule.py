@@ -117,15 +117,65 @@ def test_bundles_drop_cancelled_and_self_conflicting_sections():
   assert found == []
 
 
-def test_preferences_filter_but_fall_back_with_a_penalty():
-  prefs = schedule.Preferences(excluded_days=frozenset({MON}))
+def test_filters_are_hard_and_blockers_name_the_culprit():
+  no_monday = schedule.Preferences(
+    filters=schedule.Filters(excluded_days=frozenset({MON}))
+  )
   only_monday = _course("A-1", _section("1", days=(MON,)))
-  (best,) = schedule.solve([only_monday], prefs)
-  assert best.violations == 1
+  assert schedule.solve([only_monday], no_monday) == []
+  assert schedule.blockers([only_monday], no_monday) == ["the days off"]
   either = _course(
     "B-1", _section("2", days=(MON,)), _section("3", days=(TUE,))
   )
-  assert [s.id for s in schedule.solve([either], prefs)[0].sections] == ["3"]
+  (best,) = schedule.solve([either], no_monday)
+  assert [s.id for s in best.sections] == ["3"]
+
+
+def _goals(*goals: schedule.Goal, **filters) -> schedule.Preferences:
+  return schedule.Preferences(filters=schedule.Filters(**filters), goals=goals)
+
+
+def test_compact_trades_a_rating_for_no_breaks():
+  a = _course("A-1", _section("a", start=600, end=650))
+  b = _course(
+    "B-1",
+    _section("b-near", start=650, end=700, rating=2.0),
+    _section("b-far", start=900, end=950, teacher="Bo Ng", rating=5.0),
+  )
+  compact = schedule.solve([a, b], _goals(schedule.Goal.COMPACT))[0]
+  assert {s.id for s in compact.sections} == {"a", "b-near"}
+  assert compact.gap_minutes == 0
+  rated = schedule.solve([a, b], _goals(schedule.Goal.RATING))[0]
+  assert {s.id for s in rated.sections} == {"a", "b-far"}
+  assert rated.gap_minutes == 250
+
+
+def test_fewer_days_and_day_limits_count_the_fixed_week():
+  fixed = [_section("fixed", days=(MON,), start=500, end=550)]
+  b = _course(
+    "B-1",
+    _section("b-mon", days=(MON,), start=700, end=750),
+    _section("b-tue", days=(TUE,), start=700, end=750, rating=5.0),
+  )
+  fewest = schedule.solve([b], _goals(schedule.Goal.FEWER_DAYS), around=fixed)
+  assert [s.id for s in fewest[0].sections] == ["b-mon"]
+  assert fewest[0].days == 1
+  one_day = _goals(schedule.Goal.RATING, max_days=1)
+  assert [
+    s.id for s in schedule.solve([b], one_day, around=fixed)[0].sections
+  ] == ["b-mon"]
+
+
+def test_kept_free_windows_and_latest_end_exclude_sections():
+  b = _course(
+    "B-1",
+    _section("lunch", start=720, end=770),
+    _section("late", start=1100, end=1150),
+    _section("fine", start=600, end=650),
+  )
+  lunch = schedule.Window(frozenset({MON}), 720, 780)
+  prefs = _goals(schedule.Goal.RATING, keep_free=(lunch,), latest_end=18 * 60)
+  assert [s.sections[0].id for s in schedule.solve([b], prefs)] == ["fine"]
 
 
 def test_solve_avoids_conflicts_and_ranks_by_rating():

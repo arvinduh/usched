@@ -78,6 +78,9 @@ import styles from './App.module.css';
 /** Text that names a course rather than a topic, e.g. "CSCI-104L". */
 const COURSE_CODE = /^[A-Za-z]{2,5}[- ]?\d{3}[A-Za-z]{0,4}$/;
 
+/** How long the degree page takes to lift away; matches App.module.css. */
+const LIFT_MS = 160;
+
 /** Courses the column suggests as next up. */
 const NEXT_UP = 5;
 
@@ -354,10 +357,7 @@ function Planner({
   useEffect(() => {
     currentSpace.current = space;
   }, [space]);
-  const go = useCallback((next: Space): void => {
-    if (next === currentSpace.current) {
-      return;
-    }
+  const switchTo = useCallback((next: Space): void => {
     if ('startViewTransition' in document) {
       // A skipped animation (hidden tab, rapid toggling) rejects `ready`;
       // the state update itself still applies, so the rejection is noise.
@@ -368,6 +368,32 @@ function Planner({
       setSpace(next);
     }
   }, []);
+  // Leaving the degree, the page first lifts back toward the meter (it
+  // dropped from there), then the bar morphs home and the planner rises.
+  const [leavingDegree, setLeavingDegree] = useState(false);
+  const leaving = useRef(false);
+  const go = useCallback(
+    (next: Space): void => {
+      if (next === currentSpace.current || leaving.current) {
+        return;
+      }
+      if (
+        next === 'planner' &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ) {
+        leaving.current = true;
+        setLeavingDegree(true);
+        setTimeout(() => {
+          leaving.current = false;
+          setLeavingDegree(false);
+          switchTo(next);
+        }, LIFT_MS);
+        return;
+      }
+      switchTo(next);
+    },
+    [switchTo],
+  );
 
   useEffect(() => {
     goRef.current = go;
@@ -677,7 +703,7 @@ function Planner({
       />
 
       {space === 'degree' ? (
-        <main className={styles.degree}>
+        <main className={`${styles.degree} ${leavingDegree ? styles.lifting : ''}`}>
           <DegreeView
             term={term}
             programs={programs}
