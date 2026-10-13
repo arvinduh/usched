@@ -1,5 +1,5 @@
 # Render blueprint for the hosted demo (README "Deploying").
-# Render > New > Blueprint > this repo, then paste a Gemini key when asked.
+# Render > New > Blueprint > this repo; it asks for each value below.
 services:
   - type: web
     name: usched
@@ -9,5 +9,11 @@ services:
     autoDeploy: true
     branch: main
     envVars:
+      # Printed by `npm run catalog -- publish`; read at build time.
+      - key: CATALOG_URL
+        sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      # Ordered: later models take over while earlier ones are busy.
+      - key: GEMINI_MODELS
         sync: false

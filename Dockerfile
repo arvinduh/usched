@@ -1,18 +1,20 @@
 # The production image: the API serving the built client, one origin.
 #
-#   docker build -t usched .
-#   docker run -p 8000:8000 -e GEMINI_API_KEY=... usched
+#   docker build --build-arg CATALOG_URL=... -t usched .
+#   docker run -p 8000:8000 --env-file .env usched
 #
-# The catalog database is not in the repo; the build downloads the copy
-# `npm run publish:catalog` uploaded to this repo's "catalog" release.
-# README "Deploying" walks through the whole flow.
+# The catalog database is not in the repo: pass the CATALOG_URL that
+# `npm run catalog -- publish` prints. README "Deploying" walks through it.
 
 FROM node:26-slim AS client
-WORKDIR /app/client
-COPY client/package.json client/package-lock.json ./
-RUN npm ci
-COPY client/ ./
-RUN npm run build
+WORKDIR /app
+# The client is an npm workspace; --ignore-scripts skips the root
+# postinstall, which syncs Python and belongs to the next stage.
+COPY package.json package-lock.json ./
+COPY client/package.json client/
+RUN npm ci --ignore-scripts
+COPY client/ client/
+RUN npm run build -w client
 
 FROM python:3.14-slim
 COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /bin/uv
@@ -23,7 +25,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-default-groups --no-install-project
 COPY server/ server/
 COPY --from=client /app/client/dist client/dist
-ARG CATALOG_URL=https://github.com/arvinduh/usched/releases/download/catalog/catalog.db
+ARG CATALOG_URL
+RUN test -n "$CATALOG_URL" || \
+  (echo "Set CATALOG_URL (npm run catalog -- publish prints it)" && exit 1)
 ADD ${CATALOG_URL} server/data/catalog.db
 
 # Hosts such as Render set PORT; 8000 otherwise.
