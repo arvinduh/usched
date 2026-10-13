@@ -91,6 +91,7 @@ _KEYS: Mapping[str, Callable[[Any], Hashable]] = {
     r.kind,
     r.position,
   ),
+  "session": lambda r: (r.term_code, r.code),
   "section": lambda r: (r.term_code, r.id),
   "meeting": lambda r: (r.term_code, r.section_id, r.position),
   "instructor": lambda r: r.key,
@@ -257,6 +258,7 @@ def _add_listing(
   split("requisite_group", listing.requisite_groups, by_course)
   split("requisite_course", listing.requisite_courses, by_course)
   split("restriction", listing.restrictions, by_course)
+  tables["session"].add(listing.sessions)
   split("section", listing.sections, by_course)
   split("meeting", listing.meetings, by_section)
   tables["instructor"].add(listing.instructors)
@@ -424,7 +426,7 @@ def _write(conn: sqlite3.Connection, data: _Collected) -> dict[str, int]:
       for r in tables["requisite_course"].rows()
     ),
   )
-  for name in ("restriction", "section", "meeting", "instructor"):
+  for name in ("restriction", "session", "section", "meeting", "instructor"):
     counts[name] = _insert(conn, name, _tuples(tables[name].rows()))
   counts["section_instructor"] = _insert(
     conn, "section_instructor", _tuples(tables["section_instructor"].rows())

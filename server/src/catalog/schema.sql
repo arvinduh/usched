@@ -130,6 +130,15 @@ CREATE TABLE ge_category (            -- seeded policy
 
 -- Sections -------------------------------------------------------------------
 
+-- A registration session: 001 is the regular term, others are shorter
+-- or offset ones. USC's listings name sessions but give no dates.
+CREATE TABLE session (
+  term_code INTEGER NOT NULL REFERENCES term (code),
+  code TEXT NOT NULL,                 -- e.g. 001
+  usc_session_id INTEGER NOT NULL,
+  PRIMARY KEY (term_code, code)
+);
+
 CREATE TABLE section (
   term_code INTEGER NOT NULL,
   id TEXT NOT NULL,                   -- USC section number, e.g. 29905
@@ -138,7 +147,7 @@ CREATE TABLE section (
   type TEXT NOT NULL,                 -- Lecture, Lab, Discussion, Quiz, ...
   type_code TEXT,                     -- USC's short code, e.g. C
   link_code TEXT,                     -- bundle letter; NULL pairs with any
-  session_code TEXT,                  -- e.g. 001 (regular) or a sub-session
+  session_code TEXT,                  -- NULL when USC names none
   name TEXT,                          -- special-topic title, if any
   units_min REAL,
   units_max REAL,
@@ -151,7 +160,8 @@ CREATE TABLE section (
   notes TEXT,
   syllabus_url TEXT,
   PRIMARY KEY (term_code, id),
-  FOREIGN KEY (term_code, course_code) REFERENCES offering (term_code, course_code)
+  FOREIGN KEY (term_code, course_code) REFERENCES offering (term_code, course_code),
+  FOREIGN KEY (term_code, session_code) REFERENCES session (term_code, code)
 );
 
 -- A weekly meeting pattern; a section may have several.

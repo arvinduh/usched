@@ -48,6 +48,7 @@ class Listing:
   requisite_groups: list[records.RequisiteGroup]
   requisite_courses: list[records.RequisiteCourse]
   restrictions: list[records.Restriction]
+  sessions: list[records.Session]
   sections: list[records.Section]
   meetings: list[records.Meeting]
   instructors: list[records.Instructor]
@@ -101,7 +102,7 @@ def course_code(prefix: str, number: str, suffix: str | None) -> str:
 
 def parse_listing(raw: Mapping[str, Any], term: int) -> Listing:
   """Parses one `/Courses/CoursesByTermSchoolProgram` payload."""
-  out = Listing([], [], [], [], [], [], [], [], [], [])
+  out = Listing([], [], [], [], [], [], [], [], [], [], [])
   for course in raw.get("courses") or []:
     _parse_course(course, term, out)
   return out
@@ -226,6 +227,11 @@ def _parse_section(
   section_id = str(section["sisSectionId"])
   units = [float(u) for u in section.get("units") or []]
   session = section.get("session") or {}
+  session_code = _text(session.get("rnrSessionCode"))
+  if session_code and session.get("rnrSessionId"):
+    out.sessions.append(
+      records.Session(term, session_code, int(session["rnrSessionId"]))
+    )
   out.sections.append(
     records.Section(
       term_code=term,
@@ -237,7 +243,7 @@ def _parse_section(
       type=str(section.get("rnrMode") or "Lecture"),
       type_code=_text(section.get("rnrModeCode")),
       link_code=_text(section.get("linkCode")),
-      session_code=_text(session.get("rnrSessionCode")),
+      session_code=session_code,
       name=_text(section.get("name")),
       units_min=min(units) if units else None,
       units_max=max(units) if units else None,

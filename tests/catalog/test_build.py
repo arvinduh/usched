@@ -177,3 +177,13 @@ def test_a_silent_bachelors_page_gets_the_policy_minimum():
   assert (filled.total_units, filled.total_units_stated) == (128.0, False)
   master = dataclasses.replace(page, degree_type="BS/MS")
   assert build._with_policy_total(master).total_units is None
+
+
+def test_sections_reference_their_session(db):
+  assert _one(
+    db,
+    """SELECT COUNT(*) FROM section s LEFT JOIN session x
+       ON x.term_code = s.term_code AND x.code = s.session_code
+       WHERE s.session_code IS NOT NULL AND x.code IS NULL""",
+  ) == (0,)
+  assert _one(db, "SELECT COUNT(*) FROM session WHERE code = '001'")[0] == 2

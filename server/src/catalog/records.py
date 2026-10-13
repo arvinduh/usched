@@ -113,6 +113,15 @@ class Restriction:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Session:
+  """A registration session within a term (regular, or a shorter one)."""
+
+  term_code: int
+  code: str
+  usc_session_id: int
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Section:
   """A registrable section of an offering."""
 
