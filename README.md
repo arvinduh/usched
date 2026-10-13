@@ -7,18 +7,21 @@ plan stays in your browser.
 Two places that work as one: the planner (your week, and beside it one column
 with one input) and your degree, which drops down from the top bar's meter.
 
-- **The input** does whatever you type: a course opens it, a question asks the
-  advisor, and "took CSCI 103L, MATH 125" marks courses taken. It always says
-  what Enter will do.
+- **The input** takes typing from anywhere. Plain text asks the advisor; `>`
+  finds courses; `/` runs a command, such as "/took CSCI 103L, MATH 125" to
+  mark courses taken, with completions above the input. It always says what
+  Enter will do.
 - **The column** shows your saved courses, the degree courses you can take
-  next, and the conversation when you're not typing, and live matches while
-  you are.
-- **Your degree** (click the meter or press `D`) reads at a glance: loose chips
-  mean take all, chips in a box mean pick one; ✓ is taken, striped is on this
-  term's week. Hover a course to mark it taken; click it to plan it.
-- **One course card** opens from anywhere a course appears: the degree, search,
-  an advisor reply, or a block on the week. It shows prerequisites and
-  sections, and its sections ghost onto the week; click a ghost to take it.
+  next, and the conversation, with live matches over them during a `>`
+  search.
+- **Your degree** (click the meter, or `/degree`) reads at a glance: loose
+  chips mean take all, chips in a box mean pick one; ✓ is taken, striped is on
+  this term's week. Click a course to check it off; hover it to find its
+  sections. Click a GE to count one taken elsewhere.
+- **One course card** opens from search, the degree, or an advisor reply. It
+  shows prerequisites and sections, and its sections ghost onto the week;
+  click a ghost to take it. Click a block on the week to ghost its other
+  sections without leaving the conversation.
   Linked lectures, labs, and quizzes stay together, and conflicts, units,
   missing components, and D-clearance show up as you go.
 - **The advisor** (optional, on Gemini) answers from a brief of your real
@@ -70,20 +73,24 @@ npm run dev
 ```
 
 The app is at http://localhost:18801 and the API at http://localhost:18800/docs
-(ports come from `.env`). One Ctrl+C stops both. On Windows, `node --run dev`
-does the same without npm's batch wrapper, which otherwise answers Ctrl+C with a
-stray "Terminate batch job (Y/N)?".
+(ports come from `.env`). One Ctrl+C stops both and returns a clean prompt. On
+Windows, prefer `node --run dev`: `npm` (and tools installed as `.cmd` shims,
+as mise does by default) answers Ctrl+C with "Terminate batch job (Y/N)?"; type
+`Y` and Enter if you see it.
 
 ## Using it
 
 | Key             | Action                                            |
 | :-------------- | :------------------------------------------------ |
-| `/` or `⌘J`     | Focus the input                                   |
+| Any letter      | Start typing a message to the advisor             |
+| `>` / `⌘⇧P`     | Find courses (keeps what you typed)               |
+| `/`             | Run a command: `/took`, `/new`, `/degree`         |
+| `⌘J`            | Focus the input                                   |
 | `↑` `↓` `→`     | Move through matches; open the one under focus    |
-| `D`             | Open or close your degree                         |
+| `Tab`           | Take the highlighted command or course            |
 | `Esc`           | Close the degree, the course card, then the input |
 | `[` `]`         | Previous / next schedule variant                  |
-| `⌘Enter`        | Ask the advisor even when the text names a course |
+| `⌘Enter`        | Ask the advisor about a `>` search                |
 | `⌘Z` / `Ctrl+Z` | Undo the last change                              |
 
 Right-click a section to add it to another variant. The settings menu copies your
