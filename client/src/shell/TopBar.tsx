@@ -2,7 +2,7 @@
  * The app's only chrome: wordmark, degree meter, term, and settings.
  *
  * The meter shows completed, planned-this-term, and remaining units, and
- * clicking it drops the Degree page down from it (or `D`); the wordmark
+ * clicking it drops the Degree page down from it; the wordmark
  * returns to the planner at rest. The term picker switches which semester
  * is planned. The bar holds no state of its
  * own beyond whether the menu is open.
@@ -100,7 +100,7 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
         className={`${styles.meter} ${isDegreeOpen ? styles.meterOn : ''}`}
         onClick={onToggleDegree}
         aria-pressed={isDegreeOpen}
-        title={isDegreeOpen ? 'Back to planning (D)' : 'Your degree (D)'}
+        title={isDegreeOpen ? 'Back to planning' : 'Your degree'}
       >
         <span className={styles.label}>Degree</span>
         <span className={`${styles.track} ${isDegreeOpen ? '' : styles.morph}`}>

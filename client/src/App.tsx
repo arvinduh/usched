@@ -401,9 +401,22 @@ function Planner({
     goRef.current = go;
   }, [go]);
 
+  // Focus asked for while the planner is still on its way (the degree
+  // page lifts out first) lands once the planner has rendered.
+  const focusOnArrival = useRef(false);
+  useEffect(() => {
+    if (space === 'planner' && focusOnArrival.current) {
+      focusOnArrival.current = false;
+      searchInput.current?.focus();
+    }
+  }, [space]);
   const focusInput = useCallback((): void => {
-    go('planner');
-    requestAnimationFrame(() => searchInput.current?.focus());
+    if (currentSpace.current === 'planner') {
+      searchInput.current?.focus();
+    } else {
+      focusOnArrival.current = true;
+      go('planner');
+    }
   }, [go]);
 
   const openCourse = (course: Course): void => {
@@ -632,19 +645,42 @@ function Planner({
     const onKey = (e: KeyboardEvent): void => {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
-      if ((mod && key === 'j') || (!mod && e.key === '/' && !isTyping(e.target))) {
+      const typing = isTyping(e.target) || e.isComposing;
+      // Writes into the bar from anywhere and focuses it, so typing never
+      // needs a click first.
+      const typeIntoBar = (edit: (text: string) => string): void => {
+        // In the planner without a bar, the first-run welcome is showing.
+        if (!searchInput.current && currentSpace.current === 'planner') {
+          return;
+        }
+        e.preventDefault();
+        setSearchText(edit);
+        focusInput();
+      };
+      // ">" (or Ctrl/Cmd+Shift+P) and "/" switch the bar's mode, keeping
+      // whatever words it already holds.
+      const withMode = (prefix: string) => (text: string) =>
+        prefix + text.replace(/^[>/]/, '');
+      if (mod && e.shiftKey && key === 'p') {
+        typeIntoBar(withMode('>'));
+        return;
+      }
+      if (mod && key === 'j') {
         e.preventDefault();
         focusInput();
         return;
       }
-      // ">" anywhere starts a course search, as it does in the bar.
-      if (e.key === '>' && !isTyping(e.target)) {
-        e.preventDefault();
-        if (!searchInput.current?.value) {
-          setSearchText('>');
+      if (!mod && !e.altKey && !typing) {
+        if (e.key === '>' || e.key === '/') {
+          typeIntoBar(withMode(e.key));
+          return;
         }
-        focusInput();
-        return;
+        // A letter or digit typed outside a field starts or continues a
+        // message in the bar.
+        if (/^[\p{L}\p{N}]$/u.test(e.key)) {
+          typeIntoBar((text) => text + e.key);
+          return;
+        }
       }
       if (mod && key === 'z' && !isTyping(e.target)) {
         if (undoLast()) {
@@ -656,10 +692,6 @@ function Planner({
         return;
       }
       switch (e.key) {
-        case 'd':
-        case 'D':
-          go(currentSpace.current === 'degree' ? 'planner' : 'degree');
-          return;
         case '[':
           cycleConfig(-1);
           return;
@@ -673,7 +705,7 @@ function Planner({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [peel, focusInput, go, setSearchText]);
+  }, [peel, focusInput, setSearchText]);
 
   // Drag the pane edge to resize. Moves write the CSS variable directly so
   // the app does not re-render per pointer event; the width is committed
