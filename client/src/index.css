@@ -102,6 +102,18 @@ button {
   outline-offset: 2px;
 }
 
+/* Switching places morphs only what persists (the degree bar); the rest of
+   the page swaps at once and runs its own entrance, instead of the browser
+   snapshotting the whole page twice for a crossfade. */
+:root {
+  view-transition-name: none;
+}
+
+::view-transition-group(degree-progress) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

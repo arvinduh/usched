@@ -50,6 +50,15 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  animation: drop-in 240ms var(--ease);
+}
+
+/* Each place enters on the compositor alone: opacity and transform. */
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
 }
 
 .right {
