@@ -36,7 +36,8 @@ class Turn:
 # Runs a tool by name with the model's arguments and returns text for it.
 Execute = Callable[[str, Mapping[str, Any]], str]
 
-_ROUNDS = 3  # Model turns per reply; the last must answer in words.
+# Rounds of tool calls a reply may make before it must answer in words.
+TOOL_ROUNDS = 2
 
 
 @dataclasses.dataclass(frozen=True)
@@ -77,13 +78,14 @@ ModelTurn = Callable[[Sequence[Round], bool], Iterator[str | Step]]
 def run(turn: ModelTurn, execute: Execute) -> Iterator[str]:
   """Runs the tool loop every provider shares, streaming reply text.
 
-  Each turn may call tools, whose results feed the next; the last of
-  `_ROUNDS` turns forbids tools, so a reply always ends in words.
+  Each turn may call tools, whose results feed the next; after
+  `TOOL_ROUNDS` rounds, one more turn forbids tools, so a reply always
+  ends in words.
   """
   rounds: list[Round] = []
-  for n in range(_ROUNDS):
+  for n in range(TOOL_ROUNDS + 1):
     step: Step | None = None
-    for event in turn(rounds, n < _ROUNDS - 1):
+    for event in turn(rounds, n < TOOL_ROUNDS):
       if isinstance(event, Step):
         step = event
       else:
