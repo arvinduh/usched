@@ -7,6 +7,7 @@
  */
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { searchCourses } from '../api/client';
 import { parseQuery, readBar, searchTextOf } from '../lib/query';
 import type { Bar, ParsedQuery } from '../lib/query';
@@ -26,7 +27,8 @@ const NO_COURSES: readonly Course[] = [];
  */
 export interface CatalogSearch {
   readonly text: string;
-  readonly setText: (text: string) => void;
+  /** Takes the new text, or an edit of the current one. */
+  readonly setText: Dispatch<SetStateAction<string>>;
   readonly bar: Bar;
   readonly parsed: ParsedQuery;
   readonly courses: readonly Course[];
