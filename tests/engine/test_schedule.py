@@ -147,3 +147,12 @@ def test_solve_avoids_conflicts_and_ranks_by_rating():
 def test_a_course_without_bundles_is_unsolvable():
   empty = _course("A-1", _section("x", cancelled=True))
   assert schedule.solve([empty]) == []
+
+
+def test_missing_types_follow_the_chosen_link_group():
+  lecture = _section("lec", "Lecture", "A")
+  lab = _section("lab", "Lab", "A", start=700, end=750)
+  quiz_b = _section("quiz", "Quiz", "B", start=800, end=850)
+  course = _course("X-1", lecture, lab, quiz_b)
+  assert schedule.missing_types(course, []) == ["Lecture", "Lab", "Quiz"]
+  assert schedule.missing_types(course, [lecture]) == ["Lab"]

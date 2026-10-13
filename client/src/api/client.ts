@@ -10,7 +10,7 @@ import type {
   ApCredit,
   ApExam,
   ChatRequest,
-  Chip,
+  ClosingEvent,
   Course,
   GeCategory,
   GeProgress,
@@ -172,7 +172,8 @@ export function getApExams(): Promise<readonly ApExam[]> {
 /** Callbacks for one streamed advisor reply. */
 export interface ChatHandlers {
   readonly onToken: (token: string) => void;
-  readonly onChips: (chips: readonly Chip[]) => void;
+  /** The reply's last event: chips and any unverified courses. */
+  readonly onClose: (event: ClosingEvent) => void;
   readonly onDone: () => void;
 }
 
@@ -184,7 +185,7 @@ export interface ChatHandlers {
  */
 export function streamChat(
   request: ChatRequest,
-  { onToken, onChips, onDone }: ChatHandlers,
+  { onToken, onClose, onDone }: ChatHandlers,
 ): () => void {
   const controller = new AbortController();
   let finished = false;
@@ -225,15 +226,13 @@ export function streamChat(
           if (data === '[DONE]') {
             return;
           }
-          const parsed = JSON.parse(data) as {
-            token?: string;
-            action_chips?: Chip[];
-          };
-          if (parsed.token !== undefined) {
+          const parsed = JSON.parse(data) as
+            | { readonly token: string }
+            | ClosingEvent;
+          if ('token' in parsed) {
             onToken(parsed.token);
-          }
-          if (parsed.action_chips) {
-            onChips(parsed.action_chips);
+          } else {
+            onClose(parsed);
           }
         }
       }

@@ -109,6 +109,12 @@ export function Thread(props: ThreadProps): React.JSX.Element {
                 ))}
               </div>
             )}
+            {m.unverified && m.unverified.length > 0 && (
+              <p className={styles.unverified}>
+                Couldn't verify {m.unverified.join(', ')}; check before relying
+                on {m.unverified.length === 1 ? 'it' : 'them'}.
+              </p>
+            )}
           </div>
         ),
       )}

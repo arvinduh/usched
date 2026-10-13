@@ -16,7 +16,8 @@ import type { ApCredit, ChatMessage } from '../types';
  */
 export interface AdvisorContext {
   readonly term: number;
-  readonly plannedCodes: readonly string[];
+  /** Sections in the active schedule. */
+  readonly sectionIds: readonly string[];
   readonly shortlistedCodes: readonly string[];
   readonly completedCodes: readonly string[];
   readonly apCredits: readonly ApCredit[];
@@ -73,7 +74,7 @@ export function useAdvisorChat(): AdvisorChat {
         history: history.map(({ role, content: c }) => ({ role, content: c })),
         term: context.term,
         program_id: context.programId || null,
-        planned: [...context.plannedCodes],
+        section_ids: [...context.sectionIds],
         shortlisted: [...context.shortlistedCodes],
         completed: [...context.completedCodes],
         ap_credits: [...context.apCredits],
@@ -83,7 +84,8 @@ export function useAdvisorChat(): AdvisorChat {
           content += token;
           patchReply({ content });
         },
-        onChips: (chips) => patchReply({ chips }),
+        onClose: (event) =>
+          patchReply({ chips: event.action_chips, unverified: event.unverified }),
         onDone: () => setIsLoading(false),
       },
     );

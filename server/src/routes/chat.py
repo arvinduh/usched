@@ -13,7 +13,7 @@ from collections.abc import AsyncIterator
 
 import fastapi
 
-from server.src.agent import advisor
+from server.src.agent import advisor, llm
 from server.src.data import catalog_db
 
 
@@ -21,7 +21,9 @@ router = fastapi.APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 async def _relay(
-  payload: advisor.ChatRequest, catalog: catalog_db.CatalogDb
+  payload: advisor.ChatRequest,
+  catalog: catalog_db.CatalogDb,
+  model: llm.Model,
 ) -> AsyncIterator[str]:
   """Runs the blocking advisor on a worker thread and relays its chunks.
 
@@ -33,6 +35,7 @@ async def _relay(
   Args:
     payload: The chat request to answer.
     catalog: The catalog; the worker opens its own connection.
+    model: The advisor's language model.
 
   Yields:
     SSE-formatted chunks in production order.
@@ -53,7 +56,7 @@ async def _relay(
       deliver(None)
       return
     try:
-      for chunk in advisor.stream(payload, conn):
+      for chunk in advisor.stream(payload, conn, model):
         if stop.is_set():
           return
         deliver(chunk)
@@ -75,9 +78,9 @@ async def _relay(
   response_class=fastapi.responses.StreamingResponse,
   responses={
     200: {
-      "model": advisor.ChipsEvent,
+      "model": advisor.ClosingEvent,
       "description": (
-        "An event stream of `{token}` events, then one ChipsEvent, then "
+        "An event stream of `{token}` events, then one ClosingEvent, then "
         "`[DONE]`."
       ),
     }
@@ -89,7 +92,7 @@ async def chat_stream(
 ) -> fastapi.responses.StreamingResponse:
   """Streams AI advisor markdown guidance and interactive chips via SSE."""
   return fastapi.responses.StreamingResponse(
-    _relay(payload, request.app.state.catalog),
+    _relay(payload, request.app.state.catalog, request.app.state.model),
     media_type="text/event-stream",
     headers={
       "Cache-Control": "no-cache",

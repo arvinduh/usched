@@ -36,14 +36,6 @@ class WatchCourse(pydantic.BaseModel):
   course_code: str
 
 
-class MarkCompleted(pydantic.BaseModel):
-  """Records courses the student already took."""
-
-  action: Literal["mark_completed"] = "mark_completed"
-  label: str
-  course_codes: list[str]
-
-
 class Show(pydantic.BaseModel):
   """Switches the main view."""
 
@@ -61,6 +53,6 @@ class Search(pydantic.BaseModel):
 
 
 Chip = Annotated[
-  ProposeSchedule | EnrollSection | WatchCourse | MarkCompleted | Show | Search,
+  ProposeSchedule | EnrollSection | WatchCourse | Show | Search,
   pydantic.Field(discriminator="action"),
 ]

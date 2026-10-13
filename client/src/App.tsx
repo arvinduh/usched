@@ -438,7 +438,7 @@ function Planner({
     setSearchText('');
     chat.send(text, {
       term,
-      plannedCodes: scheduledCourseIds,
+      sectionIds: activeSectionIds,
       shortlistedCodes: watchedCourseIds,
       completedCodes: completedCourseIds,
       apCredits,

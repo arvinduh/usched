@@ -36,3 +36,17 @@ def identity(code: str) -> str:
   stable, case-insensitive key, so callers never special-case None.
   """
   return course_key(code) or code.strip().upper()
+
+
+# A course code as prose writes it: CSCI 104L, CSCI-104L. The department is
+# upper-case so ordinary words ("the 100 level") never match.
+_MENTION = re.compile(r"\b([A-Z]{2,5})[ -](\d{3}[A-Za-z]{0,4})\b")
+
+
+def mentions(text: str) -> dict[str, str]:
+  """Maps the identity of each course code `text` names to how it wrote it."""
+  found: dict[str, str] = {}
+  for match in _MENTION.finditer(text):
+    written = f"{match.group(1)} {match.group(2)}"
+    found.setdefault(identity(written), written)
+  return found

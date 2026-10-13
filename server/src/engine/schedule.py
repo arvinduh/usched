@@ -195,3 +195,20 @@ def solve(
     )
   found.sort(key=lambda s: s.score, reverse=True)
   return found[:limit]
+
+
+def missing_types(course: m.Course, chosen: Sequence[m.Section]) -> list[str]:
+  """Section types the chosen sections' link group still needs.
+
+  The group is fixed by the first chosen section with a link code; until
+  then every type the course offers counts.
+  """
+  link = next((s.link_code for s in chosen if s.link_code is not None), None)
+  required = dict.fromkeys(
+    s.type
+    for s in course.sections
+    if not s.is_cancelled and (link is None or s.link_code in (None, link))
+  )
+  for s in chosen:
+    required.pop(s.type, None)
+  return list(required)

@@ -258,7 +258,7 @@ export interface paths {
         };
         /**
          * Health Check
-         * @description Returns API operational readiness status and port configuration.
+         * @description Answers ok while the server runs; uptime monitors ping this.
          */
         get: operations["health_check_api_health_get"];
         put?: never;
@@ -321,11 +321,11 @@ export interface components {
             /** Program Id */
             program_id?: string | null;
             /**
-             * Planned
-             * @description Codes of courses in the active schedule.
+             * Section Ids
+             * @description Sections in the active schedule.
              * @default []
              */
-            planned: string[];
+            section_ids: string[];
             /**
              * Shortlisted
              * @description Codes of courses saved for later.
@@ -358,12 +358,17 @@ export interface components {
             content: string;
         };
         /**
-         * ChipsEvent
-         * @description The final event of a reply: chips for the student to act on.
+         * ClosingEvent
+         * @description The final event of a reply: chips, and courses the reply made up.
          */
-        ChipsEvent: {
+        ClosingEvent: {
             /** Action Chips */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkCompleted"] | components["schemas"]["Show"] | components["schemas"]["Search"])[];
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Show"] | components["schemas"]["Search"])[];
+            /**
+             * Unverified
+             * @description Courses the reply names that no source established.
+             */
+            unverified: string[];
         };
         /**
          * Course
@@ -526,21 +531,6 @@ export interface components {
             code: string;
             /** Title */
             title: string;
-        };
-        /**
-         * MarkCompleted
-         * @description Records courses the student already took.
-         */
-        MarkCompleted: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "mark_completed";
-            /** Label */
-            label: string;
-            /** Course Codes */
-            course_codes: string[];
         };
         /**
          * Meeting
@@ -1333,13 +1323,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description An event stream of `{token}` events, then one ChipsEvent, then `[DONE]`. */
+            /** @description An event stream of `{token}` events, then one ClosingEvent, then `[DONE]`. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChipsEvent"];
+                    "application/json": components["schemas"]["ClosingEvent"];
                 };
             };
             /** @description Validation Error */

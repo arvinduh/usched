@@ -28,3 +28,11 @@ def test_attribute_letters_do_not_change_identity(code, key):
 @pytest.mark.parametrize("text", ["", "CS 1", "the 100 level", "CSCI-1040"])
 def test_non_codes_have_no_key(text):
   assert codes.course_key(text) is None
+
+
+def test_mentions_find_codes_in_prose():
+  text = "Take CSCI 104L or CSCI-104 next, then MATH 225; skip the 100 level."
+  assert codes.mentions(text) == {
+    "CSCI-104": "CSCI 104L",
+    "MATH-225": "MATH 225",
+  }

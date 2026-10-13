@@ -1,8 +1,8 @@
 """FastAPI server entrypoint for usched backend services.
 
-This module initializes the FastAPI application, mounts CORS middleware,
-reports what the catalog and local model offer on startup, and exposes
-API routes.
+This module initializes the FastAPI application, reports what the catalog
+and the advisor model offer on startup, exposes the API routes, and serves
+the built client when one exists.
 """
 
 import contextlib
@@ -13,8 +13,9 @@ from pathlib import Path
 import fastapi
 import uvicorn
 from absl import logging
-from fastapi.middleware import cors
+from fastapi import staticfiles
 
+from server.src.agent import llm
 from server.src.data import catalog_db
 from server.src.routes import catalog, chat
 
@@ -40,7 +41,7 @@ _load_env_file()
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
-  """Opens the catalog and reports what it and the local model offer."""
+  """Opens the catalog and the advisor model, and reports what they offer."""
   logging.set_verbosity(logging.INFO)
   app.state.catalog = catalog_db.CatalogDb()
   try:
@@ -55,24 +56,12 @@ async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
         ", ".join(f"{t.season} {t.year}" for t in fetched) or "no terms",
       )
 
-  from server.src.agent import ollama
-
-  if ollama.is_ollama_available():
-    logging.info("Connected to local Ollama daemon.")
-    if ollama.is_model_downloaded():
-      logging.info("Model '%s' is loaded and ready.", ollama.MODEL_NAME)
-    else:
-      logging.warning(
-        "Model '%s' is not downloaded yet. Run: ollama pull %s",
-        ollama.MODEL_NAME,
-        ollama.MODEL_NAME,
-      )
+  app.state.model = llm.from_env()
+  reason = app.state.model.unavailable()
+  if reason:
+    logging.warning("Advisor model %s: %s", app.state.model.name, reason)
   else:
-    logging.info(
-      "Ollama daemon is offline. Start Ollama (`ollama run %s`) to enable "
-      "local AI advising.",
-      ollama.MODEL_NAME,
-    )
+    logging.info("Advisor model %s is ready.", app.state.model.name)
   yield
 
 
@@ -83,27 +72,21 @@ app = fastapi.FastAPI(
   lifespan=lifespan,
 )
 
-app.add_middleware(
-  cors.CORSMiddleware,
-  allow_origins=[
-    "http://localhost:18801",
-    "http://127.0.0.1:18801",
-    "http://localhost:5173",
-    "*",
-  ],
-  allow_credentials=True,
-  allow_methods=["*"],
-  allow_headers=["*"],
-)
-
 app.include_router(catalog.router)
 app.include_router(chat.router)
 
 
 @app.get("/api/health")
 def health_check() -> dict[str, str]:
-  """Returns API operational readiness status and port configuration."""
-  return {"status": "ok", "service": "usched", "port": "18800"}
+  """Answers ok while the server runs; uptime monitors ping this."""
+  return {"status": "ok"}
+
+
+# In production the built client is served from here, so the page and the
+# API share one origin. During development Vite serves it and proxies /api.
+_CLIENT = Path(__file__).resolve().parents[1] / "client" / "dist"
+if _CLIENT.is_dir():
+  app.mount("/", staticfiles.StaticFiles(directory=_CLIENT, html=True))
 
 
 if __name__ == "__main__":

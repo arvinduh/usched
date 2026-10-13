@@ -8,7 +8,7 @@
  * app shell's view state.
  */
 
-import { enrollSection, recordCompleted, toggleWatch } from '../../state/actions';
+import { enrollSection, toggleWatch } from '../../state/actions';
 import { setProposal } from '../../state/preview';
 import type { Chip } from '../../types';
 
@@ -39,9 +39,6 @@ export function applyActionChip(chip: Chip, effects: ChipEffects): void {
       return;
     case 'watch_course':
       toggleWatch(chip.course_code);
-      return;
-    case 'mark_completed':
-      recordCompleted(chip.course_codes);
       return;
     case 'show':
       if (chip.view === 'degree') {

@@ -1,9 +1,10 @@
-"""Tools the advisor model can call, and their compact text renderings.
+"""Tools the advisor model can call, and compact text renderings of sections.
 
-Each tool reads the catalog for the student's planning term, runs an
-engine where needed, and returns text for the model plus chips for the
-student. Text is terse on purpose: it is prompt context for a small local
-model, not UI.
+Three tools cover what the student brief cannot carry: searching the
+catalog, one course's full detail, and building schedules. Each reads the
+planning term through catalog_db, runs an engine where needed, and returns
+text for the model plus chips for the student. Text is terse on purpose:
+it is prompt context, not UI.
 """
 
 import dataclasses
@@ -12,28 +13,11 @@ import sqlite3
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from server.src.agent import chips
+from server.src.agent import chips, llm
 from server.src.catalog import codes
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
-from server.src.engine import audits, schedule
-
-
-@dataclasses.dataclass(frozen=True)
-class Student:
-  """What the advisor knows about the student asking.
-
-  Attributes:
-    term: The term being planned.
-    program_id: Their program, if chosen.
-    completed: Course codes already taken.
-    ap_credits: AP exam results.
-  """
-
-  term: int
-  program_id: str | None
-  completed: tuple[str, ...]
-  ap_credits: tuple[m.ApCredit, ...] = ()
+from server.src.engine import schedule
 
 
 @dataclasses.dataclass
@@ -44,93 +28,72 @@ class ToolResult:
   chips: list[chips.Chip] = dataclasses.field(default_factory=list)
 
 
-def _function(
-  name: str, description: str, properties: dict[str, Any], required: list[str]
-) -> dict[str, Any]:
-  return {
-    "type": "function",
-    "function": {
-      "name": name,
-      "description": description,
-      "parameters": {
-        "type": "object",
-        "properties": properties,
-        "required": required,
-      },
-    },
-  }
-
-
 _CODES = {
   "type": "array",
   "items": {"type": "string"},
   "description": "Course codes, e.g. ['CSCI-104L', 'MATH-226'].",
 }
-OLLAMA_TOOLS = [
-  _function(
+TOOLS = [
+  llm.Tool(
     "search_courses",
-    "Searches this term's courses by code, title, or topic.",
+    "Searches this term's courses by code, title, or topic. Use it for any "
+    "course the student brief does not already list.",
     {
-      "query": {"type": "string", "description": "e.g. 'machine learning'."},
-      "ge_category": {"type": "string", "description": "Optional, e.g. GE-A."},
+      "type": "object",
+      "properties": {
+        "query": {"type": "string", "description": "e.g. 'machine learning'."},
+        "ge_category": {
+          "type": "string",
+          "description": "Optional, e.g. GE-A.",
+        },
+      },
+      "required": ["query"],
     },
-    ["query"],
   ),
-  _function(
+  llm.Tool(
     "get_course_details",
-    "Shows a course's prerequisites, restrictions, and sections with "
-    "instructors, ratings, and seats.",
-    {"course_code": {"type": "string", "description": "e.g. 'CSCI-104L'."}},
-    ["course_code"],
+    "Shows one course's prerequisites, restrictions, description, and "
+    "sections with times, instructors, ratings, and seats.",
+    {
+      "type": "object",
+      "properties": {
+        "course_code": {"type": "string", "description": "e.g. 'CSCI-104L'."}
+      },
+      "required": ["course_code"],
+    },
   ),
-  _function(
+  llm.Tool(
     "solve_schedule",
     "Builds conflict-free weekly schedules that take every listed course, "
-    "honoring the student's day, time, and instructor preferences.",
+    "honoring day, time, and instructor preferences.",
     {
-      "course_codes": _CODES,
-      "excluded_days": {
-        "type": "array",
-        "items": {"type": "string"},
-        "description": "Days to keep free, e.g. ['Friday'].",
+      "type": "object",
+      "properties": {
+        "course_codes": _CODES,
+        "excluded_days": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Days to keep free, e.g. ['Friday'].",
+        },
+        "earliest_start_time": {"type": "string", "description": "HH:MM."},
+        "latest_end_time": {"type": "string", "description": "HH:MM."},
+        "preferred_instructors": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Surnames to favor.",
+        },
+        "excluded_instructors": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Surnames to avoid.",
+        },
+        "min_rating": {
+          "type": "number",
+          "description": "Lowest acceptable RateMyProfessors rating, 1-5.",
+        },
       },
-      "earliest_start_time": {"type": "string", "description": "HH:MM."},
-      "latest_end_time": {"type": "string", "description": "HH:MM."},
-      "preferred_instructors": {
-        "type": "array",
-        "items": {"type": "string"},
-        "description": "Surnames to favor.",
-      },
-      "excluded_instructors": {
-        "type": "array",
-        "items": {"type": "string"},
-        "description": "Surnames to avoid.",
-      },
-      "min_rating": {
-        "type": "number",
-        "description": "Lowest acceptable RateMyProfessors rating, 1-5.",
-      },
+      "required": ["course_codes"],
     },
-    ["course_codes"],
-  ),
-  _function(
-    "audit_program",
-    "Shows progress toward the student's degree: unmet requirements, "
-    "courses they can take next, and courses still locked by prerequisites.",
-    {"program_id": {"type": "string", "description": "Defaults to theirs."}},
-    [],
-  ),
-  _function(
-    "record_completed_courses",
-    "Records courses the student says they already took.",
-    {"course_codes": _CODES},
-    ["course_codes"],
-  ),
-  _function(
-    "watch_course",
-    "Shortlists a course for the student.",
-    {"course_code": {"type": "string", "description": "e.g. 'CSCI-201L'."}},
-    ["course_code"],
   ),
 ]
 
@@ -139,7 +102,8 @@ def _clock(minute: int) -> str:
   return f"{minute // 60}:{minute % 60:02d}"
 
 
-def _when(section: m.Section) -> str:
+def when(section: m.Section) -> str:
+  """A section's meeting times, e.g. "Mon,Wed 14:00-15:20", or TBA."""
   parts = [
     f"{','.join(meeting.days)} {_clock(meeting.start_minute)}-"
     f"{_clock(meeting.end_minute)}"
@@ -151,7 +115,8 @@ def _when(section: m.Section) -> str:
   return "; ".join(parts) or "TBA"
 
 
-def _who(section: m.Section) -> str:
+def who(section: m.Section) -> str:
+  """A section's instructors with ratings, or Staff."""
   names = [
     f"{i.name} (★{i.rmp.rating}, difficulty {i.rmp.difficulty})"
     if i.rmp is not None and i.rmp.rating is not None
@@ -180,11 +145,11 @@ def _requisite_text(groups: Sequence[m.RequisiteGroup]) -> str:
 
 
 def search_courses(
-  conn: sqlite3.Connection, student: Student, query: str, ge_category: str = ""
+  conn: sqlite3.Connection, term: int, query: str, ge_category: str = ""
 ) -> ToolResult:
   """Lists the best few matches with their first section."""
   found = catalog_db.search_courses(
-    conn, student.term, query, ge=ge_category or None, limit=5
+    conn, term, query, ge=ge_category or None, limit=5
   )
   if not found:
     return ToolResult(f"No courses match '{query}' this term.")
@@ -197,9 +162,7 @@ def search_courses(
       )
     if c.sections:
       first = c.sections[0]
-      lines.append(
-        f"  e.g. {first.id} {first.type} {_when(first)} {_who(first)}"
-      )
+      lines.append(f"  e.g. {first.id} {first.type} {when(first)} {who(first)}")
   actions: list[chips.Chip] = [
     chips.Search(label=f"Show {c.code}", query=c.code) for c in found[:3]
   ]
@@ -207,10 +170,10 @@ def search_courses(
 
 
 def get_course_details(
-  conn: sqlite3.Connection, student: Student, course_code: str
+  conn: sqlite3.Connection, term: int, course_code: str
 ) -> ToolResult:
   """Describes one course and up to a dozen of its sections."""
-  course = catalog_db.course(conn, student.term, course_code.strip())
+  course = catalog_db.course(conn, term, course_code.strip())
   if course is None:
     return ToolResult(f"{course_code} is not offered this term.")
   req = course.requisites
@@ -236,7 +199,7 @@ def get_course_details(
     flags += " cancelled" if s.is_cancelled else ""
     lines.append(
       f"- {s.id} {s.type}{f' [{s.link_code}]' if s.link_code else ''}: "
-      f"{_when(s)} | {_who(s)} | {s.registered}/{s.capacity} seats{flags}"
+      f"{when(s)} | {who(s)} | {s.registered}/{s.capacity} seats{flags}"
     )
   if len(course.sections) > 12:
     lines.append(f"(+{len(course.sections) - 12} more sections)")
@@ -273,7 +236,7 @@ def _minute(clock: str) -> int | None:
 
 def solve_schedule(
   conn: sqlite3.Connection,
-  student: Student,
+  term: int,
   course_codes: Sequence[str],
   excluded_days: Sequence[str] = (),
   earliest_start_time: str = "",
@@ -283,7 +246,7 @@ def solve_schedule(
   min_rating: float | None = None,
 ) -> ToolResult:
   """Finds the three best schedules and offers each as a proposal."""
-  courses = catalog_db.courses(conn, student.term, list(course_codes))
+  courses = catalog_db.courses(conn, term, list(course_codes))
   found_codes = {codes.identity(c.code) for c in courses}
   missing = [c for c in course_codes if codes.identity(c) not in found_codes]
   if missing:
@@ -315,7 +278,7 @@ def solve_schedule(
       )
     )
     lines += [
-      f"  {s.course_code} {s.id} {s.type}: {_when(s)} | {_who(s)}"
+      f"  {s.course_code} {s.id} {s.type}: {when(s)} | {who(s)}"
       for s in option.sections
     ]
     actions.append(
@@ -328,93 +291,10 @@ def solve_schedule(
   return ToolResult("\n".join(lines), actions)
 
 
-def audit_program(
-  conn: sqlite3.Connection, student: Student, program_id: str = ""
-) -> ToolResult:
-  """Summarizes unmet requirements and what to take next."""
-  wanted = program_id or student.program_id
-  program = catalog_db.program(conn, wanted) if wanted else None
-  if program is None:
-    return ToolResult("The student has not chosen a program yet.")
-  listed = audits.listed_codes(program)
-  offered = catalog_db.offered(conn, student.term, listed)
-  result = audits.program(
-    conn, student.term, program, student.completed, student.ap_credits
-  )
-  titles = {r.position: r.title for r in program.requirements}
-  parents = {r.position: r.parent for r in program.requirements}
-  open_top = [
-    titles[p.position]
-    for p in result.requirements
-    if parents[p.position] is None and p.status != m.RequirementStatus.DONE
-  ]
-  done = {codes.identity(c) for c in student.completed}
-  locked = {codes.identity(c) for c in result.locked}
-  ready = list(
-    dict.fromkeys(
-      code
-      for code in listed
-      if codes.identity(code) in offered
-      and codes.identity(code) not in done
-      and codes.identity(code) not in locked
-    )
-  )
-  total = f"/{program.total_units:g}" if program.total_units else ""
-  lines = [
-    f"{program.title}: {result.units:g}{total} units",
-    f"Unmet: {', '.join(open_top) or 'nothing'}",
-    f"Can take this term: {', '.join(ready[:8]) or 'none listed'}",
-    f"Locked by prerequisites: {', '.join(list(result.locked)[:8]) or 'none'}",
-  ]
-  actions: list[chips.Chip] = [chips.Show(label="Open degree", view="degree")]
-  actions += [
-    chips.Search(label=f"Show {code}", query=code) for code in ready[:2]
-  ]
-  return ToolResult("\n".join(lines), actions)
-
-
-def record_completed_courses(
-  conn: sqlite3.Connection, student: Student, course_codes: Sequence[str]
-) -> ToolResult:
-  """Offers to mark courses taken; the student confirms with the chip."""
-  del conn, student
-  codes = [c.strip().upper() for c in course_codes if c.strip()]
-  if not codes:
-    return ToolResult("No course codes given.")
-  return ToolResult(
-    f"Offered to mark {', '.join(codes)} as completed.",
-    [
-      chips.MarkCompleted(
-        label=f"Mark {', '.join(codes)} taken", course_codes=codes
-      )
-    ],
-  )
-
-
-def watch_course(
-  conn: sqlite3.Connection, student: Student, course_code: str
-) -> ToolResult:
-  """Offers to shortlist a course."""
-  course = catalog_db.course(conn, student.term, course_code.strip())
-  if course is None:
-    return ToolResult(f"{course_code} is not offered this term.")
-  return ToolResult(
-    f"Offered to shortlist {course.code} ({course.title}).",
-    [
-      chips.WatchCourse(
-        label=f"Shortlist {course.code}", course_code=course.code
-      )
-    ],
-  )
-
-
 _TOOLS: Mapping[str, Callable[..., ToolResult]] = {
   "search_courses": search_courses,
   "get_course_details": get_course_details,
   "solve_schedule": solve_schedule,
-  "audit_program": audit_program,
-  "record_completed_courses": record_completed_courses,
-  "watch_course": watch_course,
 }
 
 
@@ -422,14 +302,14 @@ def execute(
   name: str,
   arguments: Mapping[str, Any],
   conn: sqlite3.Connection,
-  student: Student,
+  term: int,
 ) -> ToolResult:
   """Runs a tool by name; bad names or arguments become text for the model."""
   tool = _TOOLS.get(name)
   if tool is None:
     return ToolResult(f"Unknown tool '{name}'.")
   try:
-    bound = inspect.signature(tool).bind(conn, student, **arguments)
+    bound = inspect.signature(tool).bind(conn, term, **arguments)
   except TypeError as e:
     return ToolResult(f"Bad arguments for {name}: {e}")
   return tool(*bound.args, **bound.kwargs)

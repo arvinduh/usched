@@ -36,7 +36,8 @@ export type GeProgress = Schemas['GeProgress'];
 export type ApExam = Schemas['ApExam'];
 export type ApCredit = Schemas['ApCredit'];
 export type ChatRequest = Schemas['ChatRequest'];
-export type Chip = Schemas['ChipsEvent']['action_chips'][number];
+export type ClosingEvent = Schemas['ClosingEvent'];
+export type Chip = ClosingEvent['action_chips'][number];
 
 /**
  * One schedule variant of a term: the sections the student picked.
@@ -55,4 +56,6 @@ export interface ChatMessage {
   readonly role: 'user' | 'assistant';
   readonly content: string;
   readonly chips?: readonly Chip[];
+  /** Courses the reply names that no source established. */
+  readonly unverified?: readonly string[];
 }
