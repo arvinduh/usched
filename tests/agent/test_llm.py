@@ -114,7 +114,21 @@ def test_gemini_without_a_key_explains_how_to_get_one():
   assert gemini.Gemini("key", "m").unavailable() is None
 
 
-def test_ollama_streams_then_answers_tool_results_without_tools():
+def test_ollama_forbids_tools_on_its_last_round():
+  offered: list[bool] = []
+
+  def handle(request: httpx.Request) -> httpx.Response:
+    offered.append("tools" in json.loads(request.content))
+    call = {"function": {"name": "search_courses", "arguments": {}}}
+    line = {"message": {"content": "", "tool_calls": [call]}}
+    return httpx.Response(200, content=json.dumps(line))
+
+  model = ollama.Ollama("http://ollama", "qwen", httpx.MockTransport(handle))
+  list(model.reply("s", [], "q", TOOLS, lambda name, args: "none"))
+  assert offered == [True, True, False]
+
+
+def test_ollama_streams_then_answers_tool_results():
   payloads: list[dict[str, Any]] = []
 
   def handle(request: httpx.Request) -> httpx.Response:
@@ -133,7 +147,9 @@ def test_ollama_streams_then_answers_tool_results_without_tools():
     model.reply("sys", [], "q", TOOLS, lambda name, args: "result")
   )
   assert text == "Done."
-  assert "tools" in payloads[0] and "tools" not in payloads[1]
+  assert payloads[1]["messages"][-2]["tool_calls"][0]["function"]["name"] == (
+    "search_courses"
+  )
   assert payloads[1]["messages"][-1] == {
     "role": "tool",
     "name": "search_courses",

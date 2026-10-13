@@ -1,7 +1,8 @@
 """A local Ollama daemon as the advisor's model, for development.
 
-The first pass streams with tools, so a direct answer appears token by
-token; only a tool request costs a second pass, which runs without tools.
+Streams `/api/chat`, one model turn of the shared tool loop (`llm.run`) at
+a time, so a direct answer appears token by token. Later turns replay the
+model's tool calls and their results; a turn without tools omits them.
 """
 
 import json
@@ -87,29 +88,29 @@ class Ollama:
       for t in tools
     ]
     with httpx.Client(timeout=_TIMEOUT, transport=self._transport) as client:
-      calls: list[dict[str, Any]] = []
-      for chunk in self._stream(client, messages, specs):
-        calls.extend(chunk.get("tool_calls") or [])
-        if chunk.get("content"):
-          yield chunk["content"]
-      if not calls:
-        return
-      messages.append({"role": "assistant", "content": "", "tool_calls": calls})
-      for call in calls:
-        fn = call.get("function", {})
-        args = fn.get("arguments") or {}
-        if isinstance(args, str):
-          args = json.loads(args)
-        messages.append(
-          {
-            "role": "tool",
-            "name": fn.get("name", ""),
-            "content": execute(fn.get("name", ""), args),
-          }
-        )
-      for chunk in self._stream(client, messages, []):
-        if chunk.get("content"):
-          yield chunk["content"]
+
+      def turn(
+        rounds: Sequence[llm.Round], allow_tools: bool
+      ) -> Iterator[str | llm.Step]:
+        replay: list[dict[str, Any]] = []
+        for r in rounds:
+          replay.append(
+            {"role": "assistant", "content": "", "tool_calls": r.step.raw}
+          )
+          replay += [
+            {"role": "tool", "name": c.name, "content": out}
+            for c, out in zip(r.step.calls, r.results, strict=True)
+          ]
+        calls: list[dict[str, Any]] = []
+        for chunk in self._stream(
+          client, messages + replay, specs if allow_tools else []
+        ):
+          calls.extend(chunk.get("tool_calls") or [])
+          if chunk.get("content"):
+            yield chunk["content"]
+        yield llm.Step([_call(c) for c in calls], calls)
+
+      yield from llm.run(turn, execute)
 
   def _stream(
     self,
@@ -144,3 +145,12 @@ class Ollama:
     except (httpx.HTTPError, json.JSONDecodeError) as e:
       logging.warning("Ollama request failed: %s", e)
       raise llm.ModelError(f"The local model stopped responding ({e}).") from e
+
+
+def _call(raw: Mapping[str, Any]) -> llm.Call:
+  """Reads a tool call; some models send arguments as a JSON string."""
+  fn = raw.get("function", {})
+  args = fn.get("arguments") or {}
+  return llm.Call(
+    fn.get("name", ""), json.loads(args) if isinstance(args, str) else args
+  )

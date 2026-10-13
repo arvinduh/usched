@@ -1,10 +1,10 @@
 """Google Gemini as the advisor's model, over the REST API.
 
-Streams `streamGenerateContent` as server-sent events. A reply that calls
-tools is answered by echoing the model's parts back unchanged (they carry
-the thought signatures Gemini requires), adding the tool results, and
-asking again, for a bounded number of rounds; the last round forbids
-tools so the model must answer in words.
+Streams `streamGenerateContent` as server-sent events, one model turn of
+the shared tool loop (`llm.run`) at a time. Later turns echo the model's
+earlier parts back unchanged (they carry the thought signatures Gemini
+requires) followed by the tool results; a turn without tools keeps their
+declarations but sets the calling mode to NONE.
 """
 
 import json
@@ -19,7 +19,6 @@ from server.src.agent import llm
 
 
 _API = "https://generativelanguage.googleapis.com/v1beta/models"
-_ROUNDS = 3  # Tool rounds before the model must answer.
 _TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 _CONFIG = {"maxOutputTokens": 2048, "temperature": 0.4}
 
@@ -85,35 +84,31 @@ class Gemini:
         }
       ]
     with httpx.Client(timeout=_TIMEOUT, transport=self._transport) as client:
-      for round_ in range(_ROUNDS):
+
+      def turn(
+        rounds: Sequence[llm.Round], allow_tools: bool
+      ) -> Iterator[str | llm.Step]:
+        request = {**body, "contents": contents + _rounds(rounds)}
         if tools:
-          mode = "AUTO" if round_ < _ROUNDS - 1 else "NONE"
-          body["toolConfig"] = {"functionCallingConfig": {"mode": mode}}
+          mode = "AUTO" if allow_tools else "NONE"
+          request["toolConfig"] = {"functionCallingConfig": {"mode": mode}}
         parts: list[dict[str, Any]] = []
-        for part in self._stream(client, {**body, "contents": contents}):
+        for part in self._stream(client, request):
           parts.append(part)
           if part.get("text") and not part.get("thought"):
             yield part["text"]
-        calls = [p["functionCall"] for p in parts if "functionCall" in p]
-        if not calls:
-          return
-        contents.append({"role": "model", "parts": parts})
-        contents.append(
-          {
-            "role": "user",
-            "parts": [
-              {
-                "functionResponse": {
-                  "name": call["name"],
-                  "response": {
-                    "result": execute(call["name"], call.get("args") or {})
-                  },
-                }
-              }
-              for call in calls
-            ],
-          }
+        yield llm.Step(
+          [
+            llm.Call(
+              p["functionCall"]["name"], p["functionCall"].get("args") or {}
+            )
+            for p in parts
+            if "functionCall" in p
+          ],
+          parts,
         )
+
+      yield from llm.run(turn, execute)
 
   def _stream(
     self, client: httpx.Client, body: Mapping[str, Any]
@@ -140,6 +135,23 @@ class Gemini:
     except httpx.HTTPError as e:
       logging.warning("Gemini request failed: %s", e)
       raise llm.ModelError(f"Couldn't reach Gemini ({e}).") from e
+
+
+def _rounds(rounds: Sequence[llm.Round]) -> list[dict[str, Any]]:
+  """Each round as Gemini contents: the model's parts, then the results."""
+  contents: list[dict[str, Any]] = []
+  for r in rounds:
+    contents.append({"role": "model", "parts": r.step.raw})
+    contents.append(
+      {
+        "role": "user",
+        "parts": [
+          {"functionResponse": {"name": c.name, "response": {"result": out}}}
+          for c, out in zip(r.step.calls, r.results, strict=True)
+        ],
+      }
+    )
+  return contents
 
 
 def _explain(response: httpx.Response) -> str:

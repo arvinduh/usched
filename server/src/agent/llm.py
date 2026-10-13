@@ -1,9 +1,10 @@
 """The language-model interface the advisor talks to, and its configuration.
 
 A provider takes a system prompt, the conversation so far, the student's
-message, and tools, and streams reply text. Each provider runs its own
-tool loop, since their wire formats differ, calling back into the advisor
-to execute a tool. Which provider runs is configuration:
+message, and tools, and streams reply text. Providers are drop-in
+replacements: the tools, prompt, and tool loop (`run`) are shared, and a
+provider only translates one model turn to and from its wire format.
+Which provider runs is configuration:
 
   USCHED_LLM_PROVIDER   gemini | ollama; default gemini when GEMINI_API_KEY
                         is set, else ollama
@@ -38,6 +39,63 @@ class Turn:
 
 # Runs a tool by name with the model's arguments and returns text for it.
 Execute = Callable[[str, Mapping[str, Any]], str]
+
+_ROUNDS = 3  # Model turns per reply; the last must answer in words.
+
+
+@dataclasses.dataclass(frozen=True)
+class Call:
+  """A tool the model asked to run."""
+
+  name: str
+  arguments: Mapping[str, Any]
+
+
+@dataclasses.dataclass(frozen=True)
+class Step:
+  """How a model turn ended: the tools it called, if any.
+
+  Attributes:
+    calls: Tools to run before the next turn; empty when it answered.
+    raw: The provider's own record of the turn, echoed back verbatim on
+      later turns (Gemini's carry thought signatures it requires).
+  """
+
+  calls: Sequence[Call]
+  raw: Any
+
+
+@dataclasses.dataclass(frozen=True)
+class Round:
+  """A finished tool round: the turn that called tools, and their results."""
+
+  step: Step
+  results: Sequence[str]
+
+
+# One model turn: given the rounds so far and whether tools are allowed,
+# streams reply text, then yields the Step that ended the turn.
+ModelTurn = Callable[[Sequence[Round], bool], Iterator[str | Step]]
+
+
+def run(turn: ModelTurn, execute: Execute) -> Iterator[str]:
+  """Runs the tool loop every provider shares, streaming reply text.
+
+  Each turn may call tools, whose results feed the next; the last of
+  `_ROUNDS` turns forbids tools, so a reply always ends in words.
+  """
+  rounds: list[Round] = []
+  for n in range(_ROUNDS):
+    step: Step | None = None
+    for event in turn(rounds, n < _ROUNDS - 1):
+      if isinstance(event, Step):
+        step = event
+      else:
+        yield event
+    if step is None or not step.calls:
+      return
+    results = [execute(c.name, c.arguments) for c in step.calls]
+    rounds.append(Round(step, results))
 
 
 class ModelError(Exception):
