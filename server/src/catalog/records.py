@@ -275,6 +275,7 @@ class Program:
   degree_type: str | None
   school: str | None
   total_units: float | None
+  total_units_stated: bool
   description: str
 
 

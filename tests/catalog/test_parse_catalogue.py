@@ -156,3 +156,34 @@ def test_program_ids_disambiguate_repeated_titles():
     1: "computer-science-bs",
     2: "computer-science-bs-2",
   }
+
+
+@pytest.mark.parametrize(
+  ("line", "total"),
+  [
+    ("Total units: 128", 128.0),
+    ("Total minimum units: 132", 132.0),
+    ("Total required units: 128", 128.0),
+    ("Total Units Required: 128", 128.0),
+    ("Total units required for the degree: 128", 128.0),
+    ("Total program units: 84", 84.0),
+    ("Total Units: Minimum of 32", 32.0),
+    ("Total business units: 60", None),
+    ("The degree requires a minimum of 128 units.", None),
+  ],
+)
+def test_program_totals_and_not_subtotals(line, total):
+  page = f"<h1>Sample (BS)</h1><h2>Core (8 units)</h2><p>{line}</p>"
+  link = parse_catalogue.ProgramLink(1, "Sample (BS)")
+  parsed = parse_catalogue.parse_program(page, 22, link, "sample-bs")
+  assert parsed.program.total_units == total
+
+
+def test_units_written_after_a_heading_label():
+  page = "<h1>Sample (BA)</h1><h2>Elective Units: 6</h2><h2>Units: 4-8</h2>"
+  link = parse_catalogue.ProgramLink(1, "Sample (BA)")
+  reqs = parse_catalogue.parse_program(page, 22, link, "sample-ba").requirements
+  assert [(r.title, r.units_min, r.units_max) for r in reqs] == [
+    ("Elective", 6.0, 6.0),
+    ("Units: 4-8", 4.0, 8.0),
+  ]

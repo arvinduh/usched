@@ -38,6 +38,7 @@ DEFAULT_DB = pathlib.Path(__file__).resolve().parents[2] / "data" / "catalog.db"
 _GE_PAGE_TITLE = "General Education"
 _BASE_CODE = re.compile(r"^([A-Za-z]+)-(\d+)")
 _CODE_PARTS = re.compile(r"^([A-Za-z]+)-(\d+)(.*)$")
+_BACHELOR = re.compile(r"^B[A-Za-z]*$")  # BA, BS, BFA; not BS/MS
 # Term-data tables whose course_code takes the canonical spelling.
 _COURSE_CODE_TABLES = (
   "offering",
@@ -438,6 +439,17 @@ def _write(conn: sqlite3.Connection, data: _Collected) -> dict[str, int]:
   return counts
 
 
+def _with_policy_total(program: records.Program) -> records.Program:
+  """Applies the bachelor's minimum to a bachelor's page stating no total."""
+  if program.total_units is not None or not _BACHELOR.match(
+    program.degree_type or ""
+  ):
+    return program
+  return dataclasses.replace(
+    program, total_units=seeds.bachelor_minimum_units()
+  )
+
+
 def _write_catalogue(
   conn: sqlite3.Connection, data: _Collected, resolve: _Resolver
 ) -> dict[str, int]:
@@ -457,7 +469,9 @@ def _write_catalogue(
         for g in data.tables["ge_course"].rows()
       ),
     ),
-    "program": _insert(conn, "program", _tuples(p.program for p in pages)),
+    "program": _insert(
+      conn, "program", _tuples(_with_policy_total(p.program) for p in pages)
+    ),
     "program_requirement": _insert(
       conn,
       "program_requirement",

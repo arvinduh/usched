@@ -18,9 +18,21 @@ from server.src.catalog import records
 _HEADINGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 _BLOCKS = _HEADINGS | {"p", "li"}
 _POID = re.compile(r"poid=(\d+)")
-_TOTAL = re.compile(r"^total\s+units?:?\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+# A program total is a line of nothing but total wording and a number:
+# "Total units: 128", "Total minimum units required for the degree: 132".
+# Subtotals ("Total business units: 60") name a subject and do not match.
+_TOTAL = re.compile(
+  r"^total\s+(?:(?:minimum|required|program)\s+)*units?"
+  r"(?:\s+required)?(?:\s+for\s+(?:the\s+)?degree)?\s*:?\s*"
+  r"(?:minimum\s+of\s+)?(\d+(?:\.\d+)?)\s*\+?\.?$",
+  re.IGNORECASE,
+)
 _RANGE = r"(\d+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*(\d+(?:\.\d+)?))?"
-_HEADING_UNITS = re.compile(rf"\(\s*{_RANGE}\s+units?\s*\)", re.IGNORECASE)
+# Units in a heading: "Core (16 units)" or "Elective Units: 6".
+_HEADING_UNITS = re.compile(
+  rf"\(\s*{_RANGE}\s+units?\s*\)|\bunits?(?:\s+required)?:\s*{_RANGE}\s*\+?$",
+  re.IGNORECASE,
+)
 _ITEM_UNITS = re.compile(rf"Units:\s*{_RANGE}", re.IGNORECASE)
 _COURSE = re.compile(r"^([A-Z]{2,5})\s+(\d{3}[A-Za-z]{0,4})\b")
 _TRAILING_OR = re.compile(r"\bor\s*$", re.IGNORECASE)
@@ -168,6 +180,16 @@ def parse_index(index_html: str) -> list[ProgramLink]:
   return list(links.values())
 
 
+def _heading_units(text: str) -> tuple[float | None, float | None]:
+  match = _HEADING_UNITS.search(text)
+  if match is None:
+    return None, None
+  # Whichever alternative matched holds the range in its pair of groups.
+  groups = match.groups()
+  low, high = groups[:2] if groups[0] else groups[2:]
+  return float(low), float(high or low)
+
+
 def _units(match: re.Match[str] | None) -> tuple[float | None, float | None]:
   if match is None:
     return None, None
@@ -251,21 +273,22 @@ def parse_program(
   for block in blocks[start + 1 :]:
     if "close" in block.classes:
       break
+    total_match = _TOTAL.match(block.text)
+    if total_match:
+      total = float(total_match.group(1))
+      past_total = True
+      continue
     if block.tag in _HEADINGS:
-      total_match = _TOTAL.match(block.text)
-      if total_match:
-        total = float(total_match.group(1))
-        past_total = True
-        continue
       level = int(block.tag[1])
       while open_levels and open_levels[-1][0] >= level:
         open_levels.pop()
-      units_min, units_max = _units(_HEADING_UNITS.search(block.text))
+      units_min, units_max = _heading_units(block.text)
+      title = _HEADING_UNITS.sub("", block.text).strip(" :-")
       requirements.append(
         _Heading(
           position=len(requirements),
           parent=open_levels[-1][1] if open_levels else None,
-          title=_HEADING_UNITS.sub("", block.text).strip(" :-"),
+          title=title or block.text,
           units_min=units_min,
           units_max=units_max,
         )
@@ -317,6 +340,7 @@ def parse_program(
     degree_type=degree_type,
     school=school,
     total_units=total,
+    total_units_stated=total is not None,
     description="\n".join(description),
   )
   return ProgramPage(

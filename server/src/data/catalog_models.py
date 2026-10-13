@@ -171,6 +171,9 @@ class ProgramSummary(pydantic.BaseModel):
   )
   school: str | None
   total_units: float | None
+  total_units_stated: bool = pydantic.Field(
+    description="False when the total is the university's bachelor's minimum."
+  )
 
 
 class RequirementChoice(pydantic.BaseModel):

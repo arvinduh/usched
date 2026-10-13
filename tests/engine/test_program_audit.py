@@ -46,6 +46,7 @@ PROGRAM = m.Program(
   degree_type="BS",
   school=None,
   total_units=128,
+  total_units_stated=True,
   catalogue="C",
   description="",
   requirements=[

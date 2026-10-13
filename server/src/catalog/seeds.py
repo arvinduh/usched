@@ -1,4 +1,4 @@
-"""Loads checked-in policy seeds: GE category rules and AP exam credit.
+"""Loads checked-in policy seeds: GE rules, AP credit, degree minimums.
 
 Seeds are the source of truth for data USC states only in prose (how many
 courses each GE category needs, which AP exams earn what). They live as
@@ -40,6 +40,12 @@ def ge_rules() -> list[GeRule]:
     GeRule(c["code"], c["area"], int(c["required_count"]))
     for c in data["categories"]
   ]
+
+
+def bachelor_minimum_units() -> float:
+  """Reads seeds/degree_policy.json: units any bachelor's degree requires."""
+  data = json.loads((_DIR / "degree_policy.json").read_text(encoding="utf-8"))
+  return float(data["bachelor_minimum_units"])
 
 
 def ap_exams() -> ApSeed:

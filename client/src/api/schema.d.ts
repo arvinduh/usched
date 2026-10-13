@@ -567,6 +567,11 @@ export interface components {
             /** Total Units */
             total_units: number | null;
             /**
+             * Total Units Stated
+             * @description False when the total is the university's bachelor's minimum.
+             */
+            total_units_stated: boolean;
+            /**
              * Catalogue
              * @description e.g. USC Catalogue 2026-2027.
              */
@@ -634,6 +639,11 @@ export interface components {
             school: string | null;
             /** Total Units */
             total_units: number | null;
+            /**
+             * Total Units Stated
+             * @description False when the total is the university's bachelor's minimum.
+             */
+            total_units_stated: boolean;
         };
         /**
          * ProposeSchedule

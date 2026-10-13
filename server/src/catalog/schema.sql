@@ -275,7 +275,10 @@ CREATE TABLE program (
   kind TEXT NOT NULL CHECK (kind IN ('degree', 'minor', 'certificate', 'other')),
   degree_type TEXT,                   -- BS, BA, MS, PhD, ...; NULL unless a degree
   school TEXT,                        -- from "Return to: <school>"
-  total_units REAL,
+  total_units REAL,                   -- NULL when neither stated nor policy
+  total_units_stated INTEGER NOT NULL CHECK (total_units_stated IN (0, 1)),
+                                      -- 0: the bachelor's minimum from
+                                      -- seeds/degree_policy.json applies
   description TEXT NOT NULL,
   UNIQUE (catalogue_id, poid)
 );

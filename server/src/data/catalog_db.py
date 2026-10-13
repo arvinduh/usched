@@ -459,7 +459,7 @@ def programs(
     m.ProgramSummary(**dict(r))
     for r in conn.execute(
       f"""SELECT id, title, name, emphasis, kind, degree_type, school,
-                 total_units
+                 total_units, total_units_stated
           FROM program WHERE {where} ORDER BY title""",
       params,
     )
