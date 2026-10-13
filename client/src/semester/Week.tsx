@@ -53,6 +53,10 @@ export interface WeekProps {
   readonly onToggleSection: (section: Section, course: Course) => void;
   readonly onRemove: (section: Section) => void;
   readonly onFocusCourse: (course: Course) => void;
+  /** Shows a clicked block's other sections on the week, or hides them. */
+  readonly onPickBlock: (course: Course) => void;
+  /** Stops showing a block's other sections: a press on the empty week. */
+  readonly onClearPick: () => void;
   readonly onKeepProposal: (proposal: Proposal) => void;
   readonly onDiscardProposal: () => void;
 }
@@ -141,6 +145,8 @@ export function Week(props: WeekProps): React.JSX.Element {
     onToggleSection,
     onRemove,
     onFocusCourse,
+    onPickBlock,
+    onClearPick,
     onKeepProposal,
     onDiscardProposal,
   } = props;
@@ -249,7 +255,15 @@ export function Week(props: WeekProps): React.JSX.Element {
         </span>
       </header>
 
-      <div className={styles.grid} style={{ gridTemplateColumns: `36px repeat(${days.length}, minmax(0, 1fr))` }}>
+      <div
+        className={styles.grid}
+        style={{ gridTemplateColumns: `36px repeat(${days.length}, minmax(0, 1fr))` }}
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest(`.${styles.block}, button`)) {
+            onClearPick();
+          }
+        }}
+      >
         <span />
         {days.map((d) => (
           <span key={d} className={styles.dayLabel}>
@@ -289,7 +303,9 @@ export function Week(props: WeekProps): React.JSX.Element {
                     key={b.key}
                     className={`${styles.block} ${clashing.has(b.key) ? styles.clash : ''} ${
                       proposal && !kept.has(s.id) ? styles.proposed : ''
-                    } ${focusId === s.id ? styles.blockFocus : ''}`}
+                    } ${focusId === s.id ? styles.blockFocus : ''} ${
+                      expanded?.code === s.course_code ? styles.blockPicked : ''
+                    }`}
                     style={{
                       top: pct(b.start),
                       height: `calc(${pct(b.end)} - ${pct(b.start)})`,
@@ -304,7 +320,7 @@ export function Week(props: WeekProps): React.JSX.Element {
                     onClick={(e) => {
                       // The popover's own buttons act on the section instead.
                       if (course && !(e.target as HTMLElement).closest('button')) {
-                        onFocusCourse(course);
+                        onPickBlock(course);
                       }
                     }}
                     aria-label={`${displayCode(s.course_code)} ${s.type}, ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
@@ -371,7 +387,7 @@ export function Week(props: WeekProps): React.JSX.Element {
 
         {timed.length === 0 && ghosts.length === 0 && (
           <p className={styles.empty}>
-            Type a course below, or ask for a schedule
+            Type &gt; and a course below, or ask for a schedule
           </p>
         )}
       </div>

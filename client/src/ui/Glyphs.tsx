@@ -94,11 +94,14 @@ export function RatingPair({
   );
 }
 
+/** At or under this many open seats, a section says how many are left. */
+const FEW_SEATS = 5;
+
 /**
- * Renders seat fill as a hairline along the bottom edge of its parent,
- * turning red when the section is full. The parent must be positioned.
+ * Says when seats are scarce: "Full" (with any waitlist) or "3 left".
+ * Sections with room say nothing, so the word stands out where it matters.
  */
-export function SeatMeter({
+export function SeatNote({
   enrolled,
   capacity,
   waitlist,
@@ -107,20 +110,16 @@ export function SeatMeter({
   readonly capacity: number;
   readonly waitlist: number;
 }): React.JSX.Element | null {
-  if (capacity <= 0) {
+  const open = capacity - enrolled;
+  if (capacity <= 0 || open > FEW_SEATS) {
     return null;
   }
-  const ratio = Math.min(1, enrolled / capacity);
-  const full = enrolled >= capacity;
   const label =
     `${enrolled} of ${capacity} seats taken` +
     (waitlist > 0 ? `, ${waitlist} waitlisted` : '');
   return (
-    <span className={styles.seats} title={label} aria-label={label}>
-      <span
-        className={`${styles.seatsFill} ${full ? styles.seatsFull : ''}`}
-        style={{ width: `${ratio * 100}%` }}
-      />
+    <span className={open <= 0 ? styles.full : styles.few} title={label}>
+      {open <= 0 ? `Full${waitlist > 0 ? ` · ${waitlist} waitlisted` : ''}` : `${open} left`}
     </span>
   );
 }

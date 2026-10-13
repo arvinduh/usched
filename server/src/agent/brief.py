@@ -12,7 +12,7 @@ Every course the brief names counts as grounded for the reply check.
 
 import dataclasses
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from server.src.agent import tools
@@ -59,6 +59,7 @@ class Student:
   shortlisted: Sequence[str]
   completed: Sequence[str]
   ap_credits: Sequence[m.ApCredit]
+  ge_counted: Mapping[str, int] = dataclasses.field(default_factory=dict)
   variants: Sequence[Variant] = ()
   screen: Screen = Screen()
 
@@ -97,7 +98,12 @@ def _program_lines(
   if program is None:
     return ["Program: not chosen"]
   audit = audits.program(
-    conn, student.term, program, student.completed, student.ap_credits
+    conn,
+    student.term,
+    program,
+    student.completed,
+    student.ap_credits,
+    student.ge_counted,
   )
   total = f"/{program.total_units:g}" if program.total_units else ""
   lines = [f"Program: {program.title}, {audit.units:g}{total} units done"]
@@ -210,11 +216,13 @@ def build(conn: sqlite3.Connection, student: Student) -> Brief:
   """Builds the brief for one message."""
   week, planned = _week_lines(conn, student)
   program = _program_lines(conn, student, planned)
-  ge = audits.general_education(conn, student.completed, student.ap_credits)
+  ge = audits.general_education(
+    conn, student.completed, student.ap_credits, student.ge_counted
+  )
   open_ge = [
-    f"{p.code} {p.name} ({len(p.courses) + len(p.exams)} of {p.required_count})"
+    f"{p.code} {p.name} ({p.filled} of {p.required_count})"
     for p in ge
-    if len(p.courses) + len(p.exams) < p.required_count
+    if p.filled < p.required_count
   ]
   lines = [
     "[Student brief]",

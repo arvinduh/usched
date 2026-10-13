@@ -8,7 +8,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Check, Lock } from 'lucide-react';
+import { Check, Lock, Search } from 'lucide-react';
 import { courseKey, displayCode } from '../lib/degree';
 import type {
   ApCredit,
@@ -47,6 +47,8 @@ export interface DegreeViewProps {
   readonly onOpenCourse: (code: string, title: string | null) => void;
   readonly onToggleTaken: (code: string) => void;
   readonly onBrowseGe: (letter: string) => void;
+  /** Counts one more seat of a GE category by hand, or clears a full one. */
+  readonly onCountGe: (code: string, isFull: boolean) => void;
 }
 
 /**
@@ -138,6 +140,7 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
           progress={props.geProgress}
           apExams={props.apExams}
           onBrowse={props.onBrowseGe}
+          onCount={props.onCountGe}
         />
       )}
 
@@ -169,17 +172,24 @@ function Legend(): React.JSX.Element {
   );
 }
 
+/**
+ * Renders one cell per GE category. A click counts one seat taken
+ * elsewhere until the category is full, then clears the count; the
+ * popover finds courses for it.
+ */
 function GeStrip({
   progress,
   apExams,
   onBrowse,
+  onCount,
 }: {
   readonly progress: readonly GeProgress[];
   readonly apExams: readonly ApExam[];
   readonly onBrowse: (letter: string) => void;
+  readonly onCount: (code: string, isFull: boolean) => void;
 }): React.JSX.Element {
   const examNames = new Map(apExams.map((e) => [e.id, e.name]));
-  const filled = (p: GeProgress): number => p.courses.length + p.exams.length;
+  const filled = (p: GeProgress): number => p.courses.length + p.exams.length + p.counted;
   const required = progress.reduce((n, p) => n + p.required_count, 0);
   const satisfied = progress.reduce(
     (n, p) => n + Math.min(filled(p), p.required_count),
@@ -202,7 +212,13 @@ function GeStrip({
           const by = [
             ...cat.courses.map(displayCode),
             ...cat.exams.map((id) => examNames.get(id) ?? id),
+            ...(cat.counted > 0 ? [`${cat.counted} counted by you`] : []),
           ];
+          const hint = !isMet
+            ? 'Click to count one taken elsewhere'
+            : cat.counted > 0
+              ? 'Click to clear your count'
+              : null;
           return (
             <span
               key={cat.code}
@@ -213,10 +229,10 @@ function GeStrip({
               <button
                 type="button"
                 className={`${styles.geCell} ${styles[fill]}`}
-                onClick={() => onBrowse(letter)}
-                aria-label={`${cat.code} ${cat.name}: ${
-                  isMet ? 'satisfied' : 'open'
-                }. Find courses.`}
+                onClick={() => onCount(cat.code, isMet)}
+                aria-label={`${cat.code} ${cat.name}: ${filled(cat)} of ${cat.required_count}.${
+                  hint ? ` ${hint}.` : ''
+                }`}
               >
                 {letter}
               </button>
@@ -226,6 +242,17 @@ function GeStrip({
                   {by.length > 0
                     ? `Met by ${by.join(', ')}`
                     : `Needs ${cat.required_count} course${cat.required_count === 1 ? '' : 's'}`}
+                </span>
+                {hint && <span className={styles.popHint}>{hint}</span>}
+                <span className={styles.popActions}>
+                  <button
+                    type="button"
+                    className={styles.popAction}
+                    onClick={() => onBrowse(letter)}
+                  >
+                    <Search size={11} />
+                    Find courses
+                  </button>
                 </span>
               </span>
             </span>
@@ -276,7 +303,7 @@ function Credits({
         })}
       </div>
       <p className={styles.creditsHint}>
-        Taken a course? Hover it above and mark it, or type “took CSCI 103L,
+        Taken a course? Click it above to mark it, or type “/took CSCI 103L,
         MATH 125” into the planner.
       </p>
     </section>

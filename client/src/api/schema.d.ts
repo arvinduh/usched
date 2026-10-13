@@ -344,6 +344,14 @@ export interface components {
              */
             ap_credits: components["schemas"]["ApCredit"][];
             /**
+             * Ge Counted
+             * @description GE seats the student counted by hand, by code.
+             * @default {}
+             */
+            ge_counted: {
+                [key: string]: number;
+            };
+            /**
              * Variants
              * @description The student's other schedules.
              * @default []
@@ -474,6 +482,14 @@ export interface components {
              * @default []
              */
             ap_credits: components["schemas"]["ApCredit"][];
+            /**
+             * Ge Counted
+             * @description GE seats the student counted by hand, by code.
+             * @default {}
+             */
+            ge_counted: {
+                [key: string]: number;
+            };
         };
         /**
          * GeCategory
@@ -513,6 +529,12 @@ export interface components {
              * @description AP exam ids used here.
              */
             exams: string[];
+            /**
+             * Counted
+             * @description Seats the student counted by hand, such as transfer credit.
+             * @default 0
+             */
+            counted: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -653,6 +675,14 @@ export interface components {
              * @default []
              */
             ap_credits: components["schemas"]["ApCredit"][];
+            /**
+             * Ge Counted
+             * @description GE seats the student counted by hand, by code.
+             * @default {}
+             */
+            ge_counted: {
+                [key: string]: number;
+            };
         };
         /**
          * ProgramSummary
@@ -1364,7 +1394,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description An event stream of `{token}` events, then one ClosingEvent, then `[DONE]`. */
+            /** @description An event stream of `{token}` (answer text), `{thought}` (reasoning) and `{step}` (a tool starting) events, then one ClosingEvent, then `[DONE]`. */
             200: {
                 headers: {
                     [name: string]: unknown;

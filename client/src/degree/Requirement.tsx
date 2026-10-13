@@ -5,13 +5,14 @@
  * slots: a loose chip is a course to take; chips gathered in a box are
  * alternatives, any one of which fills the slot. Nested requirements
  * indent beneath their parent. Chip fill encodes state (done, planned this
- * term, available, locked). Hovering a chip shows the course and lets the
- * student mark it taken in place; clicking opens its card in the planner.
+ * term, available, locked). Clicking a chip marks it taken (or not), like
+ * checking off a list; hovering shows the course and a way to find its
+ * sections in the planner.
  * Plan edits and navigation go to the caller.
  */
 
 import React from 'react';
-import { Check, ExternalLink, Lock } from 'lucide-react';
+import { Check, ExternalLink, Lock, Search } from 'lucide-react';
 import { uscCourseUrl } from '../api/client';
 import { courseKey, displayCode } from '../lib/degree';
 import type {
@@ -216,8 +217,11 @@ function Chip({
       <button
         type="button"
         className={classes}
-        onClick={() => ctx.onOpen(code, choice.title)}
-        aria-label={`${displayCode(code)}, ${state}. Open.`}
+        onClick={() => ctx.onToggleTaken(code)}
+        aria-pressed={state === 'done'}
+        aria-label={`${displayCode(code)}, ${state}. ${
+          state === 'done' ? 'Unmark' : 'Mark'
+        } taken.`}
       >
         {state === 'done' && <Check size={11} />}
         {state === 'locked' && <Lock size={10} />}
@@ -240,14 +244,17 @@ function Chip({
             ))}
           </span>
         )}
+        <span className={styles.popHint}>
+          {state === 'done' ? 'Taken · click to unmark' : 'Click to mark taken'}
+        </span>
         <span className={styles.popActions}>
           <button
             type="button"
             className={styles.popAction}
-            onClick={() => ctx.onToggleTaken(code)}
+            onClick={() => ctx.onOpen(code, choice.title)}
           >
-            <Check size={11} />
-            {state === 'done' ? 'Unmark taken' : 'Mark taken'}
+            <Search size={11} />
+            Find sections
           </button>
           <a
             className={styles.popLink}

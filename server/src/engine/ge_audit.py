@@ -21,6 +21,7 @@ def audit(
   completed: Sequence[str],
   exams: Sequence[m.ApExam],
   credits: Sequence[m.ApCredit],
+  counted: Mapping[str, int] | None = None,
 ) -> list[m.GeProgress]:
   """Fills each category's seats with completed courses and passed exams.
 
@@ -30,6 +31,9 @@ def audit(
     completed: Course codes the student took; order breaks ties.
     exams: AP exam policy.
     credits: The student's AP results; failing scores earn nothing.
+    counted: Seats the student counted by hand per category, such as
+      transfer courses the catalog cannot place. They fill only seats
+      courses and exams left open.
 
   Returns:
     Progress per category, in `categories` order.
@@ -56,6 +60,7 @@ def audit(
     code: [credit_ge[i][0] for i in sorted(indexes)]
     for code, indexes in filled.items()
   }
+  counted = counted or {}
   return [
     m.GeProgress(
       code=c.code,
@@ -63,6 +68,10 @@ def audit(
       required_count=c.required_count,
       courses=[v for k, v in used.get(c.code, ()) if k == "course"],
       exams=[v for k, v in used.get(c.code, ()) if k == "exam"],
+      counted=max(
+        0,
+        min(counted.get(c.code, 0), c.required_count - len(filled[c.code])),
+      ),
     )
     for c in categories
   ]

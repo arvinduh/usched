@@ -46,6 +46,9 @@ class ChatRequest(pydantic.BaseModel):
     default=[], description="Codes of courses already taken."
   )
   ap_credits: list[catalog_models.ApCredit] = []
+  ge_counted: dict[str, int] = pydantic.Field(
+    default={}, description="GE seats the student counted by hand, by code."
+  )
   variants: list[brief.Variant] = pydantic.Field(
     default=[], description="The student's other schedules."
   )
@@ -190,6 +193,7 @@ def stream(
         shortlisted=request.shortlisted,
         completed=request.completed,
         ap_credits=request.ap_credits,
+        ge_counted=request.ge_counted,
         variants=request.variants,
         screen=request.screen,
       ),

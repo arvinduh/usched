@@ -3,8 +3,7 @@
  *
  * Recognized tokens ("ge b", "4+") become structured filters and are removed
  * from the free-text query; whatever remains is sent as keywords. Also
- * decides when the text reads as a question for the advisor, and when it
- * records courses taken ("took CSCI 103L, MATH 125").
+ * reads which mode the bar is in from its first character (`readBar`).
  */
 
 import { extractCourseCodes } from './degree';
@@ -62,33 +61,44 @@ export function parseQuery(text: string): ParsedQuery {
 }
 
 /**
- * Reports whether text reads as a question for the advisor rather than a
- * catalog lookup: a question mark, or three or more words.
+ * What the bar's text asks for, read from its first character: plain text
+ * talks to the advisor, ">" finds courses, and "/" runs a command.
  */
-export function looksLikeQuestion(text: string): boolean {
-  const trimmed = text.trim();
-  return trimmed.includes('?') || trimmed.split(/\s+/).length >= 3;
-}
+export type Bar =
+  | { readonly kind: 'chat'; readonly text: string }
+  | { readonly kind: 'courses'; readonly query: string }
+  /** A command still being named, such as "/" or "/to". */
+  | { readonly kind: 'commands'; readonly name: string }
+  /** "/took CSCI 103L, MATH 1": codes so far, and the one being typed. */
+  | { readonly kind: 'took'; readonly codes: readonly string[]; readonly partial: string };
 
-const TOOK = /^\s*(?:i\s+)?(?:took|taken|have taken|completed|finished|passed)\b/i;
-const CODE = /\b[A-Za-z]{2,5}[\s-]?\d{3}[A-Za-z]{0,4}\b/g;
-/** What may join codes in a list: "CSCI 103L, MATH 125 and WRIT 150." */
-const JOINERS = /\b(?:and|also|plus|too)\b|[\s,;.&+]/gi;
+const TOOK = /^\/took\s/i;
+/** What separates codes in a list: "CSCI 103L, MATH 125 and WRIT 150". */
+const LIST_BREAK = /,|;|\band\b/i;
 
 /**
- * The course codes a "took ..." line names, as identities, or null when
- * the text is not one. Only codes and list joiners may follow "took";
- * anything more ("I took CSCI 103L, what next?") is a question for the
- * advisor. The catalog still decides which codes are courses.
+ * Reads the bar's mode and its argument from its text.
  */
-export function takenCodes(text: string): readonly string[] | null {
-  if (!TOOK.test(text)) {
-    return null;
+export function readBar(text: string): Bar {
+  if (text.startsWith('>')) {
+    return { kind: 'courses', query: text.slice(1).trim() };
   }
-  const rest = text.replace(TOOK, '');
-  if (rest.replace(CODE, '').replace(JOINERS, '') !== '') {
-    return null;
+  if (TOOK.test(text)) {
+    const args = text.replace(TOOK, '');
+    const segments = args.split(LIST_BREAK);
+    const partial = segments[segments.length - 1].trim();
+    return { kind: 'took', codes: extractCourseCodes(args), partial };
   }
-  const codes = extractCourseCodes(rest);
-  return codes.length > 0 ? codes : null;
+  if (text.startsWith('/')) {
+    return { kind: 'commands', name: text.slice(1).trim().toLowerCase() };
+  }
+  return { kind: 'chat', text: text.trim() };
+}
+
+/**
+ * The catalog query the bar implies: what follows ">", or the code being
+ * typed after "/took". Empty means nothing to look up.
+ */
+export function searchTextOf(bar: Bar): string {
+  return bar.kind === 'courses' ? bar.query : bar.kind === 'took' ? bar.partial : '';
 }

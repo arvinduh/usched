@@ -494,6 +494,12 @@
   color: var(--text-secondary);
 }
 
+/* What a click on the chip itself does. */
+.popHint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .popPrereqs {
   display: flex;
   flex-wrap: wrap;

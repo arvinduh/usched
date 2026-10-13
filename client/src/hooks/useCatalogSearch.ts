@@ -1,15 +1,15 @@
 /**
- * Debounced, paginated course catalog search driven by one text box.
+ * Debounced, paginated course catalog search driven by the bar.
  *
- * Owns the raw search text, its parsed filters, and the currently loaded
- * result pages. Results are transient view data; anything the plan must keep
+ * Owns the bar's raw text, the mode it reads as, the filters of the
+ * catalog query that mode implies, and the currently loaded result pages. Results are transient view data; anything the plan must keep
  * is pinned by `usePlanCourses`, never read back from here.
  */
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { searchCourses } from '../api/client';
-import { parseQuery } from '../lib/query';
-import type { ParsedQuery } from '../lib/query';
+import { parseQuery, readBar, searchTextOf } from '../lib/query';
+import type { Bar, ParsedQuery } from '../lib/query';
 import type { Course } from '../types';
 
 // About two screens of results: enough to scroll into while the next page
@@ -27,6 +27,7 @@ const NO_COURSES: readonly Course[] = [];
 export interface CatalogSearch {
   readonly text: string;
   readonly setText: (text: string) => void;
+  readonly bar: Bar;
   readonly parsed: ParsedQuery;
   readonly courses: readonly Course[];
   /** True until the current text's first page arrives. */
@@ -38,12 +39,13 @@ export interface CatalogSearch {
 /**
  * Re-queries `term`'s catalog 60 ms after the text settles and appends
  * further pages on demand. Results land in transitions, so rendering them
- * never blocks typing. Empty text loads nothing: the Library shows saved
- * and suggested courses instead.
+ * never blocks typing. Only ">" text and a code after "/took" query the
+ * catalog; chat and empty text load nothing.
  */
 export function useCatalogSearch(term: number): CatalogSearch {
   const [text, setText] = useState('');
-  const parsed = useMemo(() => parseQuery(text), [text]);
+  const bar = useMemo(() => readBar(text), [text]);
+  const parsed = useMemo(() => parseQuery(searchTextOf(bar)), [bar]);
   const { keywords, ge, minRmp } = parsed;
   const isEmpty = !keywords && !ge && minRmp === 0;
 
@@ -130,6 +132,7 @@ export function useCatalogSearch(term: number): CatalogSearch {
   return {
     text,
     setText,
+    bar,
     parsed,
     courses: isEmpty ? NO_COURSES : courses,
     isSearching: !isEmpty && resultKey !== queryKey,

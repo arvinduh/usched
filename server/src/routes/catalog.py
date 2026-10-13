@@ -131,7 +131,9 @@ def list_ap_exams(conn: Conn) -> list[m.ApExam]:
 @router.post("/ge-audit")
 def audit_ge(conn: Conn, body: m.GeAuditRequest) -> list[m.GeProgress]:
   """Shows how completed courses and AP exams fill each GE category."""
-  return audits.general_education(conn, body.completed, body.ap_credits)
+  return audits.general_education(
+    conn, body.completed, body.ap_credits, body.ge_counted
+  )
 
 
 @router.post("/terms/{term}/programs/{program_id}/audit")
@@ -142,4 +144,6 @@ def audit_program(
   program = _found(
     catalog_db.program(conn, program_id), f"program {program_id}"
   )
-  return audits.program(conn, term, program, body.completed, body.ap_credits)
+  return audits.program(
+    conn, term, program, body.completed, body.ap_credits, body.ge_counted
+  )

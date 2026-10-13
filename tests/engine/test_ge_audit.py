@@ -80,3 +80,19 @@ def test_earned_units_count_each_course_and_exam_once():
   ]
   units = {"ANTH-1": m.Units(min=4, max=4)}
   assert ge_audit.earned_units(progress, units, [CALC]) == 8
+
+
+def test_seats_counted_by_hand_fill_only_what_is_left():
+  result = ge_audit.audit(
+    CATEGORIES,
+    {"PHIL-1": ["GE-B"]},
+    ["PHIL-1"],
+    [],
+    [],
+    {"GE-B": 2, "GE-C": 1, "GE-G": -1},
+  )
+  assert {p.code: (p.counted, p.filled) for p in result} == {
+    "GE-B": (1, 2),
+    "GE-C": (1, 1),
+    "GE-G": (0, 0),
+  }

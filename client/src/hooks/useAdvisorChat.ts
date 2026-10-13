@@ -21,6 +21,8 @@ export interface AdvisorContext {
   readonly shortlistedCodes: readonly string[];
   readonly completedCodes: readonly string[];
   readonly apCredits: readonly ApCredit[];
+  /** GE seats counted by hand, by category code. */
+  readonly geCounted: Readonly<Record<string, number>>;
   readonly programId: string;
   /** The student's other schedules. */
   readonly variants: readonly Variant[];
@@ -97,6 +99,7 @@ export function useAdvisorChat(
         shortlisted: [...context.shortlistedCodes],
         completed: [...context.completedCodes],
         ap_credits: [...context.apCredits],
+        ge_counted: { ...context.geCounted },
         variants: [...context.variants],
         screen: context.screen,
       },

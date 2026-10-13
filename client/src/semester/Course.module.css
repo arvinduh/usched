@@ -253,7 +253,6 @@
 }
 
 .section {
-  position: relative;
   background: var(--bg);
   display: grid;
   grid-template-columns: 10px 116px auto minmax(0, 1fr) auto;
