@@ -2,15 +2,17 @@
  * The app's only chrome: wordmark, degree meter, term, and settings.
  *
  * The meter doubles as navigation: it shows completed, planned-this-term, and
- * remaining units, and clicking it toggles the Degree space. The bar holds no
- * state of its own beyond whether the menu is open.
+ * remaining units, and clicking it toggles the Degree space. The term picker
+ * switches which semester is planned. The bar holds no state of its own
+ * beyond whether the menu is open.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings } from 'lucide-react';
+import { ChevronDown, Settings } from 'lucide-react';
 import { ResetButton } from '../components/ResetButton/ResetButton';
 import { setTheme, useTheme } from '../state/theme';
 import type { Theme } from '../state/theme';
+import type { Term } from '../types';
 import styles from './TopBar.module.css';
 
 /**
@@ -27,6 +29,10 @@ export interface DegreeUnits {
  */
 export interface TopBarProps {
   readonly units: DegreeUnits | null;
+  /** Terms that can be planned (fetched ones), newest first. */
+  readonly terms: readonly Term[];
+  readonly term: number;
+  readonly onSelectTerm: (term: number) => void;
   readonly isDegreeOpen: boolean;
   readonly onToggleDegree: () => void;
   readonly onHome: () => void;
@@ -38,8 +44,17 @@ export interface TopBarProps {
  * Renders the bar and its menu.
  */
 export function TopBar(props: TopBarProps): React.JSX.Element {
-  const { units, isDegreeOpen, onToggleDegree, onHome, onCopySections, onReset } =
-    props;
+  const {
+    units,
+    terms,
+    term,
+    onSelectTerm,
+    isDegreeOpen,
+    onToggleDegree,
+    onHome,
+    onCopySections,
+    onReset,
+  } = props;
   const [menuOpen, setMenuOpen] = useState(false);
   const theme = useTheme();
   const menu = useRef<HTMLDivElement>(null);
@@ -99,7 +114,21 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
         )}
       </button>
 
-      <span className={styles.term}>Spring 2027</span>
+      <label className={styles.termWrap}>
+        <select
+          className={styles.term}
+          value={term}
+          onChange={(e) => onSelectTerm(Number(e.target.value))}
+          aria-label="Term to plan"
+        >
+          {terms.map((t) => (
+            <option key={t.code} value={t.code}>
+              {t.season} {t.year}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={12} className={styles.termCaret} aria-hidden />
+      </label>
 
       <div className={styles.menuWrap} ref={menu}>
         <button

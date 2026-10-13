@@ -6,8 +6,8 @@
  * then orders it. Pure functions only; the Library owns the filter state.
  */
 
-import type { Course, Section } from '../types';
-import { clashes, isTimed } from './schedule';
+import type { Course, Rating, Section, Weekday } from '../types';
+import { clashes, startOf, timedMeetings } from './schedule';
 
 /** Time-of-day buckets by start time. */
 export type DayPart = 'morning' | 'afternoon' | 'evening';
@@ -20,7 +20,7 @@ export type SortKey = 'relevance' | 'rating' | 'easiest' | 'code';
  */
 export interface SectionFilter {
   /** Weekdays a section must not meet on, e.g. "Fri". */
-  readonly excludedDays: ReadonlySet<string>;
+  readonly excludedDays: ReadonlySet<Weekday>;
   /** Allowed start buckets; empty means any time. */
   readonly dayParts: ReadonlySet<DayPart>;
   readonly openSeatsOnly: boolean;
@@ -38,11 +38,11 @@ export const NO_FILTER: SectionFilter = {
 const NOON = 12 * 60;
 const FIVE_PM = 17 * 60;
 
-function dayPartOf(section: Section): DayPart {
-  if (section.start_minute < NOON) {
+function dayPartOf(start: number): DayPart {
+  if (start < NOON) {
     return 'morning';
   }
-  return section.start_minute < FIVE_PM ? 'afternoon' : 'evening';
+  return start < FIVE_PM ? 'afternoon' : 'evening';
 }
 
 /**
@@ -66,16 +66,23 @@ export function sectionPasses(
   f: SectionFilter,
   week: readonly Section[],
 ): boolean {
-  if (f.openSeatsOnly && section.capacity > 0 && section.enrolled >= section.capacity) {
+  if (
+    f.openSeatsOnly &&
+    section.capacity > 0 &&
+    section.registered >= section.capacity
+  ) {
     return false;
   }
-  if (!isTimed(section)) {
+  const start = startOf(section);
+  if (start === null) {
     return true;
   }
-  if (section.days.some((d) => f.excludedDays.has(d))) {
+  if (
+    timedMeetings(section).some((m) => m.days.some((d) => f.excludedDays.has(d)))
+  ) {
     return false;
   }
-  if (f.dayParts.size > 0 && !f.dayParts.has(dayPartOf(section))) {
+  if (f.dayParts.size > 0 && !f.dayParts.has(dayPartOf(start))) {
     return false;
   }
   return !f.fitsWeekOnly || !clashes(section, week);
@@ -93,20 +100,23 @@ export function courseMatches(
   if (activeFilterCount(f) === 0 || course.sections.length === 0) {
     return true;
   }
-  const types = new Set(course.sections.map((s) => s.section_type));
+  const types = new Set(course.sections.map((s) => s.type));
   return [...types].every((type) =>
-    course.sections.some(
-      (s) => s.section_type === type && sectionPasses(s, f, week),
-    ),
+    course.sections.some((s) => s.type === type && sectionPasses(s, f, week)),
   );
 }
 
-function best(course: Course, pick: (s: Section) => number | null | undefined): number | null {
+function best(
+  course: Course,
+  pick: (r: Rating) => number | null,
+): number | null {
   let result: number | null = null;
   for (const s of course.sections) {
-    const v = pick(s);
-    if (v !== null && v !== undefined && (result === null || v > result)) {
-      result = v;
+    for (const i of s.instructors) {
+      const v = i.rmp ? pick(i.rmp) : null;
+      if (v !== null && (result === null || v > result)) {
+        result = v;
+      }
     }
   }
   return result;
@@ -124,18 +134,17 @@ export function sortCourses(
     case 'relevance':
       return courses;
     case 'code':
-      return [...courses].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      return [...courses].sort((a, b) =>
+        a.code.localeCompare(b.code, undefined, { numeric: true }),
+      );
     case 'rating': {
-      const score = (c: Course) => best(c, (s) => s.instructor?.rmp_rating) ?? -1;
+      const score = (c: Course) => best(c, (r) => r.rating) ?? -1;
       return [...courses].sort((a, b) => score(b) - score(a));
     }
     case 'easiest': {
       // Easiest = lowest difficulty, so negate to reuse "best is highest".
       const score = (c: Course) =>
-        best(c, (s) => {
-          const d = s.instructor?.rmp_difficulty;
-          return d === null || d === undefined ? null : -d;
-        }) ?? -99;
+        best(c, (r) => (r.difficulty === null ? null : -r.difficulty)) ?? -99;
       return [...courses].sort((a, b) => score(b) - score(a));
     }
   }

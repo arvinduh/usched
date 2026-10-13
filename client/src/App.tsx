@@ -1,19 +1,25 @@
 /**
  * Root application component for the usched academic planner.
  *
- * Composes the two spaces (Semester: Library or Ask beside the week; Degree:
- * the audit) under one top bar, and wires the plan store, catalog search,
- * server audits, advisor chat, and keyboard shortcuts together. It owns only
- * view state; user-authored data lives in `state/store`.
+ * `App` resolves which term is being planned (the stored one, else the
+ * newest with courses) and explains a missing catalog. `Planner` then
+ * composes the two spaces (Semester: the Assistant pane beside the week;
+ * Degree: the audit) under one top bar, and wires the plan store, catalog
+ * search, server audits, advisor chat, and keyboard shortcuts together for
+ * that term. Both own only view state; user-authored data lives in
+ * `state/store`.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  auditGe,
+  auditProgram,
   getApExams,
-  getDegreeAudit,
-  getDegrees,
-  getGeAudit,
+  getCourse,
+  getProgram,
+  getPrograms,
+  getTerms,
 } from './api/client';
 import { applyActionChip } from './components/Chat/applyActionChip';
 import { useAdvisorChat } from './hooks/useAdvisorChat';
@@ -21,8 +27,8 @@ import { useCatalogSearch } from './hooks/useCatalogSearch';
 import { DegreeView } from './degree/DegreeView';
 import { courseKey, displayCode } from './lib/degree';
 import { totalUnits } from './lib/schedule';
-import { AskPane } from './semester/AskPane';
-import { Library } from './semester/Library';
+import { Assistant } from './semester/Assistant';
+import type { AssistantView } from './semester/Assistant';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
 import {
@@ -35,7 +41,8 @@ import {
   overwriteConfig,
   renameConfig,
   selectConfig,
-  selectDegree,
+  selectProgram,
+  selectTerm,
   recordCompleted,
   toggleApCredit,
   toggleCompleted,
@@ -44,32 +51,51 @@ import {
 } from './state/actions';
 import { hasExpanded, setExpanded, setProposal } from './state/preview';
 import type { Proposal } from './state/preview';
-import { reset, useStore } from './state/store';
+import { reset, useStore, useTermPlan } from './state/store';
 import { showToast, undoLast } from './state/toast';
 import { usePlanCourses } from './state/usePlanCourses';
 import { ToastHost } from './ui/Toast';
 import type {
-  ActionChip,
-  ApExamDefinition,
+  ApExam,
+  Chip,
   Course,
-  DegreeAuditResponse,
-  DegreeProgram,
-  GeAuditSummary,
+  GeProgress,
+  Program,
+  ProgramAudit,
+  ProgramSummary,
   ScheduleConfiguration,
   Section,
+  Term,
 } from './types';
 import styles from './App.module.css';
 
-const DEFAULT_DEGREE_ID = 'csci-bs';
 const MAX_SUGGESTIONS = 8;
 
 type Space = 'semester' | 'degree';
 
-/**
- * Picks the degree shown before the user chooses one.
- */
-function fallbackDegreeId(degrees: readonly DegreeProgram[]): string {
-  return degrees.find((d) => d.id === 'buai-bs')?.id ?? degrees[0]?.id ?? '';
+const PANE_KEY = 'usched:pane';
+const PANE_DEFAULT = 420;
+
+/** Keeps the assistant pane between usable and overbearing widths. */
+function clampPaneWidth(px: number): number {
+  return Math.round(Math.min(600, Math.max(340, px)));
+}
+
+function readPaneWidth(): number {
+  try {
+    const saved = Number(localStorage.getItem(PANE_KEY));
+    return saved > 0 ? clampPaneWidth(saved) : PANE_DEFAULT;
+  } catch {
+    return PANE_DEFAULT;
+  }
+}
+
+function savePaneWidth(px: number): void {
+  try {
+    localStorage.setItem(PANE_KEY, String(px));
+  } catch (err) {
+    console.error('Failed to save pane width', err);
+  }
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -83,72 +109,145 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /**
- * Main application shell.
+ * Loads the plannable terms and renders the planner for the chosen one.
  */
 export function App(): React.JSX.Element {
-  const [space, setSpace] = useState<Space>('semester');
-  const [pane, setPane] = useState<'library' | 'ask'>('library');
-  const searchInput = useRef<HTMLInputElement>(null);
+  const [terms, setTerms] = useState<readonly Term[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const stored = useStore((s) => s.term);
 
-  const configurations = useStore((s) => s.configurations);
-  const activeConfigId = useStore((s) => s.activeConfigId);
-  const watchedCourseIds = useStore((s) => s.watchedCourseIds);
+  useEffect(() => {
+    getTerms()
+      .then((all) => setTerms(all.filter((t) => t.has_courses)))
+      .catch(() => setFailed(true));
+  }, []);
+
+  // A stored term the catalog no longer has falls back to the newest one.
+  const term = (terms?.find((t) => t.code === stored) ?? terms?.[0])?.code;
+  useEffect(() => {
+    if (term !== undefined && term !== stored) {
+      selectTerm(term);
+    }
+  }, [term, stored]);
+
+  if (failed || terms?.length === 0) {
+    return (
+      <p className={styles.notice}>
+        No course catalog yet. Build it with <code>npm run catalog</code>, then
+        reload.
+      </p>
+    );
+  }
+  if (!terms || term === undefined) {
+    return <div className={styles.app} />;
+  }
+  return <Planner term={term} terms={terms} />;
+}
+
+/**
+ * Main application shell for one planning term.
+ */
+function Planner({
+  term,
+  terms,
+}: {
+  readonly term: number;
+  readonly terms: readonly Term[];
+}): React.JSX.Element {
+  const [space, setSpace] = useState<Space>('semester');
+  const [view, setView] = useState<AssistantView>('chat');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const semester = useRef<HTMLElement>(null);
+  const [paneWidth, setPaneWidth] = useState(readPaneWidth);
+
+  const configurations = useTermPlan((p) => p.configurations);
+  const activeConfigId = useTermPlan((p) => p.activeConfigId);
+  const watchedCourseIds = useTermPlan((p) => p.watchedCourseIds);
   const completedCourseIds = useStore((s) => s.completedCourseIds);
   const apCredits = useStore((s) => s.apCredits);
-  const storedDegreeId = useStore((s) => s.degreeId);
+  const programId = useStore((s) => s.programId);
 
-  const [degrees, setDegrees] = useState<readonly DegreeProgram[]>([]);
-  const [apDefinitions, setApDefinitions] = useState<
-    readonly ApExamDefinition[]
-  >([]);
-  const [degreeAudit, setDegreeAudit] = useState<DegreeAuditResponse | null>(
+  const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
+  const [apExams, setApExams] = useState<readonly ApExam[]>([]);
+  // Fetched results remember what they answer, so a stale one is never
+  // shown for a newly chosen program or term.
+  const [loadedProgram, setLoadedProgram] = useState<Program | null>(null);
+  const [loadedAudit, setLoadedAudit] = useState<{
+    readonly key: string;
+    readonly audit: ProgramAudit;
+  } | null>(null);
+  const auditKey = `${term}|${programId}`;
+  const program = loadedProgram?.id === programId ? loadedProgram : null;
+  const audit = loadedAudit?.key === auditKey ? loadedAudit.audit : null;
+  const [geProgress, setGeProgress] = useState<readonly GeProgress[] | null>(
     null,
   );
-  const [geAudit, setGeAudit] = useState<GeAuditSummary | null>(null);
 
   const completed = useMemo(
     () => new Set(completedCourseIds.map(courseKey)),
     [completedCourseIds],
   );
-  // Eligible degree courses to suggest; a few spares cover ones already
-  // planned this term, which are filtered out once the week resolves.
-  const suggestionIds = useMemo(
-    () =>
-      (degreeAudit?.prereq_graph ?? [])
-        .filter((n) => n.status === 'eligible' && !completed.has(courseKey(n.course_id)))
-        .slice(0, MAX_SUGGESTIONS + 4)
-        .map((n) => n.course_id),
-    [degreeAudit, completed],
-  );
+  // Program courses the student can take next: untaken and not locked. A
+  // few spares cover ones already planned or not offered this term, which
+  // drop out once the week and the catalog resolve.
+  const suggestionIds = useMemo(() => {
+    if (!program) {
+      return [];
+    }
+    const locked = new Set(Object.keys(audit?.locked ?? {}).map(courseKey));
+    const codes = program.requirements.flatMap((r) =>
+      r.slots.flat().flatMap((c) => (c.title ? [c.course.resolved ?? ''] : [])),
+    );
+    return [...new Set(codes)]
+      .filter((c) => c && !completed.has(courseKey(c)) && !locked.has(courseKey(c)))
+      .slice(0, MAX_SUGGESTIONS + 4);
+  }, [program, audit, completed]);
 
-  const search = useCatalogSearch();
+  const search = useCatalogSearch(term);
   const setSearchText = search.setText;
-  const { coursesById, sectionsById, remember } = usePlanCourses(
+  const { coursesByCode, sectionsById, remember } = usePlanCourses(
+    term,
     search.courses,
     suggestionIds,
   );
   const chat = useAdvisorChat();
 
-  const degreeId = storedDegreeId || fallbackDegreeId(degrees);
-
   useEffect(() => {
-    getApExams().then(setApDefinitions).catch(console.error);
-    getDegrees().then(setDegrees).catch(console.error);
+    getApExams().then(setApExams).catch(console.error);
+    getPrograms()
+      .then((all) =>
+        setPrograms(all.filter((p) => p.kind === 'degree' || p.kind === 'minor')),
+      )
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (!degreeId) {
-      return;
+    if (programId) {
+      getProgram(programId).then(setLoadedProgram).catch(console.error);
     }
-    getDegreeAudit(degreeId, completedCourseIds)
-      .then(setDegreeAudit)
-      .catch(console.error);
-  }, [degreeId, completedCourseIds]);
+  }, [programId]);
 
   useEffect(() => {
-    getGeAudit(completedCourseIds, apCredits)
-      .then(setGeAudit)
+    if (!programId) {
+      return;
+    }
+    let stale = false;
+    auditProgram(term, programId, completedCourseIds, apCredits)
+      .then((a) => !stale && setLoadedAudit({ key: auditKey, audit: a }))
       .catch(console.error);
+    return () => {
+      stale = true;
+    };
+  }, [auditKey, term, programId, completedCourseIds, apCredits]);
+
+  useEffect(() => {
+    let stale = false;
+    auditGe(completedCourseIds, apCredits)
+      .then((g) => !stale && setGeProgress(g))
+      .catch(console.error);
+    return () => {
+      stale = true;
+    };
   }, [completedCourseIds, apCredits]);
 
   const activeConfig =
@@ -163,7 +262,7 @@ export function App(): React.JSX.Element {
     [activeSectionIds, sectionsById],
   );
   const scheduledCourseIds = useMemo(
-    () => [...new Set(activeSections.map((s) => s.course_id))],
+    () => [...new Set(activeSections.map((s) => s.course_code))],
     [activeSections],
   );
   const otherVariants = useMemo(
@@ -181,26 +280,25 @@ export function App(): React.JSX.Element {
   const savedCourses = useMemo(
     () =>
       watchedCourseIds
-        .map((id) => coursesById.get(id))
+        .map((code) => coursesByCode.get(code))
         .filter((c): c is Course => c !== undefined),
-    [watchedCourseIds, coursesById],
+    [watchedCourseIds, coursesByCode],
   );
   const suggestions = useMemo(
     () =>
       suggestionIds
         .filter((id) => !planned.has(courseKey(id)))
-        .map((id) => coursesById.get(id))
+        .map((code) => coursesByCode.get(code))
         .filter((c): c is Course => c !== undefined)
         .slice(0, MAX_SUGGESTIONS),
-    [suggestionIds, planned, coursesById],
+    [suggestionIds, planned, coursesByCode],
   );
 
-  const plannedUnits = totalUnits(activeSections, coursesById);
-  const degreeUnits = degreeAudit && {
-    completed: degreeAudit.total_completed_units,
-    planned: plannedUnits,
-    total: degreeAudit.degree.total_units,
-  };
+  const plannedUnits = totalUnits(activeSections, coursesByCode);
+  const degreeUnits =
+    audit && program?.total_units
+      ? { completed: audit.units, planned: plannedUnits, total: program.total_units }
+      : null;
 
   // Morph between spaces where the browser supports view transitions.
   // Staying put skips it: a transition defers rendering, which would delay
@@ -224,26 +322,48 @@ export function App(): React.JSX.Element {
     }
   }, []);
 
-  const showLibrary = useCallback(
-    (text?: string): void => {
+  const focusComposer = useCallback((): void => {
+    go('semester');
+    requestAnimationFrame(() => searchInput.current?.focus());
+  }, [go]);
+
+  const showResults = useCallback(
+    (text: string): void => {
       go('semester');
-      setPane('library');
-      if (text !== undefined) {
-        search.setText(text);
-      }
-      requestAnimationFrame(() => searchInput.current?.focus());
+      setView('results');
+      setSearchText(text);
     },
-    [go, search],
+    [go, setSearchText],
   );
 
-  const openAsk = useCallback((): void => {
-    go('semester');
-    setPane('ask');
-  }, [go]);
+  // Opening a course expands it (ghosting its sections) and lists it first
+  // in the results, where its sections can be picked.
+  const handleOpenCourse = (course: Course): void => {
+    remember(course);
+    setExpanded(course);
+    showResults(displayCode(course.code));
+  };
+
+  const handleOpenCourseId = (code: string): void => {
+    // The advisor can name courses this term's catalog lacks; say so rather
+    // than leave an unexplained empty list.
+    getCourse(term, code)
+      .then(handleOpenCourse)
+      .catch(() => {
+        showToast(`${displayCode(code)} isn't offered this term`);
+        showResults(displayCode(code));
+      });
+  };
+
+  const handleSelectTerm = (next: number): void => {
+    setProposal(null);
+    setExpanded(null);
+    selectTerm(next);
+  };
 
   const handleToggleSave = (course: Course): void => {
     remember(course);
-    toggleWatch(course.id);
+    toggleWatch(course.code);
   };
 
   const handleToggleSection = (section: Section, course: Course): void => {
@@ -261,33 +381,23 @@ export function App(): React.JSX.Element {
     if (target) {
       addSection(section, course.sections, target.id);
       // Adding may swap out a sibling, so undo restores the whole variant.
-      showToast(`Added ${displayCode(course.id)} to ${target.name}`, () =>
+      showToast(`Added ${displayCode(course.code)} to ${target.name}`, () =>
         overwriteConfig(target.section_ids, target.id),
       );
     } else {
       const id = createConfig(undefined, [section.id]);
-      showToast(`Added ${displayCode(course.id)} to a new variant`, () => {
+      showToast(`Added ${displayCode(course.code)} to a new variant`, () => {
         deleteConfig(id);
       });
     }
   };
 
   const handleKeepProposal = (proposal: Proposal): void => {
-    const target = proposal.targetConfigId;
-    const previous = configurations.find((c) => c.id === target)?.section_ids;
     setProposal(null);
-    if (target && previous) {
-      overwriteConfig(proposal.sectionIds, target);
-      selectConfig(target);
-      showToast('Replaced with the suggestion', () =>
-        overwriteConfig(previous, target),
-      );
-    } else {
-      const id = createConfig(proposal.name, proposal.sectionIds);
-      showToast(`Kept as ${proposal.name}`, () => {
-        deleteConfig(id);
-      });
-    }
+    const id = createConfig(proposal.name, proposal.sectionIds);
+    showToast(`Kept as ${proposal.name}`, () => {
+      deleteConfig(id);
+    });
   };
 
   const handleSelectVariant = (configId: string): void => {
@@ -298,18 +408,13 @@ export function App(): React.JSX.Element {
   const handleRemove = (section: Section): void => {
     const undo = dropSection(section.id);
     showToast(
-      `Removed ${displayCode(section.course_id)} ${section.section_type.toLowerCase()}`,
+      `Removed ${displayCode(section.course_code)} ${section.type.toLowerCase()}`,
       undo,
     );
   };
 
   const handleDeleteVariant = (config: ScheduleConfiguration): void => {
     showToast(`Deleted ${config.name}`, deleteConfig(config.id));
-  };
-
-  const handleFocusCourse = (course: Course): void => {
-    showLibrary(displayCode(course.id));
-    setExpanded(course);
   };
 
   const handleToggleCompleted = (courseId: string): void => {
@@ -329,20 +434,23 @@ export function App(): React.JSX.Element {
 
   const handleAsk = (text: string): void => {
     setExpanded(null);
-    setPane('ask');
-    void chat.send(text, {
-      enrolledCourseIds: scheduledCourseIds,
-      watchedCourseIds,
-      completedCourseIds,
-      degreeId: degreeId || DEFAULT_DEGREE_ID,
+    setView('chat');
+    setSearchText('');
+    chat.send(text, {
+      term,
+      sectionIds: activeSectionIds,
+      shortlistedCodes: watchedCourseIds,
+      completedCodes: completedCourseIds,
+      apCredits,
+      programId,
     });
   };
 
-  const handleChip = (chip: ActionChip): void => {
+  const handleChip = (chip: Chip): void => {
     applyActionChip(chip, {
       showWeek: () => go('semester'),
       showDegree: () => go('degree'),
-      search: (q) => showLibrary(q),
+      search: showResults,
     });
   };
 
@@ -375,7 +483,7 @@ export function App(): React.JSX.Element {
       const key = e.key.toLowerCase();
       if (mod && key === 'j') {
         e.preventDefault();
-        openAsk();
+        focusComposer();
         return;
       }
       if (mod && key === 'z' && !isTyping(e.target)) {
@@ -390,7 +498,7 @@ export function App(): React.JSX.Element {
       switch (e.key) {
         case '/':
           e.preventDefault();
-          showLibrary();
+          focusComposer();
           return;
         case 'd':
         case 'D':
@@ -403,11 +511,11 @@ export function App(): React.JSX.Element {
           cycleConfig(1);
           return;
         case 'Escape':
-          // Peel one layer: an open course, then Ask, then the search text.
+          // Peel one layer: an open course, then the results, then the text.
           if (hasExpanded()) {
             setExpanded(null);
-          } else if (pane === 'ask') {
-            setPane('library');
+          } else if (view === 'results') {
+            setView('chat');
           } else {
             setSearchText('');
           }
@@ -416,12 +524,40 @@ export function App(): React.JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, openAsk, showLibrary, space, pane, setSearchText]);
+  }, [go, focusComposer, space, view, setSearchText]);
+
+  // Drag the pane edge to resize. Moves write the CSS variable directly so
+  // the app does not re-render per pointer event; the width is committed
+  // and remembered on release.
+  const startResize = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const grid = semester.current;
+    if (!grid) {
+      return;
+    }
+    e.preventDefault();
+    const left = grid.getBoundingClientRect().left;
+    let width = paneWidth;
+    const move = (ev: PointerEvent): void => {
+      width = clampPaneWidth(ev.clientX - left);
+      grid.style.setProperty('--pane', `${width}px`);
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setPaneWidth(width);
+      savePaneWidth(width);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
 
   return (
     <div className={styles.app}>
       <TopBar
         units={degreeUnits}
+        terms={terms}
+        term={term}
+        onSelectTerm={handleSelectTerm}
         isDegreeOpen={space === 'degree'}
         onToggleDegree={() => go(space === 'degree' ? 'semester' : 'degree')}
         onHome={() => go('semester')}
@@ -430,34 +566,43 @@ export function App(): React.JSX.Element {
       />
 
       {space === 'semester' ? (
-        <main className={styles.semester}>
+        <main
+          ref={semester}
+          className={styles.semester}
+          style={{ '--pane': `${paneWidth}px` } as React.CSSProperties}
+        >
           <aside className={styles.left}>
-            {pane === 'ask' ? (
-              <AskPane
-                messages={chat.messages}
-                isLoading={chat.isLoading}
-                onSend={handleAsk}
-                onChip={handleChip}
-                onBack={() => showLibrary()}
-              />
-            ) : (
-              <Library
-                search={search}
-                inputRef={searchInput}
-                savedCourses={savedCourses}
-                suggestions={suggestions}
-                activeSections={activeSections}
-                scheduledCourseIds={scheduledCourseIds}
-                completed={completed}
-                watched={watched}
-                onToggleSave={handleToggleSave}
-                onToggleTaken={(course) => handleToggleCompleted(course.id)}
-                onToggleSection={handleToggleSection}
-                otherVariants={otherVariants}
-                onAddToVariant={handleAddToVariant}
-                onAsk={handleAsk}
-              />
-            )}
+            <Assistant
+              view={view}
+              onView={setView}
+              search={search}
+              inputRef={searchInput}
+              messages={chat.messages}
+              busy={chat.isLoading}
+              onAsk={handleAsk}
+              onChip={handleChip}
+              onNewChat={chat.clear}
+              onOpenCourse={handleOpenCourse}
+              onOpenCourseId={handleOpenCourseId}
+              savedCourses={savedCourses}
+              suggestions={suggestions}
+              activeSections={activeSections}
+              scheduledCourseIds={scheduledCourseIds}
+              completed={completed}
+              watched={watched}
+              onToggleSave={handleToggleSave}
+              onToggleTaken={(course) => handleToggleCompleted(course.code)}
+              onToggleSection={handleToggleSection}
+              otherVariants={otherVariants}
+              onAddToVariant={handleAddToVariant}
+            />
+            <div
+              className={styles.resize}
+              onPointerDown={startResize}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the assistant pane"
+            />
           </aside>
           <section className={styles.right}>
             <Week
@@ -465,7 +610,7 @@ export function App(): React.JSX.Element {
               activeConfigId={activeConfig.id}
               sections={activeSections}
               sectionsById={sectionsById}
-              coursesById={coursesById}
+              coursesByCode={coursesByCode}
               scheduledCourseIds={scheduledCourseIds}
               onSelectVariant={handleSelectVariant}
               onRenameVariant={renameConfig}
@@ -473,7 +618,7 @@ export function App(): React.JSX.Element {
               onDuplicateVariant={duplicateActiveConfig}
               onToggleSection={handleToggleSection}
               onRemove={handleRemove}
-              onFocusCourse={handleFocusCourse}
+              onFocusCourse={handleOpenCourse}
               onKeepProposal={handleKeepProposal}
               onDiscardProposal={() => setProposal(null)}
             />
@@ -482,12 +627,14 @@ export function App(): React.JSX.Element {
       ) : (
         <main className={styles.degree}>
           <DegreeView
-            degrees={degrees}
-            degreeId={degreeId}
-            onSelectDegree={selectDegree}
-            audit={degreeAudit}
-            geAudit={geAudit}
-            apDefinitions={apDefinitions}
+            term={term}
+            programs={programs}
+            programId={programId}
+            onSelectProgram={selectProgram}
+            program={program}
+            audit={audit}
+            geProgress={geProgress}
+            apExams={apExams}
             apCredits={apCredits}
             onToggleAp={toggleApCredit}
             completed={completed}
@@ -495,8 +642,8 @@ export function App(): React.JSX.Element {
             plannedUnits={plannedUnits}
             onToggleCompleted={handleToggleCompleted}
             onRecordCompleted={handleRecordCompleted}
-            onFindSections={(courseId) => showLibrary(displayCode(courseId))}
-            onBrowseGe={(letter) => showLibrary(`ge ${letter.toLowerCase()} `)}
+            onFindSections={handleOpenCourseId}
+            onBrowseGe={(letter) => showResults(`ge ${letter.toLowerCase()} `)}
           />
         </main>
       )}

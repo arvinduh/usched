@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getCourses } from '../api/client';
+import { searchCourses } from '../api/client';
 import { parseQuery } from '../lib/query';
 import type { ParsedQuery } from '../lib/query';
 import type { Course } from '../types';
@@ -31,11 +31,11 @@ export interface CatalogSearch {
 }
 
 /**
- * Re-queries the catalog 150 ms after the text settles and appends further
- * pages on demand. Empty text loads nothing: the Library shows saved and
- * suggested courses instead.
+ * Re-queries `term`'s catalog 150 ms after the text settles and appends
+ * further pages on demand. Empty text loads nothing: the Library shows saved
+ * and suggested courses instead.
  */
-export function useCatalogSearch(): CatalogSearch {
+export function useCatalogSearch(term: number): CatalogSearch {
   const [text, setText] = useState('');
   const parsed = useMemo(() => parseQuery(text), [text]);
   const { keywords, ge, minRmp } = parsed;
@@ -43,7 +43,7 @@ export function useCatalogSearch(): CatalogSearch {
 
   const [courses, setCourses] = useState<readonly Course[]>([]);
   // Which query `courses` answers, so stale results never read as final.
-  const queryKey = `${keywords}|${ge}|${minRmp}`;
+  const queryKey = `${term}|${keywords}|${ge}|${minRmp}`;
   const [resultKey, setResultKey] = useState('');
   // Server offset of the next page; can exceed `courses.length` when a page
   // repeats rows already shown.
@@ -53,14 +53,14 @@ export function useCatalogSearch(): CatalogSearch {
 
   const fetchPage = useCallback(
     (offset: number) =>
-      getCourses({
+      searchCourses(term, {
         q: keywords || undefined,
         ge: ge || undefined,
-        min_rmp: minRmp > 0 ? minRmp : undefined,
+        minRating: minRmp > 0 ? minRmp : undefined,
         limit: PAGE_SIZE,
         offset,
       }),
-    [keywords, ge, minRmp],
+    [term, keywords, ge, minRmp],
   );
   // The query whose results are on screen; late pages of older queries are
   // dropped instead of appended.
@@ -104,8 +104,8 @@ export function useCatalogSearch(): CatalogSearch {
         }
         setNextOffset((prev) => prev + items.length);
         setCourses((prev) => {
-          const seen = new Set(prev.map((c) => c.id));
-          return [...prev, ...items.filter((c) => !seen.has(c.id))];
+          const seen = new Set(prev.map((c) => c.code));
+          return [...prev, ...items.filter((c) => !seen.has(c.code))];
         });
         setHasMore(items.length >= PAGE_SIZE);
       })

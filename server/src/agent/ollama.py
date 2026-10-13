@@ -1,21 +1,20 @@
-"""Local Ollama client communicating with Qwen 3.5 4B.
+"""A local Ollama daemon as the advisor's model, for development.
 
-This module manages HTTP communication with the local Ollama daemon,
-including health checks, non-streaming tool calling, and SSE token streaming.
+The first pass streams with tools, so a direct answer appears token by
+token; only a tool request costs a second pass, which runs without tools.
 """
 
 import json
-import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any
 
 import httpx
 from absl import logging
 
+from server.src.agent import llm
 
-OLLAMA_BASE_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
-MODEL_NAME = os.getenv("USCHED_LLM_MODEL", "qwen3.5:4b")
+
 # Reasoning models emit hidden "thinking" tokens before any answer; on
 # qwen3.5:4b that turns a 3 s reply into 2 minutes of silence.
 _THINK = False
@@ -23,93 +22,125 @@ _THINK = False
 # reload, and caps reply length so a runaway answer cannot take minutes.
 _KEEP_ALIVE = "30m"
 _OPTIONS = {"num_predict": 400}
+_TIMEOUT = httpx.Timeout(90.0, connect=10.0)
 
 
-def is_ollama_available() -> bool:
-  """Checks if local Ollama service is reachable on configured port."""
-  try:
-    with httpx.Client(timeout=1.5) as client:
-      resp = client.get(f"{OLLAMA_BASE_URL}/api/tags")
-      return resp.status_code == HTTPStatus.OK
-  except httpx.HTTPError:
-    return False
+class Ollama:
+  """A model served by a local Ollama daemon.
 
-
-def is_model_downloaded(model_name: str = MODEL_NAME) -> bool:
-  """Checks whether target model tag is downloaded in local Ollama."""
-  try:
-    with httpx.Client(timeout=2.0) as client:
-      resp = client.get(f"{OLLAMA_BASE_URL}/api/tags")
-      if resp.status_code == HTTPStatus.OK:
-        data: dict[str, Any] = resp.json()
-        models_list: list[dict[str, Any]] = data.get("models", [])
-        m_prefix = model_name.split(":")[0]
-        return any(
-          m.get("name", "").startswith(model_name)
-          or m.get("name", "").startswith(m_prefix)
-          for m in models_list
-        )
-  except (httpx.HTTPError, json.JSONDecodeError):
-    return False
-  return False
-
-
-def stream_ollama_chat(
-  messages: list[dict[str, Any]],
-  tools: list[dict[str, Any]] | None = None,
-) -> Iterator[dict[str, Any]]:
-  """Streams assistant message chunks from the Ollama daemon.
-
-  With `tools`, the model may answer directly (content chunks stream as they
-  are generated) or request tools (a chunk carrying `tool_calls`), so callers
-  never wait on a full non-streamed pass before showing text.
-
-  Args:
-    messages: Conversational history turns.
-    tools: Tool schemas in Ollama / OpenAI function-calling format.
-
-  Yields:
-    Message dicts with optional "content" and "tool_calls" keys. Connection
-    failures are reported as a final content chunk rather than raised.
+  Attributes:
+    name: The model tag, e.g. qwen3.5:4b.
   """
-  payload: dict[str, Any] = {
-    "model": MODEL_NAME,
-    "messages": messages,
-    "stream": True,
-    "think": _THINK,
-    "keep_alive": _KEEP_ALIVE,
-    "options": _OPTIONS,
-  }
-  if tools:
-    payload["tools"] = tools
 
-  try:
-    with (
-      httpx.Client(
-        timeout=httpx.Timeout(90.0, connect=10.0, read=90.0)
-      ) as client,
-      client.stream(
-        "POST", f"{OLLAMA_BASE_URL}/api/chat", json=payload
-      ) as resp,
-    ):
-      if resp.status_code != HTTPStatus.OK:
-        yield {
-          "content": (
-            "I could not connect to local Ollama. Please ensure `ollama run "
-            f"{MODEL_NAME}` is active."
-          )
-        }
+  def __init__(
+    self, host: str, name: str, transport: httpx.BaseTransport | None = None
+  ) -> None:
+    self._host = host.rstrip("/")
+    self.name = name
+    self._transport = transport
+
+  def _tags(self) -> list[str] | None:
+    try:
+      with httpx.Client(timeout=2.0, transport=self._transport) as client:
+        response = client.get(f"{self._host}/api/tags")
+        response.raise_for_status()
+        return [m.get("name", "") for m in response.json().get("models", [])]
+    except (httpx.HTTPError, ValueError):
+      return None
+
+  def unavailable(self) -> str | None:
+    """Explains a stopped daemon or a missing model; otherwise None."""
+    tags = self._tags()
+    if tags is None:
+      return f"The advisor is offline: start Ollama (`ollama run {self.name}`)."
+    family = self.name.split(":")[0]
+    if not any(t.startswith(self.name) or t.startswith(family) for t in tags):
+      return (
+        f"Ollama is running but `{self.name}` is not downloaded. "
+        f"Run `ollama pull {self.name}`."
+      )
+    return None
+
+  def reply(
+    self,
+    system: str,
+    history: Sequence[llm.Turn],
+    message: str,
+    tools: Sequence[llm.Tool],
+    execute: llm.Execute,
+  ) -> Iterator[str]:
+    """Streams the reply; see llm.Model.reply."""
+    messages: list[dict[str, Any]] = [
+      {"role": "system", "content": system},
+      *({"role": t.role, "content": t.content} for t in history),
+      {"role": "user", "content": message},
+    ]
+    specs = [
+      {
+        "type": "function",
+        "function": {
+          "name": t.name,
+          "description": t.description,
+          "parameters": t.parameters,
+        },
+      }
+      for t in tools
+    ]
+    with httpx.Client(timeout=_TIMEOUT, transport=self._transport) as client:
+      calls: list[dict[str, Any]] = []
+      for chunk in self._stream(client, messages, specs):
+        calls.extend(chunk.get("tool_calls") or [])
+        if chunk.get("content"):
+          yield chunk["content"]
+      if not calls:
         return
-      for line in resp.iter_lines():
-        if not line:
-          continue
-        try:
-          chunk = json.loads(line)
-        except json.JSONDecodeError:
-          continue
-        message: dict[str, Any] = chunk.get("message", {})
-        if message:
-          yield message
-  except httpx.HTTPError as exc:
-    logging.warning("Ollama streaming stream error: %s", exc)
-    yield {"content": f"\n[Advisor note: Model stream interrupted ({exc})]"}
+      messages.append({"role": "assistant", "content": "", "tool_calls": calls})
+      for call in calls:
+        fn = call.get("function", {})
+        args = fn.get("arguments") or {}
+        if isinstance(args, str):
+          args = json.loads(args)
+        messages.append(
+          {
+            "role": "tool",
+            "name": fn.get("name", ""),
+            "content": execute(fn.get("name", ""), args),
+          }
+        )
+      for chunk in self._stream(client, messages, []):
+        if chunk.get("content"):
+          yield chunk["content"]
+
+  def _stream(
+    self,
+    client: httpx.Client,
+    messages: Sequence[Mapping[str, Any]],
+    specs: Sequence[Mapping[str, Any]],
+  ) -> Iterator[dict[str, Any]]:
+    """Yields the message of each streamed chunk."""
+    payload: dict[str, Any] = {
+      "model": self.name,
+      "messages": list(messages),
+      "stream": True,
+      "think": _THINK,
+      "keep_alive": _KEEP_ALIVE,
+      "options": _OPTIONS,
+    }
+    if specs:
+      payload["tools"] = list(specs)
+    try:
+      with client.stream(
+        "POST", f"{self._host}/api/chat", json=payload
+      ) as response:
+        if response.status_code != HTTPStatus.OK:
+          response.read()
+          raise llm.ModelError(
+            f"Ollama couldn't answer ({response.status_code}): "
+            f"{response.text[:200]}"
+          )
+        for line in response.iter_lines():
+          if line:
+            yield json.loads(line).get("message") or {}
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
+      logging.warning("Ollama request failed: %s", e)
+      raise llm.ModelError(f"The local model stopped responding ({e}).") from e

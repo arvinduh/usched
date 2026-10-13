@@ -1,278 +1,248 @@
 /**
- * API client module for communicating with the usched backend services.
+ * Typed calls to the usched API, one function per route.
  *
- * Provides typed endpoints for course catalog discovery, schedule conflict
- * validation, degree audit evaluation, and streaming advisor chat via SSE.
+ * Course and section routes are scoped by term. Shapes come from the
+ * generated schema through `types`; this module owns only URLs, encoding,
+ * and turning non-2xx responses into errors.
  */
 
 import type {
-  ActionChip,
-  ApExamDefinition,
-  ChatMessage,
+  ApCredit,
+  ApExam,
+  ChatRequest,
+  ClosingEvent,
   Course,
-  DegreeAuditResponse,
-  DegreeProgram,
-  GeAuditSummary,
+  GeCategory,
+  GeProgress,
+  KnownCourse,
+  Program,
+  ProgramAudit,
+  ProgramSummary,
   Section,
-  UserApCredit,
+  Term,
 } from '../types';
 
-const API_BASE = '/api';
+const API = '/api';
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}${path}`);
+  if (!res.ok) {
+    throw new Error(`GET ${path} failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`POST ${path} failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
 
 /**
- * Filter parameters for searching and narrowing courses in the catalog.
+ * Links to a course on USC's Schedule of Classes for a term.
  */
-export interface CourseQueryParams {
+export function uscCourseUrl(code: string, term: number): string {
+  const smashed = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  return `https://classes.usc.edu/term/${term}/catalogue/course/${smashed}`;
+}
+
+/** Lists every term, newest first. */
+export function getTerms(): Promise<readonly Term[]> {
+  return get('/terms');
+}
+
+/** Filters for a course search; omitted fields do not filter. */
+export interface CourseQuery {
   readonly q?: string;
-  readonly dept?: string;
   readonly ge?: string;
-  readonly min_rmp?: number;
+  readonly minRating?: number;
   readonly limit?: number;
   readonly offset?: number;
 }
 
-/**
- * Returns the canonical USC Schedule of Classes URL for a given course code.
- *
- * USC's Angular catalogue application routes directly to:
- * `https://classes.usc.edu/term/{term}/catalogue/course/{courseSmashed}`
- * (e.g. `https://classes.usc.edu/term/20271/catalogue/course/AAN500`).
- */
-export function getUscCourseUrl(courseId: string, term = '20271'): string {
-  const smashed = courseId.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  return `https://classes.usc.edu/term/${term}/catalogue/course/${smashed}`;
-}
-
-/**
- * Fetches course catalog offerings matching the supplied filter query.
- */
-export async function getCourses(
-  params?: CourseQueryParams,
+/** Searches a term's courses. */
+export function searchCourses(
+  term: number,
+  query: CourseQuery,
 ): Promise<readonly Course[]> {
-  const searchParams = new URLSearchParams();
-  if (params?.q) {
-    searchParams.set('q', params.q);
+  const params = new URLSearchParams();
+  if (query.q) {
+    params.set('q', query.q);
   }
-  if (params?.dept) {
-    searchParams.set('dept', params.dept);
+  if (query.ge) {
+    params.set('ge', query.ge);
   }
-  if (params?.ge) {
-    searchParams.set('ge', params.ge);
+  if (query.minRating) {
+    params.set('min_rating', String(query.minRating));
   }
-  if (params?.min_rmp !== undefined && params.min_rmp > 0) {
-    searchParams.set('min_rmp', params.min_rmp.toString());
+  if (query.limit) {
+    params.set('limit', String(query.limit));
   }
-  if (params?.limit !== undefined && params.limit > 0) {
-    searchParams.set('limit', params.limit.toString());
+  if (query.offset) {
+    params.set('offset', String(query.offset));
   }
-  if (params?.offset !== undefined && params.offset > 0) {
-    searchParams.set('offset', params.offset.toString());
-  }
-
-  const query = searchParams.toString();
-  const url = `${API_BASE}/courses${query ? `?${query}` : ''}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch courses: ${res.statusText}`);
-  }
-  return res.json();
+  const suffix = params.size ? `?${params}` : '';
+  return get(`/terms/${term}/courses${suffix}`);
 }
 
-/**
- * Retrieves detailed catalog metadata and section offerings for a course.
- */
-export async function getCourseDetail(courseId: string): Promise<Course> {
-  const encodedId = encodeURIComponent(courseId);
-  const res = await fetch(`${API_BASE}/courses/${encodedId}`);
-  if (!res.ok) {
-    throw new Error(`Course not found: ${courseId}`);
+/** Loads the given courses as offered in a term, skipping the rest. */
+export function getCourses(
+  term: number,
+  codes: readonly string[],
+): Promise<readonly Course[]> {
+  if (codes.length === 0) {
+    return Promise.resolve([]);
   }
-  return res.json();
+  return get(`/terms/${term}/courses?codes=${encodeURIComponent(codes.join(','))}`);
 }
 
-/**
- * Retrieves detailed section objects for a list of section IDs.
- */
-export async function getSections(
-  sectionIds: readonly string[],
+/** Loads one course as offered in a term; rejects when it is not. */
+export function getCourse(term: number, code: string): Promise<Course> {
+  return get(`/terms/${term}/courses/${encodeURIComponent(code)}`);
+}
+
+/** Loads a term's sections by number. */
+export function getSections(
+  term: number,
+  ids: readonly string[],
 ): Promise<readonly Section[]> {
-  if (sectionIds.length === 0) {
-    return [];
+  if (ids.length === 0) {
+    return Promise.resolve([]);
   }
-  const param = encodeURIComponent(sectionIds.join(','));
-  const res = await fetch(`${API_BASE}/schedule/sections?ids=${param}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch sections: ${res.statusText}`);
-  }
-  return res.json();
+  return get(`/terms/${term}/sections?ids=${encodeURIComponent(ids.join(','))}`);
 }
 
 /**
- * Lists every department code in the catalog, such as "CSCI".
+ * Recognizes course codes written any way, answering with the catalog's
+ * spelling and title for each known course; unknown codes are left out.
  */
-export async function getDepartments(): Promise<readonly string[]> {
-  const res = await fetch(`${API_BASE}/courses/departments`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch departments: ${res.statusText}`);
-  }
-  return res.json();
+export function lookupCourses(
+  codes: readonly string[],
+): Promise<readonly KnownCourse[]> {
+  return get(`/courses?codes=${encodeURIComponent(codes.join(','))}`);
 }
 
-/**
- * Retrieves standard USC AP exam equivalency definitions.
- */
-export async function getApExams(): Promise<readonly ApExamDefinition[]> {
-  const res = await fetch(`${API_BASE}/ge/ap-exams`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch AP exams: ${res.statusText}`);
-  }
-  return res.json();
+/** Lists the current catalogue's programs. */
+export function getPrograms(): Promise<readonly ProgramSummary[]> {
+  return get('/programs');
 }
 
-/**
- * Audits student progress across USC General Education categories.
- */
-export async function getGeAudit(
-  completedCourses: readonly string[],
-  apCredits: readonly UserApCredit[],
-): Promise<GeAuditSummary> {
-  const res = await fetch(`${API_BASE}/ge/audit`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      completed_courses: completedCourses,
-      ap_credits: apCredits,
-    }),
+/** Loads a program's requirement tree. */
+export function getProgram(id: string): Promise<Program> {
+  return get(`/programs/${encodeURIComponent(id)}`);
+}
+
+/** Audits a program against what the student did, as of a planning term. */
+export function auditProgram(
+  term: number,
+  id: string,
+  completed: readonly string[],
+  apCredits: readonly ApCredit[],
+): Promise<ProgramAudit> {
+  return post(`/terms/${term}/programs/${encodeURIComponent(id)}/audit`, {
+    completed,
+    ap_credits: apCredits,
   });
-  if (!res.ok) {
-    throw new Error(`GE audit failed: ${res.statusText}`);
-  }
-  return res.json();
+}
+
+/** Lists GE categories and how many courses each needs. */
+export function getGeCategories(): Promise<readonly GeCategory[]> {
+  return get('/ge-categories');
+}
+
+/** Shows how completed courses and AP exams fill each GE category. */
+export function auditGe(
+  completed: readonly string[],
+  apCredits: readonly ApCredit[],
+): Promise<readonly GeProgress[]> {
+  return post('/ge-audit', { completed, ap_credits: apCredits });
+}
+
+/** Lists AP exams USC grants credit for. */
+export function getApExams(): Promise<readonly ApExam[]> {
+  return get('/ap-exams');
+}
+
+/** Callbacks for one streamed advisor reply. */
+export interface ChatHandlers {
+  readonly onToken: (token: string) => void;
+  /** The reply's last event: chips and any unverified courses. */
+  readonly onClose: (event: ClosingEvent) => void;
+  readonly onDone: () => void;
 }
 
 /**
- * Retrieves all registered degree program curricula.
- */
-export async function getDegrees(): Promise<readonly DegreeProgram[]> {
-  const res = await fetch(`${API_BASE}/degrees`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch degrees: ${res.statusText}`);
-  }
-  return res.json();
-}
-
-/**
- * Computes graduation checklist fulfillment and prerequisite DAG status for
- * a target degree program against completed courses.
- */
-export async function getDegreeAudit(
-  degreeId: string,
-  completedCourses: readonly string[] = [],
-): Promise<DegreeAuditResponse> {
-  const completedParam = encodeURIComponent(completedCourses.join(','));
-  const encodedDegree = encodeURIComponent(degreeId);
-  const url =
-    `${API_BASE}/degrees/${encodedDegree}/audit` +
-    `?completed=${completedParam}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Degree audit failed: ${res.statusText}`);
-  }
-  return res.json();
-}
-
-/**
- * Initiates an SSE streaming dialogue with the AI academic advisor agent.
+ * Streams the advisor's reply to `request` over Server-Sent Events.
  *
- * Returns a cancellation callback to abort the in-flight connection.
+ * Returns a function that aborts the reply. `onDone` runs exactly once,
+ * whether the stream ends, fails, or is aborted.
  */
-export async function streamAdvisorChat(
-  message: string,
-  history: readonly ChatMessage[],
-  enrolledCourses: readonly string[],
-  wishlistCourses: readonly string[],
-  completedCourses: readonly string[],
-  degreeId: string,
-  onToken: (token: string) => void,
-  onChips: (chips: readonly ActionChip[]) => void,
-  onDone: () => void,
-): Promise<() => void> {
+export function streamChat(
+  request: ChatRequest,
+  { onToken, onClose, onDone }: ChatHandlers,
+): () => void {
   const controller = new AbortController();
-
-  const body = {
-    message,
-    history: history.map((h) => ({ role: h.role, content: h.content })),
-    enrolled_courses: enrolledCourses,
-    wishlist_courses: wishlistCourses,
-    completed_courses: completedCourses,
-    degree_id: degreeId,
+  let finished = false;
+  const finish = (): void => {
+    if (!finished) {
+      finished = true;
+      onDone();
+    }
   };
-
   void (async () => {
     try {
-      const response = await fetch(`${API_BASE}/chat`, {
+      const res = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(request),
         signal: controller.signal,
       });
-
-      if (!response.ok || !response.body) {
-        onToken('Sorry, I encountered an issue connecting to the advisor.');
-        onDone();
+      if (!res.ok || !res.body) {
+        onToken('The advisor could not be reached.');
         return;
       }
-
-      const reader = response.body.getReader();
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) {
-          break;
+          return;
         }
-
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data:')) {
-            continue;
-          }
-
-          const dataStr = trimmed.slice(5).trim();
-          if (dataStr === '[DONE]') {
-            onDone();
+        const events = buffer.split('\n\n');
+        buffer = events.pop() ?? '';
+        for (const event of events) {
+          const data = event.replace(/^data: ?/, '');
+          if (data === '[DONE]') {
             return;
           }
-
-          try {
-            const parsed = JSON.parse(dataStr);
-            if (typeof parsed.token === 'string') {
-              onToken(parsed.token);
-            }
-            if (Array.isArray(parsed.action_chips)) {
-              onChips(parsed.action_chips);
-            }
-          } catch {
-            // Ignore non-JSON SSE heartbeat or metadata chunks safely.
+          const parsed = JSON.parse(data) as
+            | { readonly token: string }
+            | ClosingEvent;
+          if ('token' in parsed) {
+            onToken(parsed.token);
+          } else {
+            onClose(parsed);
           }
         }
       }
-      onDone();
     } catch (err: unknown) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        onToken('\n*(Advisor connection closed)*');
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        onToken('\n(The advisor connection closed.)');
       }
-      onDone();
+    } finally {
+      finish();
     }
   })();
-
   return () => controller.abort();
 }

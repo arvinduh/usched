@@ -16,8 +16,6 @@ import type { Course } from '../types';
 export interface Proposal {
   readonly name: string;
   readonly sectionIds: readonly string[];
-  /** Variant the proposal would overwrite; absent means a new variant. */
-  readonly targetConfigId?: string;
 }
 
 interface Preview {
@@ -59,7 +57,7 @@ export function hasExpanded(): boolean {
  * Collapses `course` if it is expanded, otherwise expands it.
  */
 export function toggleExpanded(course: Course): void {
-  setExpanded(preview.get().expanded?.id === course.id ? null : course);
+  setExpanded(preview.get().expanded?.code === course.code ? null : course);
 }
 
 /**

@@ -242,6 +242,38 @@
   font-weight: 550;
 }
 
+.reqSubName {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* A nested requirement hangs off its parent's left edge. */
+.nested {
+  padding-left: 14px;
+  box-shadow: inset 1px 0 0 var(--hairline);
+}
+
+.reqNotes {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 64ch;
+}
+
+.reqNotes summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.reqNotes summary::-webkit-details-marker {
+  display: none;
+}
+
+.reqNotes[open] summary {
+  display: none;
+}
+
 .reqRule {
   font-size: 12px;
   color: var(--text-secondary);
@@ -529,6 +561,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.pasteUnknown {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .primary {

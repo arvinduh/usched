@@ -1,15 +1,14 @@
 /**
  * The Degree space's title, which is also its program picker.
  *
- * At rest it reads as a heading: program name, emphasis, and a degree-type
- * chip. Clicking turns it into a combobox that fuzzy-matches all programs as
- * you type. Selection is delegated to the caller.
+ * At rest it reads as a heading: program name, emphasis, and a type chip
+ * (BS, BA, Minor). Clicking turns it into a combobox that matches degrees
+ * and minors as you type. Selection is delegated to the caller.
  */
 
 import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { parseDegreeTitle } from '../lib/degree';
-import type { DegreeProgram } from '../types';
+import type { ProgramSummary } from '../types';
 import styles from './Degree.module.css';
 
 const MAX_RESULTS = 8;
@@ -18,9 +17,15 @@ const MAX_RESULTS = 8;
  * Properties for the degree picker.
  */
 export interface DegreePickerProps {
-  readonly degrees: readonly DegreeProgram[];
+  /** Degrees and minors; other program kinds are not offered here. */
+  readonly programs: readonly ProgramSummary[];
   readonly selectedId: string;
-  readonly onSelect: (degreeId: string) => void;
+  readonly onSelect: (programId: string) => void;
+}
+
+/** The chip text for a program: its degree type, or Minor. */
+function typeOf(p: ProgramSummary): string {
+  return p.degree_type ?? (p.kind === 'minor' ? 'Minor' : '');
 }
 
 /**
@@ -58,43 +63,45 @@ function score(title: string, words: readonly string[]): number | null {
  * Renders the title, or the open combobox while choosing.
  */
 export function DegreePicker(props: DegreePickerProps): React.JSX.Element {
-  const { degrees, selectedId, onSelect } = props;
+  const { programs, selectedId, onSelect } = props;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
 
-  const selected = degrees.find((d) => d.id === selectedId);
-  const title = parseDegreeTitle(selected?.title ?? '');
+  const selected = programs.find((p) => p.id === selectedId);
 
   // Programs sharing a title are told apart by school.
   const sharedTitles = useMemo(() => {
     const seen = new Set<string>();
     const shared = new Set<string>();
-    for (const d of degrees) {
-      (seen.has(d.title) ? shared : seen).add(d.title);
+    for (const p of programs) {
+      (seen.has(p.title) ? shared : seen).add(p.title);
     }
     return shared;
-  }, [degrees]);
+  }, [programs]);
 
   const matches = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return degrees
-      .map((d) => ({ degree: d, rank: score(d.title, words) }))
-      .filter((m): m is { degree: DegreeProgram; rank: number } => m.rank !== null)
-      .sort((a, b) => a.rank - b.rank || a.degree.title.localeCompare(b.degree.title))
+    return programs
+      .map((p) => ({ program: p, rank: score(p.title, words) }))
+      .filter(
+        (m): m is { program: ProgramSummary; rank: number } => m.rank !== null,
+      )
+      .sort(
+        (a, b) =>
+          a.rank - b.rank || a.program.title.localeCompare(b.program.title),
+      )
       .slice(0, MAX_RESULTS)
-      .map((m) => m.degree);
-  }, [degrees, query]);
+      .map((m) => m.program);
+  }, [programs, query]);
 
-  const detailOf = (degree: DegreeProgram): string => {
-    const t = parseDegreeTitle(degree.title);
-    return [t.emphasis, sharedTitles.has(degree.title) ? degree.school : '']
+  const detailOf = (p: ProgramSummary): string =>
+    [p.emphasis, sharedTitles.has(p.title) ? p.school : '']
       .filter(Boolean)
       .join(' · ');
-  };
 
-  const choose = (degree: DegreeProgram): void => {
-    onSelect(degree.id);
+  const choose = (p: ProgramSummary): void => {
+    onSelect(p.id);
     setOpen(false);
   };
 
@@ -110,8 +117,10 @@ export function DegreePicker(props: DegreePickerProps): React.JSX.Element {
         }}
         aria-haspopup="listbox"
       >
-        <span className={styles.degreeName}>{title.name || 'Choose a program'}</span>
-        <TypeChip type={title.type} />
+        <span className={styles.degreeName}>
+          {selected?.name ?? 'Choose a program'}
+        </span>
+        {selected && <TypeChip type={typeOf(selected)} />}
         <ChevronDown size={16} className={styles.pickerCaret} />
         {selected && detailOf(selected) && (
           <span className={styles.emphasis}>{detailOf(selected)}</span>
@@ -153,7 +162,6 @@ export function DegreePicker(props: DegreePickerProps): React.JSX.Element {
       />
       <ul id="degree-options" role="listbox" className={styles.options}>
         {matches.map((d, i) => {
-          const t = parseDegreeTitle(d.title);
           const detail = detailOf(d);
           return (
             <li
@@ -170,10 +178,10 @@ export function DegreePicker(props: DegreePickerProps): React.JSX.Element {
               }}
             >
               <span className={styles.optionText}>
-                <span>{t.name}</span>
+                <span>{d.name}</span>
                 {detail && <span className={styles.optionEmphasis}>{detail}</span>}
               </span>
-              <TypeChip type={t.type} />
+              <TypeChip type={typeOf(d)} />
             </li>
           );
         })}

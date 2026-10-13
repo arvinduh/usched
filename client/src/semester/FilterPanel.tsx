@@ -11,7 +11,7 @@ import React from 'react';
 import type { DayPart, SectionFilter } from '../lib/filter';
 import type { ParsedQuery } from '../lib/query';
 import { WEEKDAYS } from '../lib/schedule';
-import styles from './Library.module.css';
+import styles from './Assistant.module.css';
 
 const DAY_PARTS: readonly { readonly key: DayPart; readonly label: string }[] = [
   { key: 'morning', label: 'Morning' },

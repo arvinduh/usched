@@ -17,8 +17,10 @@ import {
   findOverlaps,
   isTimed,
   missingComponents,
+  timedMeetings,
   totalUnits,
 } from '../lib/schedule';
+import type { TimedMeeting } from '../lib/schedule';
 import { displayCode } from '../lib/degree';
 import { formatHour, formatRange } from '../lib/time';
 import { setFocus, usePreview } from '../state/preview';
@@ -26,7 +28,7 @@ import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import { RatingPair } from '../ui/Glyphs';
 import { hueFor, textureBackground } from '../ui/encoding';
-import type { Course, ScheduleConfiguration, Section } from '../types';
+import type { Course, ScheduleConfiguration, Section, Weekday } from '../types';
 import styles from './Week.module.css';
 
 /** USC charges overload tuition above this many units. */
@@ -41,7 +43,7 @@ export interface WeekProps {
   /** Sections of the active variant that have resolved records. */
   readonly sections: readonly Section[];
   readonly sectionsById: ReadonlyMap<string, Section>;
-  readonly coursesById: ReadonlyMap<string, Course>;
+  readonly coursesByCode: ReadonlyMap<string, Course>;
   readonly scheduledCourseIds: readonly string[];
   readonly onSelectVariant: (configId: string) => void;
   readonly onRenameVariant: (configId: string, name: string) => void;
@@ -59,12 +61,28 @@ interface Lane {
   readonly lanes: number;
 }
 
+/** One timed meeting of a section: what the canvas draws. */
+interface Block extends TimedMeeting {
+  readonly key: string;
+  readonly section: Section;
+}
+
+function blocksOf(sections: readonly Section[]): readonly Block[] {
+  return sections.flatMap((section) =>
+    timedMeetings(section).map((m, i) => ({
+      ...m,
+      key: `${section.id}:${i}`,
+      section,
+    })),
+  );
+}
+
 /**
- * Assigns side-by-side lanes to overlapping sections on one day. Each
- * cluster of transitively overlapping sections shares one lane count.
+ * Assigns side-by-side lanes to overlapping blocks on one day. Each
+ * cluster of transitively overlapping blocks shares one lane count.
  */
-function layoutLanes(daySections: readonly Section[]): ReadonlyMap<string, Lane> {
-  const sorted = [...daySections].sort((a, b) => a.start_minute - b.start_minute);
+function layoutLanes(dayBlocks: readonly Block[]): ReadonlyMap<string, Lane> {
+  const sorted = [...dayBlocks].sort((a, b) => a.start - b.start);
   const result = new Map<string, Lane>();
   let cluster: { readonly id: string; readonly lane: number }[] = [];
   let laneEnds: number[] = [];
@@ -76,19 +94,19 @@ function layoutLanes(daySections: readonly Section[]): ReadonlyMap<string, Lane>
     cluster = [];
     laneEnds = [];
   };
-  for (const s of sorted) {
-    if (s.start_minute >= clusterEnd) {
+  for (const b of sorted) {
+    if (b.start >= clusterEnd) {
       flush();
     }
-    let lane = laneEnds.findIndex((end) => end <= s.start_minute);
+    let lane = laneEnds.findIndex((end) => end <= b.start);
     if (lane === -1) {
       lane = laneEnds.length;
-      laneEnds.push(s.end_minute);
+      laneEnds.push(b.end);
     } else {
-      laneEnds[lane] = s.end_minute;
+      laneEnds[lane] = b.end;
     }
-    cluster.push({ id: s.id, lane });
-    clusterEnd = Math.max(clusterEnd, s.end_minute);
+    cluster.push({ id: b.key, lane });
+    clusterEnd = Math.max(clusterEnd, b.end);
   }
   flush();
   return result;
@@ -101,7 +119,7 @@ function layoutLanes(daySections: readonly Section[]): ReadonlyMap<string, Lane>
 export function Week(props: WeekProps): React.JSX.Element {
   const {
     sectionsById,
-    coursesById,
+    coursesByCode,
     onToggleSection,
     onRemove,
     onFocusCourse,
@@ -123,7 +141,7 @@ export function Week(props: WeekProps): React.JSX.Element {
   const sections = proposed ?? props.sections;
   const scheduledCourseIds = useMemo(
     () =>
-      proposed ? [...new Set(proposed.map((s) => s.course_id))] : props.scheduledCourseIds,
+      proposed ? [...new Set(proposed.map((s) => s.course_code))] : props.scheduledCourseIds,
     [proposed, props.scheduledCourseIds],
   );
   // Hues follow the real week first, so a course keeps its color inside a
@@ -152,26 +170,28 @@ export function Week(props: WeekProps): React.JSX.Element {
     return { overlapping: ids, overlapCount: pairs.length };
   }, [timed]);
 
-  const everything = [...timed, ...ghosts];
-  const lo = Math.min(9, ...everything.map((s) => Math.floor(s.start_minute / 60)));
-  const hi = Math.max(17, ...everything.map((s) => Math.ceil(s.end_minute / 60)));
+  const blocks = useMemo(() => blocksOf(timed), [timed]);
+  const ghostBlocks = useMemo(() => blocksOf(ghosts), [ghosts]);
+  const everything = [...blocks, ...ghostBlocks];
+  const lo = Math.min(9, ...everything.map((b) => Math.floor(b.start / 60)));
+  const hi = Math.max(17, ...everything.map((b) => Math.ceil(b.end / 60)));
   const span = (hi - lo) * 60;
   const pct = (minute: number): string => `${((minute - lo * 60) / span) * 100}%`;
-  const days: readonly string[] = everything.some((s) => s.days.includes('Sat'))
+  const days: readonly Weekday[] = everything.some((b) => b.days.includes('Sat'))
     ? [...WEEKDAYS, 'Sat']
     : WEEKDAYS;
   const hours = Array.from({ length: hi - lo }, (_, i) => lo + i);
 
-  const units = totalUnits(sections, coursesById);
+  const units = totalUnits(sections, coursesByCode);
   const tba = sections.filter((s) => !isTimed(s));
   const incomplete = scheduledCourseIds.flatMap((id) => {
-    const course = coursesById.get(id);
+    const course = coursesByCode.get(id);
     if (!course) {
       return [];
     }
     const missing = missingComponents(
       course,
-      sections.filter((s) => s.course_id === id),
+      sections.filter((s) => s.course_code === id),
     );
     return missing.length > 0 ? [{ course, missing }] : [];
   });
@@ -219,11 +239,11 @@ export function Week(props: WeekProps): React.JSX.Element {
         </div>
 
         {days.map((day) => {
-          const dayBlocks = timed.filter((s) => s.days.includes(day));
+          const dayBlocks = blocks.filter((b) => b.days.includes(day));
           const lanes = layoutLanes(dayBlocks);
           // Ghosts share lanes among themselves so same-time options sit
           // side by side instead of hiding one another.
-          const dayGhosts = ghosts.filter((g) => g.days.includes(day));
+          const dayGhosts = ghostBlocks.filter((b) => b.days.includes(day));
           const ghostLanes = layoutLanes(dayGhosts);
           const flipPopover = day === 'Fri' || day === 'Sat';
           return (
@@ -232,38 +252,39 @@ export function Week(props: WeekProps): React.JSX.Element {
                 <span key={h} className={styles.rule} style={{ top: pct(h * 60) }} />
               ))}
 
-              {dayBlocks.map((s) => {
-                const course = coursesById.get(s.course_id);
-                const hue = hueFor(s.course_id, hueOrder);
-                const lane = lanes.get(s.id) ?? { lane: 0, lanes: 1 };
+              {dayBlocks.map((b) => {
+                const s = b.section;
+                const course = coursesByCode.get(s.course_code);
+                const hue = hueFor(s.course_code, hueOrder);
+                const lane = lanes.get(b.key) ?? { lane: 0, lanes: 1 };
                 return (
                   <div
-                    key={s.id}
+                    key={b.key}
                     className={`${styles.block} ${overlapping.has(s.id) ? styles.clash : ''} ${
                       proposal ? styles.proposed : ''
                     }`}
                     style={{
-                      top: pct(s.start_minute),
-                      height: `calc(${pct(s.end_minute)} - ${pct(s.start_minute)})`,
+                      top: pct(b.start),
+                      height: `calc(${pct(b.end)} - ${pct(b.start)})`,
                       left: `${(lane.lane / lane.lanes) * 100}%`,
                       width: `${100 / lane.lanes}%`,
                     }}
                     // Focusable so keyboard users reach the popover's actions.
                     tabIndex={0}
-                    aria-label={`${displayCode(s.course_id)} ${s.section_type}, ${s.days.join(' ')} ${formatRange(s.start_minute, s.end_minute)}`}
+                    aria-label={`${displayCode(s.course_code)} ${s.type}, ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
                   >
                     <div
                       className={styles.face}
                       style={{
-                        background: textureBackground(s.section_type, hue.fill),
+                        background: textureBackground(s.type, hue.fill),
                         borderColor: hue.ink,
                         color: hue.ink,
                       }}
                     >
-                      <span className={styles.code}>{displayCode(s.course_id)}</span>
+                      <span className={styles.code}>{displayCode(s.course_code)}</span>
                       <span className={styles.blockMeta}>
-                        {formatRange(s.start_minute, s.end_minute)}
-                        {s.section_type !== 'Lecture' && ` · ${s.section_type}`}
+                        {formatRange(b.start, b.end)}
+                        {s.type !== 'Lecture' && ` · ${s.type}`}
                       </span>
                     </div>
                     <Popover
@@ -277,32 +298,33 @@ export function Week(props: WeekProps): React.JSX.Element {
               })}
 
               {expanded &&
-                dayGhosts.map((g) => {
-                    const hue = hueFor(g.course_id, hueOrder);
+                dayGhosts.map((b) => {
+                    const g = b.section;
+                    const hue = hueFor(g.course_code, hueOrder);
                     const bad = clashes(g, timed);
-                    const lane = ghostLanes.get(g.id) ?? { lane: 0, lanes: 1 };
+                    const lane = ghostLanes.get(b.key) ?? { lane: 0, lanes: 1 };
                     return (
                       <button
-                        key={g.id}
+                        key={b.key}
                         type="button"
                         className={`${styles.ghost} ${bad ? styles.ghostBad : ''} ${
                           focusId === g.id ? styles.ghostFocus : ''
                         }`}
                         style={{
-                          top: pct(g.start_minute),
-                          height: `calc(${pct(g.end_minute)} - ${pct(g.start_minute)})`,
+                          top: pct(b.start),
+                          height: `calc(${pct(b.end)} - ${pct(b.start)})`,
                           left: `calc(${(lane.lane / lane.lanes) * 100}% + 2px)`,
                           width: `calc(${100 / lane.lanes}% - 4px)`,
                           color: bad ? undefined : hue.ink,
-                          background: bad ? undefined : textureBackground(g.section_type, hue.fill),
+                          background: bad ? undefined : textureBackground(g.type, hue.fill),
                         }}
                         onMouseEnter={() => setFocus(g.id)}
                         onMouseLeave={() => setFocus(null)}
                         onClick={() => onToggleSection(g, expanded)}
-                        aria-label={`Add ${g.course_id} ${g.section_type} ${g.days.join(' ')} ${formatRange(g.start_minute, g.end_minute)}`}
+                        aria-label={`Add ${g.course_code} ${g.type} ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
                       >
                         <span className={styles.blockMeta}>
-                          {formatRange(g.start_minute, g.end_minute)}
+                          {formatRange(b.start, b.end)}
                         </span>
                       </button>
                     );
@@ -322,25 +344,25 @@ export function Week(props: WeekProps): React.JSX.Element {
         <footer className={styles.trays}>
           {incomplete.map(({ course, missing }) => (
             <button
-              key={course.id}
+              key={course.code}
               type="button"
               className={styles.tray}
               onClick={() => onFocusCourse(course)}
             >
-              <span className={styles.code}>{displayCode(course.id)}</span>
+              <span className={styles.code}>{displayCode(course.code)}</span>
               needs a {missing.join(' and a ')}
             </button>
           ))}
           {[...tba].sort(bySectionOrder).map((s) => (
             <span key={s.id} className={styles.tray}>
-              <span className={styles.code}>{displayCode(s.course_id)}</span>
-              {s.section_type} · TBA
+              <span className={styles.code}>{displayCode(s.course_code)}</span>
+              {s.type} · TBA
               {!proposal && (
                 <button
                   type="button"
                   className={styles.trayRemove}
                   onClick={() => onRemove(s)}
-                  aria-label={`Remove ${s.course_id} ${s.section_type}`}
+                  aria-label={`Remove ${s.course_code} ${s.type}`}
                 >
                   <X size={11} />
                 </button>
@@ -459,7 +481,7 @@ function Popover({
   readonly flip: boolean;
   readonly onRemove: (() => void) | undefined;
 }): React.JSX.Element {
-  const instructor = section.instructor;
+  const rated = section.instructors.find((i) => i.rmp?.rating != null);
   const copy = (): void => {
     navigator.clipboard
       .writeText(section.id)
@@ -468,26 +490,33 @@ function Popover({
   };
   return (
     <div className={`${styles.popover} ${flip ? styles.popoverFlip : ''}`}>
-      <p className={styles.popTitle}>{course?.title ?? section.course_id}</p>
-      <p className={styles.popLine}>
-        {section.section_type} · {section.days.join(' ')}{' '}
-        {formatRange(section.start_minute, section.end_minute)}
-      </p>
-      {instructor && (
+      <p className={styles.popTitle}>{course?.title ?? section.course_code}</p>
+      {timedMeetings(section).map((m, i) => (
+        <p key={i} className={styles.popLine}>
+          {i === 0 && `${section.type} · `}
+          {m.days.join(' ')} {formatRange(m.start, m.end)}
+        </p>
+      ))}
+      {section.instructors.length > 0 && (
         <p className={styles.popLine}>
-          <span>{instructor.name}</span>
-          <RatingPair
-            rating={instructor.rmp_rating}
-            difficulty={instructor.rmp_difficulty}
-            count={instructor.rmp_num_ratings}
-          />
+          <span>{section.instructors.map((i) => i.name).join(', ')}</span>
+          {rated?.rmp && (
+            <RatingPair
+              rating={rated.rmp.rating}
+              difficulty={rated.rmp.difficulty}
+              count={rated.rmp.num_ratings}
+            />
+          )}
         </p>
       )}
       {section.capacity > 0 && (
         <p className={styles.popLine}>
-          {section.enrolled} / {section.capacity} seats
-          {section.waitlist > 0 && ` · ${section.waitlist} waitlisted`}
+          {section.registered} / {section.capacity} seats
+          {section.waitlisted > 0 && ` · ${section.waitlisted} waitlisted`}
         </p>
+      )}
+      {section.requires_d_clearance && (
+        <p className={styles.popLine}>Needs D-clearance</p>
       )}
       <div className={styles.popActions}>
         <button type="button" className={styles.popButton} onClick={copy}>

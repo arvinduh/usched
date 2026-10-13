@@ -2,22 +2,26 @@
  * Ephemeral advisor conversation state and token streaming.
  *
  * Holds the message list in memory only, so a reload starts a fresh
- * conversation. Plan context (enrolled, watched, completed, degree) is passed
- * in per message by the caller; this hook never reads the plan store.
+ * conversation. Plan context (term, schedule, shortlist, completed, program)
+ * is passed in per message by the caller; this hook never reads the plan
+ * store.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { streamAdvisorChat } from '../api/client';
-import type { ChatMessage } from '../types';
+import { streamChat } from '../api/client';
+import type { ApCredit, ChatMessage } from '../types';
 
 /**
  * Plan snapshot sent alongside each message to ground the advisor.
  */
 export interface AdvisorContext {
-  readonly enrolledCourseIds: readonly string[];
-  readonly watchedCourseIds: readonly string[];
-  readonly completedCourseIds: readonly string[];
-  readonly degreeId: string;
+  readonly term: number;
+  /** Sections in the active schedule. */
+  readonly sectionIds: readonly string[];
+  readonly shortlistedCodes: readonly string[];
+  readonly completedCodes: readonly string[];
+  readonly apCredits: readonly ApCredit[];
+  readonly programId: string;
 }
 
 /**
@@ -26,9 +30,16 @@ export interface AdvisorContext {
 export interface AdvisorChat {
   readonly messages: readonly ChatMessage[];
   readonly isLoading: boolean;
-  readonly send: (text: string, context: AdvisorContext) => Promise<void>;
+  readonly send: (text: string, context: AdvisorContext) => void;
   /** Restarts the conversation; a reply still streaming is discarded. */
   readonly clear: () => void;
+}
+
+let nextId = 0;
+
+function message(role: ChatMessage['role'], content: string): ChatMessage {
+  nextId += 1;
+  return { id: `m${nextId}`, role, content };
 }
 
 /**
@@ -42,54 +53,47 @@ export function useAdvisorChat(): AdvisorChat {
   useEffect(() => {
     latest.current = messages;
   }, [messages]);
-  // Bumped by `clear` so a stream still in flight stops writing.
-  const generation = useRef(0);
+  // Aborts the reply in flight; `clear` uses it to stop a stream.
+  const abort = useRef<(() => void) | null>(null);
 
-  const send = useCallback(
-    async (text: string, context: AdvisorContext): Promise<void> => {
-      const gen = generation.current;
-      const isCurrent = (): boolean => gen === generation.current;
-      const patchLast = (patch: Partial<ChatMessage>): void => {
-        if (isCurrent()) {
-          setMessages((prev) => [
-            ...prev.slice(0, -1),
-            { ...prev[prev.length - 1], ...patch },
-          ]);
-        }
-      };
-
-      const history: readonly ChatMessage[] = [
-        ...latest.current,
-        { role: 'user', content: text },
-      ];
-      setMessages([...history, { role: 'assistant', content: '' }]);
-      setIsLoading(true);
-
-      let content = '';
-      await streamAdvisorChat(
-        text,
-        history,
-        context.enrolledCourseIds,
-        context.watchedCourseIds,
-        context.completedCourseIds,
-        context.degreeId,
-        (token) => {
-          content += token;
-          patchLast({ content });
-        },
-        (chips) => patchLast({ action_chips: chips }),
-        () => {
-          if (isCurrent()) {
-            setIsLoading(false);
-          }
-        },
+  const send = useCallback((text: string, context: AdvisorContext): void => {
+    abort.current?.();
+    const reply = message('assistant', '');
+    const patchReply = (patch: Partial<ChatMessage>): void =>
+      setMessages((prev) =>
+        prev.map((m) => (m.id === reply.id ? { ...m, ...patch } : m)),
       );
-    },
-    [],
-  );
+    const history = latest.current;
+    setMessages([...history, message('user', text), reply]);
+    setIsLoading(true);
+
+    let content = '';
+    abort.current = streamChat(
+      {
+        message: text,
+        history: history.map(({ role, content: c }) => ({ role, content: c })),
+        term: context.term,
+        program_id: context.programId || null,
+        section_ids: [...context.sectionIds],
+        shortlisted: [...context.shortlistedCodes],
+        completed: [...context.completedCodes],
+        ap_credits: [...context.apCredits],
+      },
+      {
+        onToken: (token) => {
+          content += token;
+          patchReply({ content });
+        },
+        onClose: (event) =>
+          patchReply({ chips: event.action_chips, unverified: event.unverified }),
+        onDone: () => setIsLoading(false),
+      },
+    );
+  }, []);
 
   const clear = useCallback((): void => {
-    generation.current += 1;
+    abort.current?.();
+    abort.current = null;
     setMessages([]);
     setIsLoading(false);
   }, []);

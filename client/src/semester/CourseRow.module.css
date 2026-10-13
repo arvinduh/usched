@@ -187,7 +187,7 @@
   position: relative;
   background: var(--bg);
   display: grid;
-  grid-template-columns: 10px 34px 76px minmax(0, 1fr) auto;
+  grid-template-columns: 10px 116px auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 7px 6px;
@@ -211,8 +211,48 @@
   color: var(--text-muted);
 }
 
-.section > .tba:nth-child(2) {
-  grid-column: span 2;
+.meetings {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.meeting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badges {
+  display: flex;
+  gap: 3px;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 15px;
+  min-width: 15px;
+  padding: 0 3px;
+  text-align: center;
+  border-radius: 3px;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Another link group than the chosen sections: picking it switches groups. */
+.offGroup {
+  opacity: 0.45;
+}
+
+.offGroup:hover {
+  opacity: 0.8;
 }
 
 .instructor {

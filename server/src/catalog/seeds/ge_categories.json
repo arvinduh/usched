@@ -1,0 +1,13 @@
+{
+  "source": "USC General Education policy: categories, area, and how many courses each needs. Names come from the catalogue's General Education page at build time.",
+  "categories": [
+    { "code": "GE-A", "area": "core", "required_count": 1 },
+    { "code": "GE-B", "area": "core", "required_count": 2 },
+    { "code": "GE-C", "area": "core", "required_count": 2 },
+    { "code": "GE-D", "area": "core", "required_count": 1 },
+    { "code": "GE-E", "area": "core", "required_count": 1 },
+    { "code": "GE-F", "area": "core", "required_count": 1 },
+    { "code": "GE-G", "area": "global", "required_count": 1 },
+    { "code": "GE-H", "area": "global", "required_count": 1 }
+  ]
+}

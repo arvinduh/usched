@@ -1,35 +1,52 @@
 /**
- * One degree requirement category rendered in the chip grammar.
+ * A program's requirement tree rendered in the chip grammar.
  *
- * Loose chips mean "take all"; chips gathered in a box mean "take
- * any"; a dashed "+N units" slot means open units of anything that counts.
- * Chip fill encodes state (done, planned this term, available, locked).
- * Plan edits and navigation are delegated to the caller.
+ * Each requirement shows its title, progress, any prose rules, and its
+ * slots: a loose chip is a course to take; chips gathered in a box are
+ * alternatives, any one of which fills the slot. Nested requirements
+ * indent beneath their parent. Chip fill encodes state (done, planned this
+ * term, available, locked). Plan edits and navigation go to the caller.
  */
 
 import React from 'react';
 import { ArrowUpRight, Check, ExternalLink, Lock } from 'lucide-react';
-import { getUscCourseUrl } from '../api/client';
-import { categoryShape, courseKey, displayCode } from '../lib/degree';
-import type { DegreeCategory, PrereqNode } from '../types';
+import { uscCourseUrl } from '../api/client';
+import { courseKey, displayCode } from '../lib/degree';
+import type {
+  Program,
+  ProgramAudit,
+  Requirement,
+  RequirementChoice,
+  RequirementProgress,
+  Units,
+} from '../types';
 import styles from './Degree.module.css';
 
 /**
  * Shared lookups and callbacks for every chip on the page.
  */
 export interface ChipContext {
-  /** Prerequisite nodes keyed by `courseKey`. */
-  readonly nodes: ReadonlyMap<string, PrereqNode>;
+  /** Locked courses mapped to the courses blocking them, by `courseKey`. */
+  readonly locked: ReadonlyMap<string, readonly string[]>;
   readonly completed: ReadonlySet<string>;
   readonly planned: ReadonlySet<string>;
   /** Courses blocking the chip under the pointer, keyed by `courseKey`. */
   readonly highlighted: ReadonlySet<string>;
+  /** Term for links to USC's Schedule of Classes. */
+  readonly term: number;
   readonly onHover: (key: string | null) => void;
-  readonly onToggle: (courseId: string) => void;
-  readonly onFind: (courseId: string) => void;
+  readonly onToggle: (code: string) => void;
+  readonly onFind: (code: string) => void;
 }
 
 type ChipState = 'done' | 'planned' | 'open' | 'locked';
+
+/** Notes longer than this collapse behind their first line. */
+const LONG_NOTES = 160;
+
+function codeOf(choice: RequirementChoice): string {
+  return choice.course.resolved ?? choice.course.code;
+}
 
 function stateOf(key: string, ctx: ChipContext): ChipState {
   if (ctx.completed.has(key)) {
@@ -38,78 +55,143 @@ function stateOf(key: string, ctx: ChipContext): ChipState {
   if (ctx.planned.has(key)) {
     return 'planned';
   }
-  return ctx.nodes.get(key)?.status === 'locked' ? 'locked' : 'open';
+  return ctx.locked.has(key) ? 'locked' : 'open';
+}
+
+function unitsText(units: Units): string {
+  return units.min === units.max ? `${units.min}` : `${units.min}–${units.max}`;
 }
 
 /**
- * Renders a category heading, its progress, and its chips.
+ * Renders a program's requirements as an indented tree.
  */
-export function Requirement({
-  category,
+export function RequirementTree({
+  program,
+  audit,
   ctx,
 }: {
-  readonly category: DegreeCategory;
+  readonly program: Program;
+  readonly audit: ProgramAudit | null;
   readonly ctx: ChipContext;
 }): React.JSX.Element {
-  const shape = categoryShape(category, (key) => ctx.nodes.get(key)?.units);
-  const keys = category.required_courses.map(courseKey);
-  const satisfied =
-    category.required_units > 0 &&
-    category.completed_units >= category.required_units;
-  const plannedUnits = keys
-    .filter((k) => ctx.planned.has(k) && !ctx.completed.has(k))
-    .reduce((sum, k) => sum + (ctx.nodes.get(k)?.units ?? 4), 0);
-  const doneCount = keys.filter((k) => ctx.completed.has(k)).length;
-
-  const chips = category.required_courses.map((id) => (
-    <Chip
-      key={id}
-      courseId={id}
+  const children = new Map<number | null, Requirement[]>();
+  for (const req of program.requirements) {
+    const siblings = children.get(req.parent) ?? [];
+    siblings.push(req);
+    children.set(req.parent, siblings);
+  }
+  const progress = new Map(audit?.requirements.map((p) => [p.position, p]));
+  const render = (req: Requirement, depth: number): React.JSX.Element => (
+    <RequirementNode
+      key={req.position}
+      req={req}
+      progress={progress.get(req.position)}
+      depth={depth}
       ctx={ctx}
-      faded={shape.kind === 'choice' && satisfied && !ctx.completed.has(courseKey(id))}
-    />
-  ));
+    >
+      {(children.get(req.position) ?? []).map((child) => render(child, depth + 1))}
+    </RequirementNode>
+  );
+  return <>{(children.get(null) ?? []).map((req) => render(req, 0))}</>;
+}
+
+function RequirementNode({
+  req,
+  progress,
+  depth,
+  ctx,
+  children,
+}: {
+  readonly req: Requirement;
+  readonly progress: RequirementProgress | undefined;
+  readonly depth: number;
+  readonly ctx: ChipContext;
+  readonly children: React.ReactNode;
+}): React.JSX.Element {
+  const done = progress?.status === 'done';
+  const plannedUnits = req.slots
+    .flat()
+    .filter((c) => {
+      const key = courseKey(codeOf(c));
+      return ctx.planned.has(key) && !ctx.completed.has(key);
+    })
+    .reduce((sum, c) => sum + (c.units?.min ?? 0), 0);
 
   return (
-    <section className={styles.requirement}>
+    <section
+      className={`${styles.requirement} ${depth > 0 ? styles.nested : ''}`}
+      data-depth={Math.min(depth, 3)}
+    >
       <header className={styles.reqHeader}>
-        <span className={styles.reqName}>{category.name}</span>
-        {shape.kind === 'choice' && !satisfied && (
-          <span className={styles.reqRule}>
-            {shape.pick === null
-              ? 'pick some'
-              : `pick ${shape.pick} · ${Math.max(0, shape.pick - doneCount)} left`}
+        <span className={depth === 0 ? styles.reqName : styles.reqSubName}>
+          {req.title}
+        </span>
+        {req.units && (
+          <span className={styles.reqUnits}>
+            {done && <Check size={12} className={styles.reqCheck} />}
+            {progress?.units ?? 0}
+            {plannedUnits > 0 && <span className={styles.plus}> +{plannedUnits}</span>}
+            <span className={styles.muted}> / {unitsText(req.units)}</span>
           </span>
         )}
-        <span className={styles.reqUnits}>
-          {satisfied && <Check size={12} className={styles.reqCheck} />}
-          {category.completed_units}
-          {plannedUnits > 0 && <span className={styles.plus}> +{plannedUnits}</span>}
-          <span className={styles.muted}> / {category.required_units}</span>
-        </span>
-      </header>
-      <div className={styles.chips}>
-        {shape.kind === 'choice' ? <span className={styles.choiceBox}>{chips}</span> : chips}
-        {shape.kind === 'pool' && (
-          <span className={styles.openSlot}>+ {shape.openUnits} units</span>
+        {!req.units && done && (
+          <span className={styles.reqUnits}>
+            <Check size={12} className={styles.reqCheck} />
+          </span>
         )}
-      </div>
+      </header>
+      {req.notes && <Notes text={req.notes} />}
+      {req.slots.length > 0 && (
+        <div className={styles.chips}>
+          {req.slots.map((slot, i) => {
+            const chips = slot.map((choice) => (
+              <Chip
+                key={choice.course.code}
+                choice={choice}
+                ctx={ctx}
+                faded={done && !ctx.completed.has(courseKey(codeOf(choice)))}
+              />
+            ));
+            return slot.length > 1 ? (
+              <span key={i} className={styles.choiceBox}>
+                {chips}
+              </span>
+            ) : (
+              chips
+            );
+          })}
+        </div>
+      )}
+      {children}
     </section>
   );
 }
 
+function Notes({ text }: { readonly text: string }): React.JSX.Element {
+  if (text.length <= LONG_NOTES) {
+    return <p className={styles.reqNotes}>{text}</p>;
+  }
+  return (
+    <details className={styles.reqNotes}>
+      <summary>{`${text.slice(0, LONG_NOTES).trimEnd()}…`}</summary>
+      {text}
+    </details>
+  );
+}
+
 function Chip({
-  courseId,
+  choice,
   ctx,
   faded,
 }: {
-  readonly courseId: string;
+  readonly choice: RequirementChoice;
   readonly ctx: ChipContext;
   readonly faded: boolean;
 }): React.JSX.Element {
-  const key = courseKey(courseId);
-  const node = ctx.nodes.get(key);
+  const code = codeOf(choice);
+  const key = courseKey(code);
   const state = stateOf(key, ctx);
+  const blockers = ctx.locked.get(key) ?? [];
   const classes = [
     styles.chip,
     styles[state],
@@ -126,43 +208,44 @@ function Chip({
       <button
         type="button"
         className={classes}
-        onClick={() => ctx.onToggle(courseId)}
+        onClick={() => ctx.onToggle(code)}
         aria-pressed={state === 'done'}
-        aria-label={`${displayCode(courseId)}, ${state}. Toggle done.`}
+        aria-label={`${displayCode(code)}, ${state}. Toggle done.`}
       >
         {state === 'done' && <Check size={11} />}
         {state === 'locked' && <Lock size={10} />}
-        {displayCode(courseId)}
+        {displayCode(choice.course.code)}
       </button>
       <span className={styles.chipPop} role="tooltip">
-        <span className={styles.popTitle}>{node?.title ?? displayCode(courseId)}</span>
-        {node && <span className={styles.popMeta}>{node.units} units</span>}
-        {node && node.prerequisites.length > 0 && (
+        <span className={styles.popTitle}>
+          {choice.title ?? displayCode(choice.course.code)}
+        </span>
+        {choice.units && (
+          <span className={styles.popMeta}>{unitsText(choice.units)} units</span>
+        )}
+        {blockers.length > 0 && (
           <span className={styles.popPrereqs}>
             <span className={styles.popMeta}>Needs</span>
-            {node.prerequisites.map((group) => (
-              <span key={group.join()} className={group.length > 1 ? styles.miniCapsule : undefined}>
-                {group.map((id) => (
-                  <span
-                    key={id}
-                    className={`${styles.miniChip} ${
-                      ctx.completed.has(courseKey(id)) ? styles.miniDone : ''
-                    }`}
-                  >
-                    {displayCode(id)}
-                  </span>
-                ))}
+            {blockers.map((b) => (
+              <span key={b} className={styles.miniChip}>
+                {displayCode(b)}
               </span>
             ))}
           </span>
         )}
         <span className={styles.popActions}>
-          <button type="button" className={styles.popLink} onClick={() => ctx.onFind(courseId)}>
-            Find sections <ArrowUpRight size={11} />
-          </button>
+          {choice.title && (
+            <button
+              type="button"
+              className={styles.popLink}
+              onClick={() => ctx.onFind(code)}
+            >
+              Find sections <ArrowUpRight size={11} />
+            </button>
+          )}
           <a
             className={styles.popLink}
-            href={getUscCourseUrl(courseId)}
+            href={uscCourseUrl(code, ctx.term)}
             target="_blank"
             rel="noopener noreferrer"
           >

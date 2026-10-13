@@ -1,64 +1,76 @@
 /**
  * Persisted student plan store backed by browser localStorage.
  *
- * Owns every piece of user-authored state (schedule configurations, watched
- * and completed courses, AP credits, chosen degree) and nothing fetched from
- * the server. Components read slices through `useStore` and write through
- * `update`; each write persists synchronously and reaches other open tabs via
- * the `storage` event. Advisor chat is deliberately absent: it is ephemeral.
+ * Owns every piece of user-authored state and nothing fetched from the
+ * server. Schedules and shortlists belong to a term, since they name that
+ * term's sections and offerings; completed courses, AP credits, and the
+ * program span terms. Components read slices through `useStore` or
+ * `useTermPlan` and write through `update`; each write persists
+ * synchronously and reaches other open tabs via the `storage` event.
+ * Advisor chat is deliberately absent: it is ephemeral.
  */
 
 import { createExternalStore, useSelector } from '../lib/externalStore';
-import type { ScheduleConfiguration, UserApCredit } from '../types';
+import type { ApCredit, ScheduleConfiguration } from '../types';
+
+/**
+ * One term's plan: schedule variants and shortlisted courses.
+ */
+export interface TermPlan {
+  readonly configurations: readonly ScheduleConfiguration[];
+  readonly activeConfigId: string;
+  readonly watchedCourseIds: readonly string[];
+}
 
 /**
  * User-authored planning state that survives reloads.
  */
 export interface PlanState {
-  readonly configurations: readonly ScheduleConfiguration[];
-  readonly activeConfigId: string;
-  readonly watchedCourseIds: readonly string[];
+  /** The term being planned, or null until the client picks the default. */
+  readonly term: number | null;
+  /** Plans by term code; a term without one reads as `EMPTY_TERM_PLAN`. */
+  readonly terms: Readonly<Record<number, TermPlan>>;
   readonly completedCourseIds: readonly string[];
-  readonly apCredits: readonly UserApCredit[];
-  /** Chosen degree program, or empty to fall back to the catalog default. */
-  readonly degreeId: string;
+  readonly apCredits: readonly ApCredit[];
+  /** Chosen program, or empty until the student picks one. */
+  readonly programId: string;
 }
 
 /** Bump the suffix when `PlanState` changes shape; old data is discarded. */
-const STORAGE_KEY = 'usched:v1';
+const STORAGE_KEY = 'usched:v2';
 
-const DEFAULT_STATE: PlanState = {
+/** The plan of a term the student has not touched yet. */
+export const EMPTY_TERM_PLAN: TermPlan = {
   configurations: [{ id: 'config-1', name: 'A', section_ids: [] }],
   activeConfigId: 'config-1',
   watchedCourseIds: [],
+};
+
+const DEFAULT_STATE: PlanState = {
+  term: null,
+  terms: {},
   completedCourseIds: [],
   apCredits: [],
-  degreeId: '',
+  programId: '',
 };
 
 /**
  * Loads persisted state, falling back to defaults when storage is
- * unavailable, empty, corrupt, or holds no schedule configuration.
+ * unavailable, empty, or corrupt.
  */
 function readStorage(): PlanState {
-  let parsed: Partial<PlanState>;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === null) {
       return DEFAULT_STATE;
     }
-    parsed = JSON.parse(raw) as Partial<PlanState>;
+    const parsed = JSON.parse(raw) as Partial<PlanState>;
+    return typeof parsed === 'object' && parsed !== null
+      ? { ...DEFAULT_STATE, ...parsed }
+      : DEFAULT_STATE;
   } catch {
     return DEFAULT_STATE;
   }
-  const merged = { ...DEFAULT_STATE, ...parsed };
-  if (
-    !Array.isArray(merged.configurations) ||
-    merged.configurations.length === 0
-  ) {
-    return DEFAULT_STATE;
-  }
-  return merged;
 }
 
 const plan = createExternalStore(readStorage());
@@ -78,6 +90,21 @@ window.addEventListener('storage', (event) => {
  */
 export function useStore<T>(selector: (s: PlanState) => T): T {
   return useSelector(plan, selector);
+}
+
+/**
+ * The plan of the term being planned.
+ */
+export function termPlanOf(s: PlanState): TermPlan {
+  return (s.term !== null && s.terms[s.term]) || EMPTY_TERM_PLAN;
+}
+
+/**
+ * Selects a slice of the current term's plan; the same stability rule as
+ * `useStore` applies.
+ */
+export function useTermPlan<T>(selector: (p: TermPlan) => T): T {
+  return useSelector(plan, (s) => selector(termPlanOf(s)));
 }
 
 /**
@@ -107,7 +134,22 @@ export function update(recipe: (prev: PlanState) => PlanState): void {
 }
 
 /**
- * Erases all persisted plan data and restores defaults.
+ * Applies a recipe to the current term's plan; a no-op before a term is
+ * chosen or when the recipe returns its input.
+ */
+export function updateTerm(recipe: (prev: TermPlan) => TermPlan): void {
+  update((s) => {
+    if (s.term === null) {
+      return s;
+    }
+    const prev = termPlanOf(s);
+    const next = recipe(prev);
+    return next === prev ? s : { ...s, terms: { ...s.terms, [s.term]: next } };
+  });
+}
+
+/**
+ * Erases all persisted plan data and restores defaults, keeping the term.
  */
 export function reset(): void {
   try {
@@ -115,5 +157,5 @@ export function reset(): void {
   } catch (err) {
     console.error('Failed to clear plan state', err);
   }
-  plan.set(DEFAULT_STATE);
+  plan.set({ ...DEFAULT_STATE, term: plan.get().term });
 }

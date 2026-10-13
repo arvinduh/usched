@@ -7,25 +7,23 @@ off the event loop; the advisor module owns what gets said.
 """
 
 import asyncio
+import json
 import threading
 from collections.abc import AsyncIterator
 
 import fastapi
 
-from server.src.agent import advisor
-from server.src.data import database
+from server.src.agent import advisor, llm
+from server.src.data import catalog_db
 
 
 router = fastapi.APIRouter(prefix="/api/chat", tags=["chat"])
 
 
-def get_db(request: fastapi.Request) -> database.Database:
-  """Retrieves database service instance from application state."""
-  return request.app.state.db
-
-
 async def _relay(
-  payload: advisor.ChatRequest, db: database.Database
+  payload: advisor.ChatRequest,
+  catalog: catalog_db.CatalogDb,
+  model: llm.Model,
 ) -> AsyncIterator[str]:
   """Runs the blocking advisor on a worker thread and relays its chunks.
 
@@ -36,7 +34,8 @@ async def _relay(
 
   Args:
     payload: The chat request to answer.
-    db: Database service; the worker opens its own connection.
+    catalog: The catalog; the worker opens its own connection.
+    model: The advisor's language model.
 
   Yields:
     SSE-formatted chunks in production order.
@@ -50,9 +49,14 @@ async def _relay(
       loop.call_soon_threadsafe(chunks.put_nowait, chunk)
 
   def produce() -> None:
-    conn = db.connect()
     try:
-      for chunk in advisor.stream_advisor_sse(payload, conn, db):
+      conn = catalog.connect()
+    except FileNotFoundError as e:
+      deliver(f"data: {json.dumps({'token': str(e)})}\n\ndata: [DONE]\n\n")
+      deliver(None)
+      return
+    try:
+      for chunk in advisor.stream(payload, conn, model):
         if stop.is_set():
           return
         deliver(chunk)
@@ -69,14 +73,26 @@ async def _relay(
     stop.set()
 
 
-@router.post("")
+@router.post(
+  "",
+  response_class=fastapi.responses.StreamingResponse,
+  responses={
+    200: {
+      "model": advisor.ClosingEvent,
+      "description": (
+        "An event stream of `{token}` events, then one ClosingEvent, then "
+        "`[DONE]`."
+      ),
+    }
+  },
+)
 async def chat_stream(
   payload: advisor.ChatRequest,
   request: fastapi.Request,
 ) -> fastapi.responses.StreamingResponse:
   """Streams AI advisor markdown guidance and interactive chips via SSE."""
   return fastapi.responses.StreamingResponse(
-    _relay(payload, get_db(request)),
+    _relay(payload, request.app.state.catalog, request.app.state.model),
     media_type="text/event-stream",
     headers={
       "Cache-Control": "no-cache",

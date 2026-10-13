@@ -4,14 +4,19 @@ A calm course planner for USC students. Find classes, pick sections right on
 your week, and see how each choice moves you toward your degree. Everything you
 plan stays in your browser.
 
-- **Semester**: one search box finds courses or asks the advisor. Opening a
-  course ghosts every section onto your week; click a ghost to take it.
-  Conflicts, units, and missing labs or discussions show up as you go.
-- **Degree**: pick your program by typing, mark what you've taken, and read
-  requirements at a glance (loose chips mean take all, chips in a box mean pick
-  some). Hover a locked course to see what's blocking it.
-- **Advisor** (optional): a local LLM via Ollama that can search the catalog,
-  check prerequisites, and propose whole schedules you keep or discard.
+- **Semester**: pick any fetched term from the top bar; each keeps its own
+  schedules. One input at the bottom of the left pane asks the advisor or finds
+  courses, and says what Enter will do as you type. Opening a course ghosts
+  every section onto your week; click a ghost to take it. Linked lectures, labs,
+  and quizzes stay together, and conflicts, units, missing components, and
+  D-clearance show up as you go.
+- **Degree**: pick your program by typing, mark what you've taken, and read its
+  requirement tree at a glance (loose chips mean take all, chips in a box mean
+  pick one). Hover a locked course to see what's blocking it.
+- **Advisor** (optional): answers from a brief of your real progress, next
+  courses, and week; searches the catalog and proposes whole schedules you keep
+  or discard. Courses it names that no source backs are flagged. Runs on Gemini
+  (hosted) or a local Ollama model.
 
 ## Requirements
 
@@ -20,6 +25,8 @@ plan stays in your browser.
 | Node.js 20+                | `brew install node` / `winget install OpenJS.NodeJS`   |
 | uv (manages Python 3.14)   | `brew install uv` / `winget install astral-sh.uv`      |
 | Ollama (advisor, optional) | `brew install ollama` / `winget install Ollama.Ollama` |
+
+For the advisor, use either Ollama or a free Gemini API key (below).
 
 ## Setup
 
@@ -32,18 +39,21 @@ cp .env.example .env       # PowerShell: Copy-Item .env.example .env
 
 ### Build the course catalog
 
-The catalog database is generated, not committed: it holds schedule and
-RateMyProfessors data scraped from public sources. Build it once (no USC login
-needed; headless Chromium is only used to get past the catalogue site's bot
+The catalog database is generated, not committed: it holds course, section,
+RateMyProfessors, and degree-program data from public sources. Build it once (no
+USC login needed; headless Chromium only gets past the catalogue site's bot
 firewall):
 
 ```bash
 uv run playwright install chromium
-npm run ingest
+npm run catalog
 ```
 
-This writes `server/data/usched.db`. Run it again to refresh the term.
-`uv run ingest --helpfull` lists options such as `--departments=CSCI,MATH`.
+This fetches every active term into a raw cache (`server/data/raw/`), then
+builds `server/data/catalog.db` from it. Rerunning refetches only what is stale
+(listings after 12 hours, ratings after 30 days, programs after 7), and
+`npm run catalog -- build` rebuilds from the cache without the network.
+`uv run catalog --helpfull` lists options such as `--terms=20271`.
 
 ## Run
 
@@ -55,8 +65,9 @@ npm run dev:client   # App on http://127.0.0.1:18801
 npm run dev:model    # Optional: Ollama with qwen3.5:4b for the advisor
 ```
 
-Without Ollama everything except the advisor works; asking a question explains
-how to start it. The first `ollama run` downloads the model (about 3.3 GB).
+The advisor uses Gemini when `GEMINI_API_KEY` is set in `.env`, otherwise Ollama
+(the first `ollama run` downloads about 3.3 GB). Without either, everything
+except the advisor works, and asking a question explains what to set up.
 
 ## Using it
 
@@ -74,38 +85,108 @@ section numbers for registration and resets all local data.
 
 ## Commands
 
-| Command              | What it does                                        |
-| :------------------- | :-------------------------------------------------- |
-| `npm run setup`      | Install Node and Python dependencies                |
-| `npm run ingest`     | Build or refresh the catalog database               |
-| `npm run dev:server` | FastAPI backend with hot reload                     |
-| `npm run dev:client` | Vite dev server                                     |
-| `npm run dev:model`  | Run the advisor model in Ollama                     |
-| `npm run check`      | Ruff, Basedpyright, Oxlint, and `tsc` (the CI gate) |
-| `npm run build`      | Production client bundle                            |
-| `npm run format:py`  | Format Python with Ruff                             |
+| Command                   | What it does                                        |
+| :------------------------ | :-------------------------------------------------- |
+| `npm run setup`           | Install Node and Python dependencies                |
+| `npm run catalog`         | Fetch and build the catalog database                |
+| `npm run dev:server`      | FastAPI backend with hot reload                     |
+| `npm run dev:client`      | Vite dev server                                     |
+| `npm run dev:model`       | Run the advisor model in Ollama                     |
+| `npm run check`           | Lint, type-check, and test (the CI gate)            |
+| `npm run build`           | Production client bundle                            |
+| `npm run serve`           | Build, then run production on http://127.0.0.1:8000 |
+| `npm run api`             | Regenerate client types from the server's schema    |
+| `npm run publish:catalog` | Upload the catalog for deployments (below)          |
+| `npm run format:py`       | Format Python with Ruff                             |
 
 ## Configuration
 
-`.env` at the repo root:
+`.env` at the repo root (or the host's environment settings); all optional:
 
-| Variable           | Default                  | Purpose                   |
-| :----------------- | :----------------------- | :------------------------ |
-| `USCHED_LLM_MODEL` | `qwen3.5:4b`             | Ollama model for advising |
-| `OLLAMA_HOST`      | `http://127.0.0.1:11434` | Ollama endpoint           |
+| Variable              | Default                        | Purpose                    |
+| :-------------------- | :----------------------------- | :------------------------- |
+| `GEMINI_API_KEY`      | none                           | Use Gemini for the advisor |
+| `GEMINI_MODEL`        | `gemini-flash-latest`          | Which Gemini model         |
+| `OLLAMA_HOST`         | `http://127.0.0.1:11434`       | Ollama endpoint            |
+| `OLLAMA_MODEL`        | `qwen3.5:4b`                   | Which Ollama model         |
+| `USCHED_LLM_PROVIDER` | gemini with a key, else ollama | Force `gemini` or `ollama` |
+
+## Deploying
+
+A free hosted copy (for a demo such as TAC fest) runs on
+[Render](https://render.com) with the advisor on Gemini. Your plans still live
+in each visitor's browser; the server only reads the catalog.
+
+```txt
+npm run catalog ─▶ npm run publish:catalog ─▶ GitHub release "catalog"
+                                                     │ downloaded at build
+git push main ─▶ Render builds the Dockerfile ─▶ https://usched-….onrender.com
+```
+
+**You need:** a Render account (free; sign in with GitHub), a Gemini API key
+(free: [Google AI Studio](https://aistudio.google.com) › Get API key), and the
+[GitHub CLI](https://cli.github.com) signed in (`gh auth login`).
+
+1. **Publish the data.** Build a fresh catalog, then upload it to this repo's
+   `catalog` release, where the image downloads it from (the database is never
+   committed):
+
+   ```bash
+   npm run catalog
+   npm run publish:catalog
+   ```
+
+2. **Check production locally** (optional): `npm run serve`, then open
+   http://127.0.0.1:8000. This is the same server the image runs.
+
+3. **Create the service.** In Render: **New › Blueprint**, pick this repository,
+   and Render reads `render.yaml`. Paste the Gemini key when it asks for
+   `GEMINI_API_KEY`, then **Apply**. The first build takes a few minutes; the
+   service page shows the public URL.
+
+4. **Keep it awake during the event.** Free services sleep after 15 idle minutes
+   and take about a minute to wake. An hour before the demo, add a free
+   [UptimeRobot](https://uptimerobot.com) HTTP monitor on
+   `https://<your-url>/api/health` every 5 minutes. Render's 750 free hours
+   cover one service running all month.
+
+**Updating:** pushes to `main` redeploy automatically. For new course data,
+repeat step 1, then on Render use **Manual Deploy › Deploy latest commit**.
+
+**Taking it down:** delete the service on Render (and the UptimeRobot monitor).
+`gh release delete catalog` removes the published database.
+
+**Limits:** Gemini's free tier allows roughly 10–15 advisor messages a minute;
+past that the advisor says it is busy for a minute. Free-tier prompts may be
+used by Google to improve its models; prompts carry course codes and plans,
+never names.
+
+**Troubleshooting**
+
+| Symptom                                        | Fix                                               |
+| :--------------------------------------------- | :------------------------------------------------ |
+| Build fails downloading `catalog.db`           | Run step 1; the release must exist                |
+| Advisor asks for `GEMINI_API_KEY`              | Render › Environment › add the key, then redeploy |
+| Advisor says Gemini rejected the request (400) | The key is wrong or revoked; make a new one       |
+| The page takes a minute to load                | The service was asleep; see step 4                |
 
 ## Layout
 
 ```txt
+Dockerfile             Production image: built client + API, one origin
+render.yaml            Render blueprint for the hosted demo
 server/
-  main.py              FastAPI app
-  ingest.py            Catalog scraper CLI
+  main.py              FastAPI app; serves the built client when present
+  catalog.py           Catalog fetch and build CLI
+  publish.py           Uploads the catalog for deployments
   src/
-    data/              SQLite schema, queries, Pydantic models
-    engine/            Conflicts, degree and GE audits, schedule solver
-    agent/             Ollama client, advisor tools, SSE streaming
-    ingest/            classes.usc.edu, RateMyProfessors, catalogue scrapers
-    routes/            /api/courses, schedule, degrees, ge, chat
+    catalog/           Fetchers, pure parsers, schema, and the build
+    data/              Read-only catalog queries and API models
+    engine/            Schedule solver, degree and GE audits
+    agent/             Advisor: student brief, tools, chips, Gemini and
+                       Ollama providers, SSE streaming
+    routes/            Term-scoped catalog routes and chat
+tests/                 Pytest suites mirroring server/src
 client/src/
   semester/            Search, course rows, ask pane, week canvas
   degree/              Program picker, requirement chips, GE, credits
