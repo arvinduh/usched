@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { Check } from 'lucide-react';
+import { CalendarDays, Check } from 'lucide-react';
 import styles from './Thread.module.css';
 
 /** Course codes as prose writes them: "CSCI-104L", "CSCI 104L", "MUSC 200gmw". */
@@ -171,6 +171,7 @@ function CodeLink({
       onClick={onOpen}
     >
       {state === 'taken' && <Check size={10} />}
+      {state === 'planned' && <CalendarDays size={10} />}
       {text}
     </button>
   );

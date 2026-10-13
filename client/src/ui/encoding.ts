@@ -39,24 +39,38 @@ export function hueFor(
 }
 
 /**
- * Builds the CSS background that draws a section type's texture in `color`:
- * Lecture solid, Discussion empty (the outline carries it), Lab hatched,
- * and Quiz dotted. Combined types (Lecture/Lab, Lecture/Discussion) are
- * lectures first and draw solid; their label names the rest.
+ * The pattern that marks a section type, drawn in `color`: Lab hatched,
+ * Quiz dotted, Discussion ruled. Null for types drawn solid: Lecture, and
+ * combined types (Lecture/Lab, Lecture/Discussion), which are lectures
+ * first; their label names the rest.
+ */
+function pattern(sectionType: string, color: string): string | null {
+  switch (sectionType) {
+    case 'Lab':
+      return `repeating-linear-gradient(45deg, ${color} 0 1.5px, transparent 1.5px 4px)`;
+    case 'Quiz':
+      return `radial-gradient(${color} 0.9px, transparent 1.2px) 0 0 / 4px 4px`;
+    case 'Discussion':
+      return `repeating-linear-gradient(0deg, ${color} 0 1px, transparent 1px 4px)`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Draws a section type's texture in `color` over nothing, so what lies
+ * beneath shows through: the swatches, and ghosts of sections not taken.
  */
 export function textureBackground(sectionType: string, color: string): string {
-  const hatch = `repeating-linear-gradient(45deg, ${color} 0 1.5px, transparent 1.5px 4px)`;
-  const dots = `radial-gradient(${color} 0.9px, transparent 1.2px) 0 0 / 4px 4px`;
-  switch (sectionType) {
-    case 'Lecture':
-      return color;
-    case 'Discussion':
-      return 'transparent';
-    case 'Lab':
-      return hatch;
-    case 'Quiz':
-      return dots;
-    default:
-      return color;
-  }
+  return pattern(sectionType, color) ?? color;
+}
+
+/**
+ * Draws a chosen section's block: solid course fill, with the type's
+ * texture faintly in the course's ink on top. Opaque, so a chosen block
+ * never reads as a ghost.
+ */
+export function blockBackground(sectionType: string, hue: Hue): string {
+  const texture = pattern(sectionType, `color-mix(in srgb, ${hue.ink} 22%, transparent)`);
+  return texture ? `${texture}, ${hue.fill}` : hue.fill;
 }

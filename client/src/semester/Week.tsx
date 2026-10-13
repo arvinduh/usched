@@ -28,7 +28,7 @@ import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/pre
 import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import { RatingPair } from '../ui/Glyphs';
-import { hueFor, textureBackground } from '../ui/encoding';
+import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { Course, ScheduleConfiguration, Section, Weekday } from '../types';
 import styles from './Week.module.css';
 
@@ -328,7 +328,7 @@ export function Week(props: WeekProps): React.JSX.Element {
                     <div
                       className={styles.face}
                       style={{
-                        background: textureBackground(s.type, hue.fill),
+                        background: blockBackground(s.type, hue),
                         borderColor: hue.ink,
                         color: hue.ink,
                       }}
@@ -344,6 +344,11 @@ export function Week(props: WeekProps): React.JSX.Element {
                       course={course}
                       flip={flipPopover}
                       onRemove={proposal ? undefined : () => onRemove(s)}
+                      note={
+                        expanded?.code === s.course_code
+                          ? 'Click to hide other sections'
+                          : 'Click for other sections'
+                      }
                     />
                   </div>
                 );
@@ -355,30 +360,46 @@ export function Week(props: WeekProps): React.JSX.Element {
                     const hue = hueFor(g.course_code, hueOrder);
                     const bad = clashes(g, timed);
                     const lane = lanes.get(b.key) ?? { lane: 0, lanes: 1 };
+                    // The slot holds the ghost and, beside it on hover, the same
+                    // popover a chosen block shows, so a prospective section can
+                    // be weighed before it is taken.
                     return (
-                      <button
+                      <div
                         key={b.key}
-                        type="button"
-                        className={`${styles.ghost} ${bad ? styles.ghostBad : ''} ${
-                          focusId === g.id ? styles.ghostFocus : ''
-                        }`}
+                        className={styles.ghostSlot}
                         style={{
                           top: pct(b.start),
                           height: `calc(${pct(b.end)} - ${pct(b.start)})`,
                           left: `calc(${(lane.lane / lane.lanes) * 100}% + 2px)`,
                           width: `calc(${100 / lane.lanes}% - 4px)`,
-                          color: bad ? undefined : hue.ink,
-                          background: bad ? undefined : textureBackground(g.type, hue.fill),
                         }}
                         onMouseEnter={() => setFocus(g.id)}
                         onMouseLeave={() => setFocus(null)}
-                        onClick={() => onToggleSection(g, expanded)}
-                        aria-label={`Add ${g.course_code} ${g.type} ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
                       >
-                        <span className={styles.blockMeta}>
-                          {formatRange(b.start, b.end)}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          className={`${styles.ghost} ${bad ? styles.ghostBad : ''} ${
+                            focusId === g.id ? styles.ghostFocus : ''
+                          }`}
+                          style={{
+                            color: bad ? undefined : hue.ink,
+                            background: bad ? undefined : textureBackground(g.type, hue.fill),
+                          }}
+                          onClick={() => onToggleSection(g, expanded)}
+                          aria-label={`Add ${g.course_code} ${g.type} ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
+                        >
+                          <span className={styles.blockMeta}>
+                            {formatRange(b.start, b.end)}
+                          </span>
+                        </button>
+                        <Popover
+                          section={g}
+                          course={expanded}
+                          flip={flipPopover}
+                          onRemove={undefined}
+                          note={bad ? 'Overlaps your week · click to take it anyway' : 'Click to take this section'}
+                        />
+                      </div>
                     );
                   })}
             </div>
@@ -527,11 +548,14 @@ function Popover({
   course,
   flip,
   onRemove,
+  note,
 }: {
   readonly section: Section;
   readonly course: Course | undefined;
   readonly flip: boolean;
   readonly onRemove: (() => void) | undefined;
+  /** What a click on the block does, when that is not obvious. */
+  readonly note?: string;
 }): React.JSX.Element {
   const rated = section.instructors.find((i) => i.rmp?.rating != null);
   const copy = (): void => {
@@ -563,13 +587,14 @@ function Popover({
       )}
       {section.capacity > 0 && (
         <p className={styles.popLine}>
-          {section.registered} / {section.capacity} seats
+          {section.registered} / {section.capacity} seats taken
           {section.waitlisted > 0 && ` · ${section.waitlisted} waitlisted`}
         </p>
       )}
       {section.requires_d_clearance && (
         <p className={styles.popLine}>Needs D-clearance</p>
       )}
+      {note && <p className={styles.popNote}>{note}</p>}
       <div className={styles.popActions}>
         <button type="button" className={styles.popButton} onClick={copy}>
           <Copy size={11} />

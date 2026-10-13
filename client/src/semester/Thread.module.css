@@ -77,23 +77,18 @@
   text-decoration-color: var(--accent);
 }
 
-/* The degree's grammar: taken is checked and settled, this term striped. */
-.codeTaken {
+/* Where a course stands, by a mark before its code and never a background,
+   so the code stays as legible as the text around it. */
+.codeTaken,
+.codePlanned {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--text-primary);
-  text-decoration-color: var(--hairline-strong);
 }
 
-.codePlanned {
-  padding: 0 3px;
-  border-radius: 4px;
-  background: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--accent) 14%, transparent) 0 2px,
-    transparent 2px 5px
-  );
+.codeTaken {
+  color: var(--text-primary);
+  text-decoration-color: var(--hairline-strong);
 }
 
 .chips {

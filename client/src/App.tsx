@@ -465,6 +465,12 @@ function Planner({
       setExpanded(resting);
     }
   };
+  // A picked course that leaves the week takes its ghosts with it.
+  useEffect(() => {
+    if (expanded && expanded !== resting && !scheduledCourseIds.includes(expanded.code)) {
+      setExpanded(resting);
+    }
+  }, [expanded, resting, scheduledCourseIds]);
 
   // From the Degree page, a course opens in the planner, where its
   // sections can land on the week.
