@@ -14,6 +14,7 @@ import fastapi
 import uvicorn
 from absl import logging
 from fastapi import staticfiles
+from fastapi.middleware import gzip
 
 from server.src.agent import llm
 from server.src.data import catalog_db
@@ -71,6 +72,9 @@ app = fastapi.FastAPI(
   version="0.1.0",
   lifespan=lifespan,
 )
+# A search page is ~200KB of JSON and compresses about tenfold. Starlette
+# leaves text/event-stream alone, so the advisor still streams token by token.
+app.add_middleware(gzip.GZipMiddleware, minimum_size=1024)
 
 app.include_router(catalog.router)
 app.include_router(chat.router)
