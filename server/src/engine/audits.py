@@ -6,7 +6,7 @@ It reads through catalog_db and never writes.
 """
 
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
@@ -27,14 +27,16 @@ def general_education(
   conn: sqlite3.Connection,
   completed: Sequence[str],
   ap_credits: Sequence[m.ApCredit],
+  ge_counted: Mapping[str, int],
 ) -> list[m.GeProgress]:
-  """Shows how completed courses and passed AP exams fill each category."""
+  """Shows how courses, AP exams, and seats counted by hand fill each GE."""
   return ge_audit.audit(
     catalog_db.ge_categories(conn),
     catalog_db.ge_of(conn, completed),
     completed,
     catalog_db.ap_exams(conn),
     ap_credits,
+    ge_counted,
   )
 
 
@@ -44,6 +46,7 @@ def program(
   audited: m.Program,
   completed: Sequence[str],
   ap_credits: Sequence[m.ApCredit],
+  ge_counted: Mapping[str, int],
 ) -> m.ProgramAudit:
   """Audits a program; prerequisites follow `term`'s listings."""
   exams = catalog_db.ap_exams(conn)
@@ -53,6 +56,7 @@ def program(
     completed,
     exams,
     ap_credits,
+    ge_counted,
   )
   units = catalog_db.units_of(conn, completed)
   return program_audit.audit(

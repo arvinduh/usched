@@ -249,6 +249,9 @@ class GeAuditRequest(pydantic.BaseModel):
 
   completed: list[str] = pydantic.Field(description="Course codes taken.")
   ap_credits: list[ApCredit] = []
+  ge_counted: dict[str, int] = pydantic.Field(
+    default={}, description="GE seats the student counted by hand, by code."
+  )
 
 
 class GeProgress(pydantic.BaseModel):
@@ -259,6 +262,15 @@ class GeProgress(pydantic.BaseModel):
   required_count: int
   courses: list[str] = pydantic.Field(description="Completed codes used here.")
   exams: list[str] = pydantic.Field(description="AP exam ids used here.")
+  counted: int = pydantic.Field(
+    default=0,
+    description="Seats the student counted by hand, such as transfer credit.",
+  )
+
+  @property
+  def filled(self) -> int:
+    """Seats filled by courses, exams, and the student's own count."""
+    return len(self.courses) + len(self.exams) + self.counted
 
 
 class RequirementStatus(enum.StrEnum):
@@ -288,6 +300,9 @@ class ProgramAuditRequest(pydantic.BaseModel):
 
   completed: list[str]
   ap_credits: list[ApCredit] = []
+  ge_counted: dict[str, int] = pydantic.Field(
+    default={}, description="GE seats the student counted by hand, by code."
+  )
 
 
 class ProgramAudit(pydantic.BaseModel):

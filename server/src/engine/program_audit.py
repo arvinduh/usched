@@ -95,9 +95,7 @@ def audit(
   progress: dict[int, m.RequirementProgress] = {}
   courses_below: dict[int, int] = {}
   # Children follow their parent in catalogue order, so walk backwards.
-  ge_filled = sum(
-    min(len(p.courses) + len(p.exams), p.required_count) for p in ge
-  )
+  ge_filled = sum(min(p.filled, p.required_count) for p in ge)
   ge_needed = sum(p.required_count for p in ge)
   for req in reversed(program.requirements):
     if req.is_general_education:

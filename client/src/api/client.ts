@@ -144,10 +144,12 @@ export function auditProgram(
   id: string,
   completed: readonly string[],
   apCredits: readonly ApCredit[],
+  geCounted: Readonly<Record<string, number>>,
 ): Promise<ProgramAudit> {
   return post(`/terms/${term}/programs/${encodeURIComponent(id)}/audit`, {
     completed,
     ap_credits: apCredits,
+    ge_counted: geCounted,
   });
 }
 
@@ -156,12 +158,13 @@ export function getGeCategories(): Promise<readonly GeCategory[]> {
   return get('/ge-categories');
 }
 
-/** Shows how completed courses and AP exams fill each GE category. */
+/** Shows how courses, AP exams, and seats counted by hand fill each GE. */
 export function auditGe(
   completed: readonly string[],
   apCredits: readonly ApCredit[],
+  geCounted: Readonly<Record<string, number>>,
 ): Promise<readonly GeProgress[]> {
-  return post('/ge-audit', { completed, ap_credits: apCredits });
+  return post('/ge-audit', { completed, ap_credits: apCredits, ge_counted: geCounted });
 }
 
 /** Lists AP exams USC grants credit for. */

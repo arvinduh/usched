@@ -190,6 +190,7 @@ function Planner({
   const watchedCourseIds = useTermPlan((p) => p.watchedCourseIds);
   const completedCourseIds = useStore((s) => s.completedCourseIds);
   const apCredits = useStore((s) => s.apCredits);
+  const geCounted = useStore((s) => s.geCounted);
   const programId = useStore((s) => s.programId);
   const welcomed = useStore((s) => s.welcomed);
 
@@ -277,23 +278,23 @@ function Planner({
       return;
     }
     let stale = false;
-    auditProgram(term, programId, completedCourseIds, apCredits)
+    auditProgram(term, programId, completedCourseIds, apCredits, geCounted)
       .then((a) => !stale && setLoadedAudit({ key: auditKey, audit: a }))
       .catch(console.error);
     return () => {
       stale = true;
     };
-  }, [auditKey, term, programId, completedCourseIds, apCredits]);
+  }, [auditKey, term, programId, completedCourseIds, apCredits, geCounted]);
 
   useEffect(() => {
     let stale = false;
-    auditGe(completedCourseIds, apCredits)
+    auditGe(completedCourseIds, apCredits, geCounted)
       .then((g) => !stale && setGeProgress(g))
       .catch(console.error);
     return () => {
       stale = true;
     };
-  }, [completedCourseIds, apCredits]);
+  }, [completedCourseIds, apCredits, geCounted]);
 
   const activeConfig =
     configurations.find((c) => c.id === activeConfigId) ?? configurations[0];
@@ -571,6 +572,7 @@ function Planner({
       shortlistedCodes: watchedCourseIds,
       completedCodes: completedCourseIds,
       apCredits,
+      geCounted,
       programId,
       variants: configurations
         .filter((c) => c.id !== activeConfig.id)

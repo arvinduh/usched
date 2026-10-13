@@ -32,6 +32,8 @@ export interface PlanState {
   readonly terms: Readonly<Record<number, TermPlan>>;
   readonly completedCourseIds: readonly string[];
   readonly apCredits: readonly ApCredit[];
+  /** GE seats counted by hand (credit the catalog cannot place), by code. */
+  readonly geCounted: Readonly<Record<string, number>>;
   /** Chosen program, or empty until the student picks one. */
   readonly programId: string;
   /** True once the first-run welcome was answered or skipped. */
@@ -53,6 +55,7 @@ const DEFAULT_STATE: PlanState = {
   terms: {},
   completedCourseIds: [],
   apCredits: [],
+  geCounted: {},
   programId: '',
   welcomed: false,
 };
