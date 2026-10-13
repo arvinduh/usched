@@ -106,14 +106,13 @@ _HISTORY_TURNS = 6
 _MAX_CHIPS = 4
 
 
-def closing_chips(
-  from_tools: Sequence[chips.Chip], next_codes: Sequence[str]
-) -> list[chips.Chip]:
-  """Picks up to four chips: the tools' first, then courses to take next."""
-  found: list[chips.Chip] = list(from_tools)
-  if len(found) < 2:
-    found += [chips.Search(label=f"Show {c}", query=c) for c in next_codes[:2]]
-  unique = {c.label: c for c in reversed(found)}
+def closing_chips(from_tools: Sequence[chips.Chip]) -> list[chips.Chip]:
+  """Up to four chips, all from what the model did; the last of a label wins.
+
+  A reply that used no tools ends with none: a chip is a follow-up to
+  something the advisor actually looked up or built, never filler.
+  """
+  unique = {c.label: c for c in reversed(from_tools)}
   return list(reversed(unique.values()))[:_MAX_CHIPS]
 
 
@@ -173,7 +172,6 @@ def stream(
 ) -> Iterator[str]:
   """Yields SSE events: tokens, then one closing event, then `[DONE]`."""
   from_tools: list[chips.Chip] = []
-  next_codes: list[str] = []
   flagged: list[str] = []
   reason = model.unavailable()
   if reason:
@@ -192,7 +190,6 @@ def stream(
         screen=request.screen,
       ),
     )
-    next_codes = facts.next_codes
     grounded = set(facts.grounded)
 
     def execute(name: str, arguments: Mapping[str, Any]) -> str:
@@ -221,7 +218,7 @@ def stream(
       yield _token(f"\n\n{e}")
     flagged = unverified("".join(reply), grounded, conn)
   closing = ClosingEvent(
-    action_chips=closing_chips(from_tools, next_codes),
+    action_chips=closing_chips(from_tools),
     unverified=flagged,
   )
   yield _event(closing.model_dump())
