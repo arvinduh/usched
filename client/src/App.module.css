@@ -6,6 +6,7 @@
 }
 
 .semester {
+  animation: rise-in 220ms var(--ease);
   flex: 1;
   min-height: 0;
   display: grid;
@@ -53,11 +54,30 @@
   animation: drop-in 240ms var(--ease);
 }
 
-/* Each place enters on the compositor alone: opacity and transform. */
+/* It lifts back the way it came; App waits out LIFT_MS before switching. */
+.lifting {
+  animation: lift-out 160ms var(--ease) forwards;
+}
+
+/* Each place moves on the compositor alone: opacity and transform. */
 @keyframes drop-in {
   from {
     opacity: 0;
     transform: translateY(-12px);
+  }
+}
+
+@keyframes lift-out {
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 
