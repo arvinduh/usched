@@ -4,9 +4,6 @@
   "private": true,
   "description": "High-performance USC schedule optimizer and degree audit advisor",
   "scripts": {
-    "dev:model": "ollama run qwen3.5:4b",
-    "dev:server": "uv run uvicorn server.main:app --host 127.0.0.1 --port 18800 --reload",
-    "dev:client": "node client/node_modules/vite/bin/vite.js client --clearScreen false",
     "setup": "npm install && npm --prefix client install && uv sync",
     "postinstall": "npm --prefix client install",
     "catalog": "uv run catalog",

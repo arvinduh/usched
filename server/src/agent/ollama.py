@@ -52,7 +52,7 @@ class Ollama:
     """Explains a stopped daemon or a missing model; otherwise None."""
     tags = self._tags()
     if tags is None:
-      return f"The advisor is offline: start Ollama (`ollama run {self.name}`)."
+      return "The advisor is offline: open Ollama or run `ollama serve`."
     family = self.name.split(":")[0]
     if not any(t.startswith(self.name) or t.startswith(family) for t in tags):
       return (

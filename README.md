@@ -57,16 +57,16 @@ builds `server/data/catalog.db` from it. Rerunning refetches only what is stale
 
 ## Run
 
-Use one terminal per process:
-
 ```bash
-npm run dev:server   # API on http://127.0.0.1:18800 (docs at /docs)
-npm run dev:client   # App on http://127.0.0.1:18801
-npm run dev:model    # Optional: Ollama with qwen3.5:4b for the advisor
+uv run dev           # App on http://127.0.0.1:18801, API on :18800 (docs at /docs)
 ```
 
-The advisor uses Gemini when `GEMINI_API_KEY` is set in `.env`, otherwise Ollama
-(the first `ollama run` downloads about 3.3 GB). Without either, everything
+One process runs both with hot reload; Ctrl+C stops both and hands the terminal
+back clean. Run it with `uv run`, not through `npm run`: on Windows, npm's batch
+wrappers can survive Ctrl+C and swallow every other keystroke.
+
+The advisor uses Gemini when `GEMINI_API_KEY` is set in `.env`, otherwise Ollama:
+run `ollama pull qwen3.5:4b` once (about 3.3 GB), and keep the Ollama app open. Without either, everything
 except the advisor works, and asking a question explains what to set up.
 
 ## Using it
@@ -89,9 +89,7 @@ section numbers for registration and resets all local data.
 | :------------------------ | :-------------------------------------------------- |
 | `npm run setup`           | Install Node and Python dependencies                |
 | `npm run catalog`         | Fetch and build the catalog database                |
-| `npm run dev:server`      | FastAPI backend with hot reload                     |
-| `npm run dev:client`      | Vite dev server                                     |
-| `npm run dev:model`       | Run the advisor model in Ollama                     |
+| `uv run dev`              | API and client with hot reload; Ctrl+C stops both   |
 | `npm run check`           | Lint, type-check, and test (the CI gate)            |
 | `npm run build`           | Production client bundle                            |
 | `npm run serve`           | Build, then run production on http://127.0.0.1:8000 |
