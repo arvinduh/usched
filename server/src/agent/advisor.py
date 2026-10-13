@@ -9,7 +9,7 @@ transport (threads, the event loop) in the chat route.
 
 import json
 import sqlite3
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence, Set
 from typing import Any, Literal
 
 import pydantic
@@ -98,6 +98,15 @@ def closing_chips(
   return list(reversed(unique.values()))[:_MAX_CHIPS]
 
 
+def unverified(reply: str, grounded: Set[str]) -> list[str]:
+  """Courses `reply` names, as written, whose identity no source grounded."""
+  return [
+    written
+    for key, written in codes.mentions(reply).items()
+    if key not in grounded
+  ]
+
+
 def _event(payload: Any) -> str:
   return f"data: {json.dumps(payload)}\n\n"
 
@@ -112,7 +121,7 @@ def stream(
   """Yields SSE events: tokens, then one closing event, then `[DONE]`."""
   from_tools: list[chips.Chip] = []
   next_codes: list[str] = []
-  unverified: list[str] = []
+  flagged: list[str] = []
   reason = model.unavailable()
   if reason:
     yield _token(reason)
@@ -152,14 +161,10 @@ def stream(
         yield _token(token)
     except llm.ModelError as e:
       yield _token(f"\n\n{e}")
-    unverified = [
-      written
-      for key, written in codes.mentions("".join(reply)).items()
-      if key not in grounded
-    ]
+    flagged = unverified("".join(reply), grounded)
   closing = ClosingEvent(
     action_chips=closing_chips(request.message, from_tools, next_codes),
-    unverified=unverified,
+    unverified=flagged,
   )
   yield _event(closing.model_dump())
   yield "data: [DONE]\n\n"

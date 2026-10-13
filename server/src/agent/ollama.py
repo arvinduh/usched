@@ -32,16 +32,13 @@ class Ollama:
     name: The model tag, e.g. qwen3.5:4b.
   """
 
-  def __init__(
-    self, host: str, name: str, transport: httpx.BaseTransport | None = None
-  ) -> None:
+  def __init__(self, host: str, name: str) -> None:
     self._host = host.rstrip("/")
     self.name = name
-    self._transport = transport
 
   def _tags(self) -> list[str] | None:
     try:
-      with httpx.Client(timeout=2.0, transport=self._transport) as client:
+      with httpx.Client(timeout=2.0) as client:
         response = client.get(f"{self._host}/api/tags")
         response.raise_for_status()
         return [m.get("name", "") for m in response.json().get("models", [])]
@@ -49,7 +46,9 @@ class Ollama:
       return None
 
   def unavailable(self) -> str | None:
-    """Explains a stopped daemon or a missing model; otherwise None."""
+    """Explains missing setup, a stopped daemon, or a missing model."""
+    if not self.name:
+      return "The advisor needs a model: set OLLAMA_MODEL (see .env.example)."
     tags = self._tags()
     if tags is None:
       return f"The advisor is offline: start Ollama (`ollama run {self.name}`)."
@@ -86,7 +85,7 @@ class Ollama:
       }
       for t in tools
     ]
-    with httpx.Client(timeout=_TIMEOUT, transport=self._transport) as client:
+    with httpx.Client(timeout=_TIMEOUT) as client:
       calls: list[dict[str, Any]] = []
       for chunk in self._stream(client, messages, specs):
         calls.extend(chunk.get("tool_calls") or [])
