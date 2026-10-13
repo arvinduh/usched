@@ -7,42 +7,17 @@ rank exact codes first. Executing the query and ranking belong to
 """
 
 import dataclasses
+import json
+import pathlib
 import re
 
 
 # Common abbreviations students type, mapped to the phrases catalog titles
 # and descriptions actually use. The abbreviation itself is always kept too.
-_ALIASES: dict[str, tuple[str, ...]] = {
-  "ai": ("artificial intelligence",),
-  "ml": ("machine learning",),
-  "cs": ("computer science", "csci"),
-  "ds": ("data science",),
-  "db": ("database",),
-  "os": ("operating systems",),
-  "nlp": ("natural language processing",),
-  "hci": ("human computer interaction",),
-  "ux": ("user experience",),
-  "ee": ("electrical engineering",),
-  "econ": ("economics",),
-  "bio": ("biology",),
-  "chem": ("chemistry",),
-  "phys": ("physics",),
-  "psych": ("psychology", "psyc"),
-  "stats": ("statistics",),
-  "stat": ("statistics",),
-  "calc": ("calculus",),
-  "linalg": ("linear algebra",),
-  "comm": ("communication",),
-  "biz": ("business",),
-  "fin": ("finance",),
-  "acct": ("accounting",),
-  "mktg": ("marketing",),
-  "philo": ("philosophy",),
-  "poli": ("political",),
-  "polisci": ("political science",),
-  "film": ("cinema", "film"),
-  "intro": ("introduction",),
-}
+# The client's program search reads the same file.
+_ALIASES: dict[str, list[str]] = json.loads(
+  pathlib.Path(__file__).with_name("abbreviations.json").read_text()
+)
 
 _TOKEN = re.compile(r"[a-z]+|\d+[a-z]*")
 _CODE = re.compile(r"^\s*([a-z]{2,4})\s*-?\s*(\d{1,3}[a-z]{0,2})\s*$")
