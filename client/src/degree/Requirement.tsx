@@ -21,6 +21,7 @@ import type {
   RequirementProgress,
   Units,
 } from '../types';
+import { placePopover } from './popover';
 import styles from './Degree.module.css';
 
 /**
@@ -203,7 +204,11 @@ function Chip({
   return (
     <span
       className={styles.chipWrap}
-      onMouseEnter={() => ctx.onHover(key)}
+      onMouseEnter={(e) => {
+        placePopover(e);
+        ctx.onHover(key);
+      }}
+      onFocus={placePopover}
       onMouseLeave={() => ctx.onHover(null)}
     >
       <button

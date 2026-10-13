@@ -19,6 +19,7 @@ import type {
   ProgramSummary,
 } from '../types';
 import { DegreePicker } from './DegreePicker';
+import { placePopover } from './popover';
 import { RequirementTree } from './Requirement';
 import type { ChipContext } from './Requirement';
 import styles from './Degree.module.css';
@@ -169,7 +170,12 @@ function GeStrip({
             ...cat.exams.map((id) => examNames.get(id) ?? id),
           ];
           return (
-            <span key={cat.code} className={styles.geWrap}>
+            <span
+              key={cat.code}
+              className={styles.geWrap}
+              onMouseEnter={placePopover}
+              onFocus={placePopover}
+            >
               <button
                 type="button"
                 className={`${styles.geCell} ${styles[fill]}`}
