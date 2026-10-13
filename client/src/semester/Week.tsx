@@ -563,7 +563,7 @@ function Popover({
       )}
       {section.capacity > 0 && (
         <p className={styles.popLine}>
-          {section.registered} / {section.capacity} seats
+          {section.registered} / {section.capacity} seats taken
           {section.waitlisted > 0 && ` · ${section.waitlisted} waitlisted`}
         </p>
       )}
