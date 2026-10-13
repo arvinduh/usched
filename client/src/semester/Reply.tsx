@@ -4,12 +4,14 @@
  * Models answer in loose Markdown: paragraphs, "-" or "1." lists, bold,
  * italics, inline code, and the odd heading. This covers that subset and
  * nothing more, so no Markdown dependency ships. Course codes become links
- * that open the course, except codes the server could not find in the
+ * that open the course, marked the way the degree marks them (taken, or on
+ * this term's week), except codes the server could not find in the
  * catalog, which stay plain and marked. The thread owns everything around
  * the text.
  */
 
 import React from 'react';
+import { Check } from 'lucide-react';
 import styles from './Thread.module.css';
 
 /** Course codes as prose writes them: "CSCI-104L", "CSCI 104L", "MUSC 200gmw". */
@@ -70,12 +72,18 @@ export interface ReplyProps {
   readonly unverified: ReadonlySet<string>;
   /** Opens a course mentioned in the reply, given as "DEPT-123X". */
   readonly onOpenCourse: (courseId: string) => void;
+  /** Where a course stands in the student's plan, if anywhere. */
+  readonly stateOf: (courseId: string) => CourseState;
 }
+
+/** A course the student took, or has on this term's week. */
+export type CourseState = 'taken' | 'planned' | null;
 
 /**
  * Renders the reply's blocks.
  */
-export function Reply({ text, unverified, onOpenCourse }: ReplyProps): React.JSX.Element {
+export function Reply(props: ReplyProps): React.JSX.Element {
+  const { text, unverified, onOpenCourse, stateOf } = props;
   const codes = (part: string): React.ReactNode[] => {
     const nodes: React.ReactNode[] = [];
     let last = 0;
@@ -88,14 +96,12 @@ export function Reply({ text, unverified, onOpenCourse }: ReplyProps): React.JSX
             {m[0]}
           </span>
         ) : (
-          <button
+          <CodeLink
             key={at}
-            type="button"
-            className={styles.code}
-            onClick={() => onOpenCourse(`${m[1]}-${m[2]}`)}
-          >
-            {m[0]}
-          </button>
+            text={m[0]}
+            state={stateOf(`${m[1]}-${m[2]}`)}
+            onOpen={() => onOpenCourse(`${m[1]}-${m[2]}`)}
+          />
         ),
       );
       last = at + m[0].length;
@@ -144,5 +150,28 @@ export function Reply({ text, unverified, onOpenCourse }: ReplyProps): React.JSX
         }
       })}
     </div>
+  );
+}
+
+function CodeLink({
+  text,
+  state,
+  onOpen,
+}: {
+  readonly text: string;
+  readonly state: CourseState;
+  readonly onOpen: () => void;
+}): React.JSX.Element {
+  const cls = state === 'taken' ? styles.codeTaken : state === 'planned' ? styles.codePlanned : '';
+  return (
+    <button
+      type="button"
+      className={`${styles.code} ${cls}`}
+      title={state === 'taken' ? 'Taken' : state === 'planned' ? 'On your week' : undefined}
+      onClick={onOpen}
+    >
+      {state === 'taken' && <Check size={10} />}
+      {text}
+    </button>
   );
 }

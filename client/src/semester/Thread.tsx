@@ -11,6 +11,7 @@ import React, { useEffect, useRef } from 'react';
 import { CalendarDays } from 'lucide-react';
 import type { Chip, ChatMessage } from '../types';
 import { Reply } from './Reply';
+import type { CourseState } from './Reply';
 import styles from './Thread.module.css';
 
 /**
@@ -24,13 +25,14 @@ export interface ThreadProps {
   /** Opens a course mentioned in a reply, given as "DEPT-123X". */
   readonly onOpenCourse: (courseId: string) => void;
   readonly onNewChat: () => void;
+  readonly stateOf: (courseId: string) => CourseState;
 }
 
 /**
  * Renders the transcript, keeping the newest message in view.
  */
 export function Thread(props: ThreadProps): React.JSX.Element {
-  const { messages, onChip, onProject, onOpenCourse, onNewChat } = props;
+  const { messages, onChip, onProject, onOpenCourse, onNewChat, stateOf } = props;
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export function Thread(props: ThreadProps): React.JSX.Element {
                 text={m.content}
                 unverified={new Set(m.unverified)}
                 onOpenCourse={onOpenCourse}
+                stateOf={stateOf}
               />
             ) : (
               <span className={styles.thinking} aria-label="Thinking">

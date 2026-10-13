@@ -14,7 +14,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUp, CircleCheck, ListFilter, X } from 'lucide-react';
 import type { CatalogSearch } from '../hooks/useCatalogSearch';
-import { displayCode } from '../lib/degree';
+import { courseKey, displayCode } from '../lib/degree';
 import { NO_FILTER, activeFilterCount, courseMatches, sortCourses } from '../lib/filter';
 import type { DayPart, SectionFilter, SortKey } from '../lib/filter';
 import { takenCodes } from '../lib/query';
@@ -124,6 +124,11 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   const { text, setText, parsed, courses, isSearching, hasMore, loadMore } = search;
   const typing = text.trim() !== '';
   const taken = takenCodes(text);
+  const plannedKeys = new Set(props.plan.scheduledCourseIds.map(courseKey));
+  const stateOf = (id: string): 'taken' | 'planned' | null => {
+    const key = courseKey(id);
+    return props.plan.completed.has(key) ? 'taken' : plannedKeys.has(key) ? 'planned' : null;
+  };
   const filterCount = activeFilterCount(filter) + parsed.tokens.length;
   const results = sortCourses(
     courses.filter((c) => courseMatches(c, filter, props.activeSections)),
@@ -189,6 +194,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
               onProject={props.onProject}
               onOpenCourse={props.onOpenCode}
               onNewChat={props.onNewChat}
+              stateOf={stateOf}
             />
           ) : (
             <div className={styles.starters}>
