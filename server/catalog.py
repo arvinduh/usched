@@ -6,9 +6,15 @@
 
 Each source keeps its own freshness window, so routine runs only refetch
 section listings; RateMyProfessors and the catalogue change slowly.
+
+A fetch that fails keeps the cache's previous copy, so the build still
+runs, but the command then exits 1: a scheduled refresh never reports
+success while serving stale data. A build that fails verification leaves
+the live database untouched and exits 1 as well.
 """
 
 import logging as std_logging
+import sys
 from collections.abc import Sequence
 
 import httpx
@@ -47,8 +53,9 @@ flags.DEFINE_bool(
 )
 
 
-def fetch(raw: cache.RawCache) -> None:
-  """Refreshes the raw cache from every source."""
+def fetch(raw: cache.RawCache) -> int:
+  """Refreshes the raw cache from every source; returns how many failed."""
+  failures = 0
   with http.client() as client:
     active = classes_api.fetch_terms(client, raw)
     terms = [int(t) for t in FLAGS.terms] or active
@@ -60,8 +67,9 @@ def fetch(raw: cache.RawCache) -> None:
         f"Term {term}: fetched {report.fetched} listings, "
         f"{report.skipped} fresh, {len(report.failed)} failed"
       )
+      failures += len(report.failed)
     if not FLAGS.skip_rmp:
-      _fetch_rmp(client, raw, terms)
+      failures += _fetch_rmp(client, raw, terms)
   if not FLAGS.skip_catalogue:
     catoid, cookies, agent = catalogue_site.fetch_index(raw)
     fetched, fresh, failed = catalogue_site.fetch_programs(
@@ -71,6 +79,7 @@ def fetch(raw: cache.RawCache) -> None:
       f"Catalogue {catoid}: fetched {fetched} programs, {fresh} fresh, "
       f"{len(failed)} failed"
     )
+    failures += len(failed)
     fetched, fresh, failed = catalogue_site.fetch_courses(
       raw, catoid, cookies, agent, FLAGS.catalogue_max_age_days * 24 * _HOUR_S
     )
@@ -78,11 +87,13 @@ def fetch(raw: cache.RawCache) -> None:
       f"Catalogue {catoid}: fetched {fetched} course pages, {fresh} fresh, "
       f"{len(failed)} failed"
     )
+    failures += len(failed)
+  return failures
 
 
 def _fetch_rmp(
   client: httpx.Client, raw: cache.RawCache, terms: Sequence[int]
-) -> None:
+) -> int:
   instructors: dict[str, records.Instructor] = {}
   for term in terms:
     for key in raw.keys(f"classes/{term}/listings", "*.json"):
@@ -95,6 +106,7 @@ def _fetch_rmp(
     FLAGS.rmp_max_age_days * 24 * _HOUR_S,
   )
   print(f"RateMyProfessors: searched {searched}, {failed} failed")
+  return failed
 
 
 def main(argv: Sequence[str]) -> None:
@@ -105,16 +117,22 @@ def main(argv: Sequence[str]) -> None:
   if unknown:
     raise app.UsageError(f"Unknown stage(s): {', '.join(sorted(unknown))}")
   raw = cache.RawCache()
-  if "fetch" in stages:
-    fetch(raw)
+  failures = fetch(raw) if "fetch" in stages else 0
   if "build" in stages:
-    built = build.build(raw)
+    try:
+      built = build.build(raw)
+    except build.VerificationError as e:
+      print(f"Build failed verification; the live catalog is unchanged: {e}")
+      sys.exit(1)
     logging.info("Built %s", build.DEFAULT_DB)
     print("Built " + ", ".join(f"{n} {t}" for t, n in built.counts.items()))
     print(
       "Verified: "
       + ", ".join(f"{name} {rate}%" for name, rate in built.rates.items())
     )
+  if failures:
+    print(f"{failures} fetches failed; the cache kept their previous copies.")
+    sys.exit(1)
 
 
 def cli_main() -> None:
