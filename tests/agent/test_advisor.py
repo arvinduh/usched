@@ -2,25 +2,16 @@
 
 import dataclasses
 import json
-import sqlite3
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
 from server.src.agent import advisor, brief, chips, tools
-from server.src.data import catalog_db
 from server.src.data import catalog_models as m
 
 
 TERM = 20271
-
-
-@pytest.fixture(scope="module")
-def conn(catalog_path) -> Iterator[sqlite3.Connection]:
-  conn = catalog_db.CatalogDb(catalog_path).connect()
-  yield conn
-  conn.close()
 
 
 def test_search_lists_matches_with_search_chips(conn):
