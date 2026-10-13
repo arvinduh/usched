@@ -171,7 +171,7 @@ def _week_lines(
   return lines, {codes.identity(c) for c in planned}
 
 
-def _sections_line(conn: sqlite3.Connection, term: int, v: Variant) -> str:
+def schedule_line(conn: sqlite3.Connection, term: int, v: Variant) -> str:
   """A schedule in one line: each course with its section numbers."""
   found = {
     s.id: s for s in catalog_db.sections(conn, term, list(v.section_ids))
@@ -187,7 +187,7 @@ def _sections_line(conn: sqlite3.Connection, term: int, v: Variant) -> str:
 def _screen_lines(conn: sqlite3.Connection, student: Student) -> list[str]:
   """Other schedules, and what the student is looking at."""
   lines = [
-    f"Other schedule {_sections_line(conn, student.term, v)}"
+    f"Other schedule {schedule_line(conn, student.term, v)}"
     for v in student.variants
   ]
   screen = student.screen
@@ -203,7 +203,7 @@ def _screen_lines(conn: sqlite3.Connection, student: Student) -> list[str]:
   if screen.proposal:
     lines.append(
       "The week shows your proposal "
-      f"{_sections_line(conn, student.term, screen.proposal)}, not yet kept"
+      f"{schedule_line(conn, student.term, screen.proposal)}, not yet kept"
     )
   return lines
 

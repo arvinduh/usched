@@ -121,6 +121,26 @@ def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(conn):
   assert advisor.unverified("CSCI 445L is a fine elective.", set(), conn) == []
 
 
+def test_history_remembers_what_each_reply_offered(conn):
+  turn = advisor.ChatTurn(
+    role="assistant",
+    content="Two ways to fit it.",
+    action_chips=[
+      chips.ProposeSchedule(
+        label="Preview option 1", name="Option 1", section_ids=["17367"]
+      ),
+      chips.WatchCourse(label="Save", course_code="CSCI-104L"),
+      chips.Search(label="Show MATH-226", query="MATH-226"),
+    ],
+  )
+  assert advisor.remembered(conn, TERM, turn) == (
+    "Two ways to fit it.\n"
+    "[Your reply offered: Option 1: CHEM-251x (17367); saving CSCI-104L]"
+  )
+  plain = advisor.ChatTurn(role="user", content="hi")
+  assert advisor.remembered(conn, TERM, plain) == "hi"
+
+
 def test_closing_chips_prefer_tools_then_next_steps():
   search = chips.Search(label="Show CSCI-104L", query="CSCI-104L")
   assert advisor.closing_chips([search], ["MATH-226"]) == [

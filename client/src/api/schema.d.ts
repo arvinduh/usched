@@ -364,6 +364,12 @@ export interface components {
             role: "user" | "assistant";
             /** Content */
             content: string;
+            /**
+             * Action Chips
+             * @description What an assistant turn offered, as it ended.
+             * @default []
+             */
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Search"])[];
         };
         /**
          * ClosingEvent

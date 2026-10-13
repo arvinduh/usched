@@ -24,6 +24,9 @@ class ChatTurn(pydantic.BaseModel):
 
   role: Literal["user", "assistant"]
   content: str
+  action_chips: list[chips.Chip] = pydantic.Field(
+    default=[], description="What an assistant turn offered, as it ended."
+  )
 
 
 class ChatRequest(pydantic.BaseModel):
@@ -111,6 +114,30 @@ def closing_chips(
   return list(reversed(unique.values()))[:_MAX_CHIPS]
 
 
+def remembered(conn: sqlite3.Connection, term: int, turn: ChatTurn) -> str:
+  """A past turn as the model rereads it, with what the reply offered.
+
+  History is text, so without this the model forgets the schedules it
+  proposed and cannot resolve "option 2" or "the first one" later.
+  """
+  offered: list[str] = []
+  for chip in turn.action_chips:
+    match chip:
+      case chips.ProposeSchedule(name=name, section_ids=ids):
+        offered.append(
+          brief.schedule_line(conn, term, brief.Variant(name, ids))
+        )
+      case chips.EnrollSection(section_id=sid):
+        offered.append(f"adding section {sid}")
+      case chips.WatchCourse(course_code=code):
+        offered.append(f"saving {code}")
+      case chips.Search():
+        pass
+  if not offered:
+    return turn.content
+  return f"{turn.content}\n[Your reply offered: {'; '.join(offered)}]"
+
+
 def unverified(
   reply: str, grounded: Set[str], conn: sqlite3.Connection
 ) -> list[str]:
@@ -176,7 +203,8 @@ def stream(
       for token in model.reply(
         f"{SYSTEM_PROMPT}\n{facts.text}",
         [
-          llm.Turn(t.role, t.content) for t in request.history[-_HISTORY_TURNS:]
+          llm.Turn(t.role, remembered(conn, request.term, t))
+          for t in request.history[-_HISTORY_TURNS:]
         ],
         request.message,
         tools.TOOLS,
