@@ -290,6 +290,7 @@ class ProgramRequirement:
   units_min: float | None
   units_max: float | None
   notes: str
+  is_general_education: bool
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

@@ -15,7 +15,7 @@ import pydantic
 from absl import logging
 
 from server.src.agent import chips, ollama, tools
-from server.src.data import catalog_db
+from server.src.data import catalog_db, catalog_models
 
 
 class ChatTurn(pydantic.BaseModel):
@@ -41,6 +41,7 @@ class ChatRequest(pydantic.BaseModel):
   completed: list[str] = pydantic.Field(
     default=[], description="Codes of courses already taken."
   )
+  ap_credits: list[catalog_models.ApCredit] = []
 
 
 class ChipsEvent(pydantic.BaseModel):
@@ -135,6 +136,7 @@ def stream(request: ChatRequest, conn: sqlite3.Connection) -> Iterator[str]:
     term=request.term,
     program_id=request.program_id,
     completed=tuple(request.completed),
+    ap_credits=tuple(request.ap_credits),
   )
   from_tools: list[chips.Chip] = []
   if not ollama.is_ollama_available():

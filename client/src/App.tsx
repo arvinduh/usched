@@ -232,13 +232,13 @@ function Planner({
       return;
     }
     let stale = false;
-    auditProgram(term, programId, completedCourseIds)
+    auditProgram(term, programId, completedCourseIds, apCredits)
       .then((a) => !stale && setLoadedAudit({ key: auditKey, audit: a }))
       .catch(console.error);
     return () => {
       stale = true;
     };
-  }, [auditKey, term, programId, completedCourseIds]);
+  }, [auditKey, term, programId, completedCourseIds, apCredits]);
 
   useEffect(() => {
     let stale = false;
@@ -441,6 +441,7 @@ function Planner({
       plannedCodes: scheduledCourseIds,
       shortlistedCodes: watchedCourseIds,
       completedCodes: completedCourseIds,
+      apCredits,
       programId,
     });
   };

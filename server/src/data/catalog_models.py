@@ -196,6 +196,9 @@ class Requirement(pydantic.BaseModel):
   title: str
   units: Units | None
   notes: str = pydantic.Field(description="Prose rules, e.g. Take at least...")
+  is_general_education: bool = pydantic.Field(
+    description="The university GE requirement; the GE audit decides it."
+  )
   slots: list[list[RequirementChoice]]
 
 
@@ -274,16 +277,19 @@ class RequirementProgress(pydantic.BaseModel):
 
 
 class ProgramAuditRequest(pydantic.BaseModel):
-  """Courses a student has completed."""
+  """What a student has done: courses taken and AP exams passed."""
 
   completed: list[str]
+  ap_credits: list[ApCredit] = []
 
 
 class ProgramAudit(pydantic.BaseModel):
   """A program audited against completed courses in a planning term."""
 
   units: float = pydantic.Field(
-    description="Units of every completed course with known units."
+    description=(
+      "Units of every completed course with known units, plus passed AP exams."
+    )
   )
   requirements: list[RequirementProgress]
   locked: dict[str, list[str]] = pydantic.Field(

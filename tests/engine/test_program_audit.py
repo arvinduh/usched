@@ -26,6 +26,7 @@ def _req(
   parent: int | None,
   slots: list[list[m.RequirementChoice]],
   units: float | None = None,
+  is_ge: bool = False,
 ) -> m.Requirement:
   return m.Requirement(
     position=position,
@@ -33,6 +34,7 @@ def _req(
     title=f"R{position}",
     units=None if units is None else m.Units(min=units, max=units),
     notes="",
+    is_general_education=is_ge,
     slots=slots,
   )
 
@@ -108,3 +110,31 @@ def test_prerequisite_groups_need_their_count_of_complete_options():
   assert program_audit.unmet_prerequisites(req, {"A-1"}) == [group]
   assert not program_audit.unmet_prerequisites(req, {"A-1", "A-2"})
   assert not program_audit.unmet_prerequisites(req, {"B-1"})
+
+
+def _ge(filled: int, required: int) -> m.GeProgress:
+  return m.GeProgress(
+    code="GE-A",
+    name="Arts",
+    required_count=required,
+    courses=[f"X-{i}" for i in range(filled)],
+    exams=[],
+  )
+
+
+def test_the_ge_audit_decides_ge_requirements():
+  program = PROGRAM.model_copy(
+    update={"requirements": [_req(0, None, [], units=20, is_ge=True)]}
+  )
+  ge = [_ge(1, 1), _ge(0, 2)]
+  partial = program_audit.audit(program, [], {}, {}, ge=ge, ge_units=4)
+  assert partial.requirements[0].status == PARTIAL
+  assert partial.requirements[0].units == 4
+  done = program_audit.audit(program, [], {}, {}, ge=[_ge(1, 1)], ge_units=4)
+  assert done.requirements[0].status == DONE
+  assert program_audit.audit(program, [], {}, {}).requirements[0].status == TODO
+
+
+def test_exam_units_count_toward_the_total():
+  audit = program_audit.audit(PROGRAM, ["A-1"], {}, {}, exam_units=4)
+  assert audit.units == 8

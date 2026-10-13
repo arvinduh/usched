@@ -228,6 +228,23 @@ def sections(
   return _sections_where(conn, term, "s.id", ids) if ids else []
 
 
+def offered(
+  conn: sqlite3.Connection, term: int, codes: Iterable[str]
+) -> set[str]:
+  """Identities of the given courses that `term` offers."""
+  known = list(canonical(conn, codes).values())
+  if not known:
+    return set()
+  return {
+    course_codes.identity(row[0])
+    for row in conn.execute(
+      f"""SELECT course_code FROM offering
+          WHERE term_code = ? AND course_code IN ({_marks(known)})""",
+      [term, *known],
+    )
+  }
+
+
 def requisites_of(
   conn: sqlite3.Connection, term: int, codes: Sequence[str]
 ) -> dict[str, m.Requisites]:
@@ -502,6 +519,7 @@ def program(conn: sqlite3.Connection, program_id: str) -> m.Program | None:
       title=r["title"],
       units=_units(r["units_min"], r["units_max"]),
       notes=r["notes"],
+      is_general_education=bool(r["is_general_education"]),
       slots=[choices for _, choices in sorted(slots[r["position"]].items())],
     )
     for r in conn.execute(

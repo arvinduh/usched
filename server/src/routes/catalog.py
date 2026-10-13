@@ -14,7 +14,7 @@ import fastapi
 
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
-from server.src.engine import ge_audit, program_audit
+from server.src.engine import audits
 
 
 router = fastapi.APIRouter(prefix="/api", tags=["catalog"])
@@ -126,13 +126,7 @@ def list_ap_exams(conn: Conn) -> list[m.ApExam]:
 @router.post("/ge-audit")
 def audit_ge(conn: Conn, body: m.GeAuditRequest) -> list[m.GeProgress]:
   """Shows how completed courses and AP exams fill each GE category."""
-  return ge_audit.audit(
-    catalog_db.ge_categories(conn),
-    catalog_db.ge_of(conn, body.completed),
-    body.completed,
-    catalog_db.ap_exams(conn),
-    body.ap_credits,
-  )
+  return audits.general_education(conn, body.completed, body.ap_credits)
 
 
 @router.post("/terms/{term}/programs/{program_id}/audit")
@@ -143,15 +137,4 @@ def audit_program(
   program = _found(
     catalog_db.program(conn, program_id), f"program {program_id}"
   )
-  listed = [
-    c.course.resolved or c.course.code
-    for r in program.requirements
-    for slot in r.slots
-    for c in slot
-  ]
-  return program_audit.audit(
-    program,
-    body.completed,
-    catalog_db.units_of(conn, body.completed),
-    catalog_db.requisites_of(conn, term, listed),
-  )
+  return audits.program(conn, term, program, body.completed, body.ap_credits)

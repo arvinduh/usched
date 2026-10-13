@@ -132,14 +132,16 @@ export function getProgram(id: string): Promise<Program> {
   return get(`/programs/${encodeURIComponent(id)}`);
 }
 
-/** Audits a program against completed courses, as of a planning term. */
+/** Audits a program against what the student did, as of a planning term. */
 export function auditProgram(
   term: number,
   id: string,
   completed: readonly string[],
+  apCredits: readonly ApCredit[],
 ): Promise<ProgramAudit> {
   return post(`/terms/${term}/programs/${encodeURIComponent(id)}/audit`, {
     completed,
+    ap_credits: apCredits,
   });
 }
 

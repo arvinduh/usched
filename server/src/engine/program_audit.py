@@ -43,6 +43,9 @@ def audit(
   completed: Sequence[str],
   units: Mapping[str, m.Units],
   requisites: Mapping[str, m.Requisites],
+  ge: Sequence[m.GeProgress] = (),
+  ge_units: float = 0.0,
+  exam_units: float = 0.0,
 ) -> m.ProgramAudit:
   """Audits `program` for a student.
 
@@ -53,6 +56,10 @@ def audit(
       counts its minimum. Courses missing here count the catalogue's units
       for the slot they fill, or nothing.
     requisites: Course identity to requisites in the planning term.
+    ge: The student's GE audit, which decides GE requirements: done when
+      every category is met.
+    ge_units: Units filling GE seats, credited to GE requirements.
+    exam_units: Units from passed AP exams, which count toward the total.
   """
   shown = {codes.identity(c): c for c in completed}
   claimed: set[str] = set()
@@ -88,7 +95,24 @@ def audit(
   progress: dict[int, m.RequirementProgress] = {}
   courses_below: dict[int, int] = {}
   # Children follow their parent in catalogue order, so walk backwards.
+  ge_filled = sum(
+    min(len(p.courses) + len(p.exams), p.required_count) for p in ge
+  )
+  ge_needed = sum(p.required_count for p in ge)
   for req in reversed(program.requirements):
+    if req.is_general_education:
+      courses_below[req.position] = ge_filled
+      progress[req.position] = m.RequirementProgress(
+        position=req.position,
+        status=Status.DONE
+        if ge_needed and ge_filled >= ge_needed
+        else Status.PARTIAL
+        if ge_filled
+        else Status.TODO,
+        units=ge_units,
+        courses=[],
+      )
+      continue
     kids = [progress[p] for p in children[req.position]]
     judged = [k for k in kids if k.status != Status.MANUAL]
     earned = own_units[req.position] + sum(k.units for k in kids)
@@ -138,7 +162,7 @@ def audit(
               if _key(ref) not in done
             )
           )
-  total = sum(
+  total = exam_units + sum(
     units[k].min if k in units else slot_units.get(k, 0.0) for k in shown
   )
   return m.ProgramAudit(

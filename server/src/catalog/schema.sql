@@ -292,6 +292,9 @@ CREATE TABLE program_requirement (
   units_min REAL,                     -- from "(16 units)" or "(12-16 units)"
   units_max REAL,
   notes TEXT NOT NULL,                -- prose rules, e.g. "Take at least..."
+  is_general_education INTEGER NOT NULL CHECK (is_general_education IN (0, 1)),
+                                      -- names the university GE requirement,
+                                      -- which the GE audit decides
   PRIMARY KEY (program_id, position),
   FOREIGN KEY (program_id, parent_position)
     REFERENCES program_requirement (program_id, position)

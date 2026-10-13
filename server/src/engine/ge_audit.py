@@ -34,12 +34,9 @@ def audit(
   Returns:
     Progress per category, in `categories` order.
   """
-  by_id = {e.id: e for e in exams}
   # A credit is ("course", code) or ("exam", id) with the categories it fits.
   credit_ge: list[tuple[tuple[str, str], Sequence[str]]] = [
-    (("exam", c.exam_id), by_id[c.exam_id].ge)
-    for c in credits
-    if c.exam_id in by_id and c.score >= by_id[c.exam_id].min_score
+    (("exam", e.id), e.ge) for e in passed(exams, credits)
   ]
   credit_ge += [
     (("course", code), course_ge.get(codes.identity(code), ()))
@@ -95,3 +92,35 @@ def _match(
   for i in range(len(fits)):
     place(i, set())
   return owner
+
+
+def passed(
+  exams: Sequence[m.ApExam], credits: Sequence[m.ApCredit]
+) -> list[m.ApExam]:
+  """The exams a student's scores earn credit for, in `credits` order."""
+  by_id = {e.id: e for e in exams}
+  return [
+    by_id[c.exam_id]
+    for c in credits
+    if c.exam_id in by_id and c.score >= by_id[c.exam_id].min_score
+  ]
+
+
+def earned_units(
+  progress: Sequence[m.GeProgress],
+  units: Mapping[str, m.Units],
+  exams: Sequence[m.ApExam],
+) -> float:
+  """Units of the distinct courses and exams filling GE seats.
+
+  Args:
+    progress: A GE audit's result.
+    units: Course identity to units; a variable-unit course counts its
+      minimum, and courses missing here count nothing.
+    exams: AP exam policy, for exam units.
+  """
+  courses = {codes.identity(c) for p in progress for c in p.courses}
+  used_exams = {e for p in progress for e in p.exams}
+  return sum(units[c].min for c in courses if c in units) + sum(
+    e.units for e in exams if e.id in used_exams
+  )

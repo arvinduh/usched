@@ -87,6 +87,7 @@ class _Heading:
       units_min=self.units_min,
       units_max=self.units_max,
       notes="\n".join(self.notes),
+      is_general_education="general education" in self.title.lower(),
     )
 
 

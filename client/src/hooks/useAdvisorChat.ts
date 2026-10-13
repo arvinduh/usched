@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamChat } from '../api/client';
-import type { ChatMessage } from '../types';
+import type { ApCredit, ChatMessage } from '../types';
 
 /**
  * Plan snapshot sent alongside each message to ground the advisor.
@@ -19,6 +19,7 @@ export interface AdvisorContext {
   readonly plannedCodes: readonly string[];
   readonly shortlistedCodes: readonly string[];
   readonly completedCodes: readonly string[];
+  readonly apCredits: readonly ApCredit[];
   readonly programId: string;
 }
 
@@ -75,6 +76,7 @@ export function useAdvisorChat(): AdvisorChat {
         planned: [...context.plannedCodes],
         shortlisted: [...context.shortlistedCodes],
         completed: [...context.completedCodes],
+        ap_credits: [...context.apCredits],
       },
       {
         onToken: (token) => {

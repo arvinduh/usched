@@ -335,6 +335,11 @@ export interface components {
              * @default []
              */
             completed: string[];
+            /**
+             * Ap Credits
+             * @default []
+             */
+            ap_credits: components["schemas"]["ApCredit"][];
         };
         /**
          * ChatTurn
@@ -588,7 +593,7 @@ export interface components {
         ProgramAudit: {
             /**
              * Units
-             * @description Units of every completed course with known units.
+             * @description Units of every completed course with known units, plus passed AP exams.
              */
             units: number;
             /** Requirements */
@@ -603,11 +608,16 @@ export interface components {
         };
         /**
          * ProgramAuditRequest
-         * @description Courses a student has completed.
+         * @description What a student has done: courses taken and AP exams passed.
          */
         ProgramAuditRequest: {
             /** Completed */
             completed: string[];
+            /**
+             * Ap Credits
+             * @default []
+             */
+            ap_credits: components["schemas"]["ApCredit"][];
         };
         /**
          * ProgramSummary
@@ -707,6 +717,11 @@ export interface components {
              * @description Prose rules, e.g. Take at least...
              */
             notes: string;
+            /**
+             * Is General Education
+             * @description The university GE requirement; the GE audit decides it.
+             */
+            is_general_education: boolean;
             /** Slots */
             slots: components["schemas"]["RequirementChoice"][][];
         };

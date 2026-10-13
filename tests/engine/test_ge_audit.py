@@ -63,3 +63,20 @@ def test_codes_match_case_insensitively_and_unknowns_are_ignored():
     CATEGORIES, {"PHIL-1": ["GE-B"]}, ["Phil-1", "X-1"], [], []
   )
   assert _filled(result)["GE-B"] == ["Phil-1"]
+
+
+def test_earned_units_count_each_course_and_exam_once():
+  progress = [
+    m.GeProgress(
+      code="GE-B", name="B", required_count=2, courses=["ANTH-1"], exams=[]
+    ),
+    m.GeProgress(
+      code="GE-G",
+      name="G",
+      required_count=1,
+      courses=["anth-1"],
+      exams=["AP_CALC"],
+    ),
+  ]
+  units = {"ANTH-1": m.Units(min=4, max=4)}
+  assert ge_audit.earned_units(progress, units, [CALC]) == 8

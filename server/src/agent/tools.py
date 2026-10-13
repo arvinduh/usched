@@ -16,7 +16,7 @@ from server.src.agent import chips
 from server.src.catalog import codes
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
-from server.src.engine import program_audit, schedule
+from server.src.engine import audits, schedule
 
 
 @dataclasses.dataclass(frozen=True)
@@ -27,11 +27,13 @@ class Student:
     term: The term being planned.
     program_id: Their program, if chosen.
     completed: Course codes already taken.
+    ap_credits: AP exam results.
   """
 
   term: int
   program_id: str | None
   completed: tuple[str, ...]
+  ap_credits: tuple[m.ApCredit, ...] = ()
 
 
 @dataclasses.dataclass
@@ -334,18 +336,10 @@ def audit_program(
   program = catalog_db.program(conn, wanted) if wanted else None
   if program is None:
     return ToolResult("The student has not chosen a program yet.")
-  listed = [
-    c.course.resolved or c.course.code
-    for r in program.requirements
-    for slot in r.slots
-    for c in slot
-  ]
-  requisites = catalog_db.requisites_of(conn, student.term, listed)
-  result = program_audit.audit(
-    program,
-    student.completed,
-    catalog_db.units_of(conn, student.completed),
-    requisites,
+  listed = audits.listed_codes(program)
+  offered = catalog_db.offered(conn, student.term, listed)
+  result = audits.program(
+    conn, student.term, program, student.completed, student.ap_credits
   )
   titles = {r.position: r.title for r in program.requirements}
   parents = {r.position: r.parent for r in program.requirements}
@@ -360,7 +354,7 @@ def audit_program(
     dict.fromkeys(
       code
       for code in listed
-      if codes.identity(code) in requisites
+      if codes.identity(code) in offered
       and codes.identity(code) not in done
       and codes.identity(code) not in locked
     )
