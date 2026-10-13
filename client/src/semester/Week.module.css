@@ -76,6 +76,24 @@
   cursor: default;
 }
 
+.cycle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+}
+
+.cycle button {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+}
+
+.cycle button:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
 .keep,
 .discard {
   height: 26px;

@@ -90,6 +90,7 @@ export interface AssistantProps {
   readonly busy: boolean;
   readonly onAsk: (text: string) => void;
   readonly onChip: (chip: Chip) => void;
+  readonly onProject: (chips: readonly Chip[]) => void;
   readonly onNewChat: () => void;
   /** Opens a course: expands it and shows it in the results. */
   readonly onOpenCourse: (course: Course) => void;
@@ -262,6 +263,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
           <Thread
             messages={messages}
             onChip={props.onChip}
+            onProject={props.onProject}
             onOpenCourse={props.onOpenCourseId}
             onNewChat={props.onNewChat}
           />

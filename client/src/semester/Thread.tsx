@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
+import { CalendarDays } from 'lucide-react';
 import type { Chip, ChatMessage } from '../types';
 import { Reply } from './Reply';
 import styles from './Thread.module.css';
@@ -18,6 +19,8 @@ import styles from './Thread.module.css';
 export interface ThreadProps {
   readonly messages: readonly ChatMessage[];
   readonly onChip: (chip: Chip) => void;
+  /** Projects a reply's proposed schedules onto the week again. */
+  readonly onProject: (chips: readonly Chip[]) => void;
   /** Opens a course mentioned in a reply, given as "DEPT-123X". */
   readonly onOpenCourse: (courseId: string) => void;
   readonly onNewChat: () => void;
@@ -27,7 +30,7 @@ export interface ThreadProps {
  * Renders the transcript, keeping the newest message in view.
  */
 export function Thread(props: ThreadProps): React.JSX.Element {
-  const { messages, onChip, onOpenCourse, onNewChat } = props;
+  const { messages, onChip, onProject, onOpenCourse, onNewChat } = props;
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,20 +62,7 @@ export function Thread(props: ThreadProps): React.JSX.Element {
                 <span />
               </span>
             )}
-            {m.chips && m.chips.length > 0 && (
-              <div className={styles.chips}>
-                {m.chips.map((chip, j) => (
-                  <button
-                    key={j}
-                    type="button"
-                    className={styles.chip}
-                    onClick={() => onChip(chip)}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            {m.chips && <Chips chips={m.chips} onChip={onChip} onProject={onProject} />}
             {m.unverified && m.unverified.length > 0 && (
               <p className={styles.unverified}>
                 {m.unverified.join(', ')}{' '}
@@ -84,6 +74,41 @@ export function Thread(props: ThreadProps): React.JSX.Element {
         ),
       )}
       <div ref={end} />
+    </div>
+  );
+}
+
+/**
+ * A reply's follow-ups. Proposed schedules are already on the week, so they
+ * collapse into one control that projects them again after a discard.
+ */
+function Chips({
+  chips,
+  onChip,
+  onProject,
+}: {
+  readonly chips: readonly Chip[];
+  readonly onChip: (chip: Chip) => void;
+  readonly onProject: (chips: readonly Chip[]) => void;
+}): React.JSX.Element | null {
+  const schedules = chips.filter((c) => c.action === 'propose_schedule').length;
+  const others = chips.filter((c) => c.action !== 'propose_schedule');
+  if (schedules === 0 && others.length === 0) {
+    return null;
+  }
+  return (
+    <div className={styles.chips}>
+      {schedules > 0 && (
+        <button type="button" className={styles.chip} onClick={() => onProject(chips)}>
+          <CalendarDays size={12} />
+          {schedules === 1 ? 'Schedule' : `${schedules} schedules`} on your week
+        </button>
+      )}
+      {others.map((chip, i) => (
+        <button key={i} type="button" className={styles.chip} onClick={() => onChip(chip)}>
+          {chip.label}
+        </button>
+      ))}
     </div>
   );
 }

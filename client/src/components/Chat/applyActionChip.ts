@@ -9,8 +9,18 @@
  */
 
 import { enrollSection, toggleWatch } from '../../state/actions';
-import { setProposal } from '../../state/preview';
+import { setProposals } from '../../state/preview';
+import type { Proposal } from '../../state/preview';
 import type { Chip } from '../../types';
+
+/**
+ * The schedules among `chips`, in the order the advisor ranked them.
+ */
+export function proposalsOf(chips: readonly Chip[]): readonly Proposal[] {
+  return chips.flatMap((c) =>
+    c.action === 'propose_schedule' ? [{ name: c.name, sectionIds: c.section_ids }] : [],
+  );
+}
 
 /**
  * View-level effects a chip may trigger.
@@ -29,7 +39,7 @@ export interface ChipEffects {
 export function applyActionChip(chip: Chip, effects: ChipEffects): void {
   switch (chip.action) {
     case 'propose_schedule':
-      setProposal({ name: chip.name, sectionIds: chip.section_ids });
+      setProposals([{ name: chip.name, sectionIds: chip.section_ids }]);
       effects.showWeek();
       return;
     case 'enroll_section':

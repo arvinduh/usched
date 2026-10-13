@@ -21,7 +21,7 @@ import {
   getPrograms,
   getTerms,
 } from './api/client';
-import { applyActionChip } from './components/Chat/applyActionChip';
+import { applyActionChip, proposalsOf } from './components/Chat/applyActionChip';
 import { useAdvisorChat } from './hooks/useAdvisorChat';
 import { useCatalogSearch } from './hooks/useCatalogSearch';
 import { DegreeView } from './degree/DegreeView';
@@ -51,7 +51,7 @@ import {
   toggleSection,
   toggleWatch,
 } from './state/actions';
-import { hasExpanded, setExpanded, setProposal } from './state/preview';
+import { hasExpanded, setExpanded, setProposals } from './state/preview';
 import type { Proposal } from './state/preview';
 import { reset, useStore, useTermPlan } from './state/store';
 import { showToast, undoLast } from './state/toast';
@@ -213,7 +213,13 @@ function Planner({
     search.courses,
     suggestionIds,
   );
-  const chat = useAdvisorChat();
+  const projectProposals = useCallback((chips: readonly Chip[]): void => {
+    const proposals = proposalsOf(chips);
+    if (proposals.length > 0) {
+      setProposals(proposals);
+    }
+  }, []);
+  const chat = useAdvisorChat(projectProposals);
 
   useEffect(() => {
     getApExams().then(setApExams).catch(console.error);
@@ -359,7 +365,7 @@ function Planner({
   };
 
   const handleSelectTerm = (next: number): void => {
-    setProposal(null);
+    setProposals([]);
     setExpanded(null);
     selectTerm(next);
   };
@@ -396,7 +402,7 @@ function Planner({
   };
 
   const handleKeepProposal = (proposal: Proposal): void => {
-    setProposal(null);
+    setProposals([]);
     const id = createConfig(proposal.name, proposal.sectionIds);
     showToast(`Kept as ${proposal.name}`, () => {
       deleteConfig(id);
@@ -404,7 +410,7 @@ function Planner({
   };
 
   const handleSelectVariant = (configId: string): void => {
-    setProposal(null);
+    setProposals([]);
     selectConfig(configId);
   };
 
@@ -474,7 +480,7 @@ function Planner({
   const handleReset = (): void => {
     reset();
     chat.clear();
-    setProposal(null);
+    setProposals([]);
     setExpanded(null);
     search.setText('');
     showToast('All data erased');
@@ -597,6 +603,7 @@ function Planner({
               busy={chat.isLoading}
               onAsk={handleAsk}
               onChip={handleChip}
+              onProject={projectProposals}
               onNewChat={chat.clear}
               onOpenCourse={handleOpenCourse}
               onOpenCourseId={handleOpenCourseId}
@@ -636,7 +643,7 @@ function Planner({
               onRemove={handleRemove}
               onFocusCourse={handleOpenCourse}
               onKeepProposal={handleKeepProposal}
-              onDiscardProposal={() => setProposal(null)}
+              onDiscardProposal={() => setProposals([])}
             />
           </section>
         </main>

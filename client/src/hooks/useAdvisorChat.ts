@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamChat } from '../api/client';
-import type { ApCredit, ChatMessage } from '../types';
+import type { ApCredit, ChatMessage, Chip } from '../types';
 
 /**
  * Plan snapshot sent alongside each message to ground the advisor.
@@ -43,9 +43,13 @@ function message(role: ChatMessage['role'], content: string): ChatMessage {
 }
 
 /**
- * Streams advisor replies into the last message as tokens arrive.
+ * Streams advisor replies into the last message as tokens arrive, and hands
+ * each finished reply's chips to `onChips` so the caller can act on them
+ * without a click (projecting proposed schedules, for one).
  */
-export function useAdvisorChat(): AdvisorChat {
+export function useAdvisorChat(
+  onChips: (chips: readonly Chip[]) => void,
+): AdvisorChat {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Mirrors `messages` so `send` can build history without re-binding.
@@ -53,6 +57,10 @@ export function useAdvisorChat(): AdvisorChat {
   useEffect(() => {
     latest.current = messages;
   }, [messages]);
+  const chipsHandler = useRef(onChips);
+  useEffect(() => {
+    chipsHandler.current = onChips;
+  }, [onChips]);
   // Aborts the reply in flight; `clear` uses it to stop a stream.
   const abort = useRef<(() => void) | null>(null);
 
@@ -84,8 +92,10 @@ export function useAdvisorChat(): AdvisorChat {
           content += token;
           patchReply({ content });
         },
-        onClose: (event) =>
-          patchReply({ chips: event.action_chips, unverified: event.unverified }),
+        onClose: (event) => {
+          patchReply({ chips: event.action_chips, unverified: event.unverified });
+          chipsHandler.current(event.action_chips);
+        },
         onDone: () => setIsLoading(false),
       },
     );

@@ -41,7 +41,7 @@ export function usePlanCourses(
 ): PlanCourses {
   const configurations = useTermPlan((p) => p.configurations);
   const watched = useTermPlan((p) => p.watchedCourseIds);
-  const proposal = usePreview((p) => p.proposal);
+  const proposals = usePreview((p) => p.proposals);
 
   const [cache, setCache] = useState<TermCache>(() => ({
     term,
@@ -102,7 +102,7 @@ export function usePlanCourses(
     const sectionIds = [
       ...new Set([
         ...configurations.flatMap((c) => c.section_ids),
-        ...(proposal?.sectionIds ?? []),
+        ...proposals.flatMap((p) => p.sectionIds),
       ]),
     ].filter((id) => !sectionsById.has(id) && !ids.has(`s:${id}`));
     const codes = [...new Set([...watched, ...wantedCodes])].filter(
@@ -129,7 +129,7 @@ export function usePlanCourses(
     add,
     configurations,
     coursesByCode,
-    proposal,
+    proposals,
     sectionsById,
     term,
     wantedCodes,
