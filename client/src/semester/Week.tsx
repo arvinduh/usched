@@ -12,7 +12,6 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Copy, Plus, X } from 'lucide-react';
 import {
-  WEEKDAYS,
   bySectionOrder,
   clashes,
   findOverlaps,
@@ -22,6 +21,13 @@ import {
   totalUnits,
 } from '../lib/schedule';
 import type { TimedMeeting } from '../lib/schedule';
+import {
+  DAYS_OF_WEEK,
+  DEFAULT_END_HOUR,
+  DEFAULT_START_HOUR,
+  EXTENDED_DAYS_OF_WEEK,
+  OVERLOAD_UNITS,
+} from '../config';
 import { displayCode } from '../lib/degree';
 import { formatHour, formatRange } from '../lib/time';
 import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/preview';
@@ -31,9 +37,6 @@ import { RatingPair } from '../ui/Glyphs';
 import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { Course, ScheduleConfiguration, Section, Weekday } from '../types';
 import styles from './Week.module.css';
-
-/** USC charges overload tuition above this many units. */
-const OVERLOAD_UNITS = 18;
 
 /**
  * Properties for the week canvas.
@@ -193,13 +196,13 @@ export function Week(props: WeekProps): React.JSX.Element {
   const blocks = useMemo(() => blocksOf(timed), [timed]);
   const ghostBlocks = useMemo(() => blocksOf(ghosts), [ghosts]);
   const everything = [...blocks, ...ghostBlocks];
-  const lo = Math.min(9, ...everything.map((b) => Math.floor(b.start / 60)));
-  const hi = Math.max(17, ...everything.map((b) => Math.ceil(b.end / 60)));
+  const lo = Math.min(DEFAULT_START_HOUR, ...everything.map((b) => Math.floor(b.start / 60)));
+  const hi = Math.max(DEFAULT_END_HOUR, ...everything.map((b) => Math.ceil(b.end / 60)));
   const span = (hi - lo) * 60;
   const pct = (minute: number): string => `${((minute - lo * 60) / span) * 100}%`;
   const days: readonly Weekday[] = everything.some((b) => b.days.includes('Sat'))
-    ? [...WEEKDAYS, 'Sat']
-    : WEEKDAYS;
+    ? EXTENDED_DAYS_OF_WEEK
+    : DAYS_OF_WEEK;
   const hours = Array.from({ length: hi - lo }, (_, i) => lo + i);
 
   const units = totalUnits(sections, coursesByCode);

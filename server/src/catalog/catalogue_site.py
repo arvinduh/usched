@@ -13,10 +13,11 @@ import re
 import httpx
 from absl import logging
 
+from server import config
 from server.src.catalog import cache, http, parse_catalogue, parse_courses
 
 
-BASE_URL = "https://catalogue.usc.edu"
+BASE_URL = config.USC_CATALOGUE_BASE
 _WORKERS = 6
 _NAV_TIMEOUT_MS = 60_000
 

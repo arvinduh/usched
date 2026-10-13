@@ -10,6 +10,7 @@
  * Advisor chat is deliberately absent: it is ephemeral.
  */
 
+import { STORAGE_KEYS } from '../config';
 import { createExternalStore, useSelector } from '../lib/externalStore';
 import type { ApCredit, ScheduleConfiguration } from '../types';
 
@@ -40,9 +41,6 @@ export interface PlanState {
   readonly welcomed: boolean;
 }
 
-/** Bump the suffix when `PlanState` changes shape; old data is discarded. */
-const STORAGE_KEY = 'usched:v2';
-
 /** The plan of a term the student has not touched yet. */
 export const EMPTY_TERM_PLAN: TermPlan = {
   configurations: [{ id: 'config-1', name: 'A', section_ids: [] }],
@@ -66,7 +64,9 @@ const DEFAULT_STATE: PlanState = {
  */
 function readStorage(): PlanState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.PLAN) ??
+      localStorage.getItem(STORAGE_KEYS.LEGACY_PLAN);
     if (raw === null) {
       return DEFAULT_STATE;
     }
@@ -83,7 +83,11 @@ const plan = createExternalStore(readStorage());
 
 // Another tab wrote (key set) or cleared storage (key null): adopt its state.
 window.addEventListener('storage', (event) => {
-  if (event.key === STORAGE_KEY || event.key === null) {
+  if (
+    event.key === STORAGE_KEYS.PLAN ||
+    event.key === STORAGE_KEYS.LEGACY_PLAN ||
+    event.key === null
+  ) {
     plan.set(readStorage());
   }
 });
@@ -132,7 +136,7 @@ export function update(recipe: (prev: PlanState) => PlanState): void {
     return;
   }
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(STORAGE_KEYS.PLAN, JSON.stringify(next));
   } catch (err) {
     console.error('Failed to persist plan state', err);
   }
@@ -159,7 +163,8 @@ export function updateTerm(recipe: (prev: TermPlan) => TermPlan): void {
  */
 export function reset(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEYS.PLAN);
+    localStorage.removeItem(STORAGE_KEYS.LEGACY_PLAN);
   } catch (err) {
     console.error('Failed to clear plan state', err);
   }

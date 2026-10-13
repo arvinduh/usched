@@ -15,14 +15,13 @@ import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from server import config
 from server.src.catalog import codes as course_codes
 from server.src.data import catalog_models as m
 from server.src.data import search
 
 
-DEFAULT_PATH = (
-  pathlib.Path(__file__).resolve().parents[2] / "data" / "catalog.db"
-)
+DEFAULT_PATH = config.DB_PATH
 _DAYS: Sequence[tuple[int, m.Weekday]] = (
   (1, m.Weekday.MON),
   (2, m.Weekday.TUE),

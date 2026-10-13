@@ -19,6 +19,7 @@ from typing import Any
 
 from absl import logging
 
+from server import config
 from server.src.catalog import (
   cache,
   catalogue_site,
@@ -35,7 +36,7 @@ from server.src.catalog import (
 
 
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parent / "schema.sql"
-DEFAULT_DB = pathlib.Path(__file__).resolve().parents[2] / "data" / "catalog.db"
+DEFAULT_DB = config.DB_PATH
 _GE_PAGE_TITLE = "General Education"
 _BASE_CODE = re.compile(r"^([A-Za-z]+)-(\d+)")
 _CODE_PARTS = re.compile(r"^([A-Za-z]+)-(\d+)(.*)$")

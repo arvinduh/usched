@@ -9,17 +9,11 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { searchCourses } from '../api/client';
+import { DEBOUNCE_MS, PAGE_SIZE } from '../config';
 import { parseQuery, readBar, searchTextOf } from '../lib/query';
 import type { Bar, ParsedQuery } from '../lib/query';
 import type { Course } from '../types';
 
-// About two screens of results: enough to scroll into while the next page
-// loads, without rendering rows nobody sees.
-const PAGE_SIZE = 40;
-// A search answers in about 20 ms, so the wait is most of what a student
-// feels. Keys come 100 to 300 ms apart, so this still skips the requests a
-// burst of fast keys would make, without making slow typists wait.
-const DEBOUNCE_MS = 60;
 const NO_COURSES: readonly Course[] = [];
 
 /**

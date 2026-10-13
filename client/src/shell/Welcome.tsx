@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { APP_NAME } from '../config';
 import { ProgramSearch } from '../degree/DegreePicker';
 import type { ProgramSummary } from '../types';
 import styles from './Welcome.module.css';
@@ -28,7 +29,7 @@ export function Welcome({ programs, onChoose, onSkip }: WelcomeProps): React.JSX
   return (
     <main className={styles.welcome}>
       <header className={styles.top}>
-        <span className={styles.wordmark}>usched</span>
+        <span className={styles.wordmark}>{APP_NAME}</span>
         <button type="button" className={styles.skip} onClick={onSkip}>
           Skip for now
         </button>

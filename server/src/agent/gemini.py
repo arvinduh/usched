@@ -20,20 +20,23 @@ from typing import Any
 import httpx
 from absl import logging
 
+from server import config
 from server.src.agent import llm
 
 
-_API = "https://generativelanguage.googleapis.com/v1beta/models"
+_API = config.GEMINI_API_URL
 # A minute of silence means a stuck request; another attempt is faster.
-_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
+_TIMEOUT = httpx.Timeout(
+  config.GEMINI_TIMEOUT_SECONDS, connect=config.GEMINI_CONNECT_TIMEOUT_SECONDS
+)
 # Thought summaries stream ahead of the answer, so the student sees the
 # advisor reason instead of waiting on silence.
 _CONFIG = {
-  "maxOutputTokens": 2048,
-  "temperature": 0.4,
+  "maxOutputTokens": config.GEMINI_MAX_OUTPUT_TOKENS,
+  "temperature": config.GEMINI_TEMPERATURE,
   "thinkingConfig": {"includeThoughts": True},
 }
-_RETRY_AFTER_S = 1.5
+_RETRY_AFTER_S = config.GEMINI_RETRY_DELAY_SECONDS
 # Overloaded (503) and rate-limited (429) requests are worth another try.
 _TRANSIENT = frozenset(
   {HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE}

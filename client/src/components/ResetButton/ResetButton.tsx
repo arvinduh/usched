@@ -7,9 +7,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { ARM_WINDOW_MS } from '../../config';
 import styles from './ResetButton.module.css';
-
-const ARM_WINDOW_MS = 3000;
 
 /**
  * Properties for the reset control.

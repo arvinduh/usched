@@ -19,6 +19,8 @@ import os
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, Literal, Protocol
 
+from server import config
+
 
 @dataclasses.dataclass(frozen=True)
 class Tool:
@@ -41,7 +43,7 @@ class Turn:
 Execute = Callable[[str, Mapping[str, Any]], str]
 
 # Rounds of tool calls a reply may make before it must answer in words.
-TOOL_ROUNDS = 2
+TOOL_ROUNDS = config.MAX_TOOL_ROUNDS
 
 
 @dataclasses.dataclass(frozen=True)

@@ -11,10 +11,11 @@ import dataclasses
 import httpx
 from absl import logging
 
+from server import config
 from server.src.catalog import cache, http, parse_classes
 
 
-BASE_URL = "https://classes.usc.edu/api"
+BASE_URL = config.USC_CLASSES_API_BASE
 TERMS_KEY = "classes/terms.json"
 _WORKERS = 8
 

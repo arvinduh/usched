@@ -8,15 +8,16 @@ rank exact codes first. Executing the query and ranking belong to
 
 import dataclasses
 import json
-import pathlib
 import re
+
+from server import config
 
 
 # Common abbreviations students type, mapped to the phrases catalog titles
 # and descriptions actually use. The abbreviation itself is always kept too.
 # The client's program search reads the same file.
 _ALIASES: dict[str, list[str]] = json.loads(
-  pathlib.Path(__file__).with_name("abbreviations.json").read_text()
+  (config.SEEDS_DIR / "abbreviations.json").read_text(encoding="utf-8")
 )
 
 _TOKEN = re.compile(r"[a-z]+|\d+[a-z]*")
@@ -62,3 +63,9 @@ def parse(text: str) -> Match | None:
     f"{code.group(1).upper()}-{code.group(2).upper()}%" if code else None
   )
   return Match(fts=" AND ".join(groups), code_prefix=code_prefix)
+
+
+__all__ = [
+  "Match",
+  "parse",
+]

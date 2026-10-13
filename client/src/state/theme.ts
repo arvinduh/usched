@@ -9,16 +9,17 @@
  * to avoid a flash of the wrong theme.
  */
 
+import { STORAGE_KEYS } from '../config';
 import { createExternalStore, useSelector } from '../lib/externalStore';
 
 /** A theme choice. */
 export type Theme = 'system' | 'light' | 'dark';
 
-const STORAGE_KEY = 'usched:theme';
-
 function readTheme(): Theme {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved =
+      localStorage.getItem(STORAGE_KEYS.THEME) ??
+      localStorage.getItem(STORAGE_KEYS.LEGACY_THEME);
     return saved === 'light' || saved === 'dark' ? saved : 'system';
   } catch {
     return 'system';
@@ -50,9 +51,10 @@ export function setTheme(next: Theme): void {
   apply(next);
   try {
     if (next === 'system') {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEYS.THEME);
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_THEME);
     } else {
-      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(STORAGE_KEYS.THEME, next);
     }
   } catch (err) {
     console.error('Failed to save theme', err);

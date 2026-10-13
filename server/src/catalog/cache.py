@@ -13,8 +13,10 @@ import pathlib
 import time
 from typing import Any
 
+from server import config
 
-DEFAULT_ROOT = pathlib.Path(__file__).resolve().parents[2] / "data" / "raw"
+
+DEFAULT_ROOT = config.RAW_CACHE_DIR
 
 
 class RawCache:

@@ -14,10 +14,11 @@ from typing import Any
 import httpx
 from absl import logging
 
+from server import config
 from server.src.catalog import cache, http, records
 
 
-GRAPHQL_URL = "https://www.ratemyprofessors.com/graphql"
+GRAPHQL_URL = config.RMP_GRAPHQL_ENDPOINT
 USC_SCHOOL_ID = "U2Nob29sLTEzODE="
 # RMP's public web client authenticates with this fixed demo credential.
 _AUTH = "Basic dGVzdDp0ZXN0"

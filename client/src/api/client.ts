@@ -21,11 +21,12 @@ import type {
   Section,
   Term,
 } from '../types';
+import { API_BASE_URL, uscCourseUrl } from '../config';
 
-const API = '/api';
+export { uscCourseUrl };
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`);
+  const res = await fetch(`${API_BASE_URL}${path}`);
   if (!res.ok) {
     throw new Error(`GET ${path} failed: ${res.status}`);
   }
@@ -33,7 +34,7 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -42,14 +43,6 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     throw new Error(`POST ${path} failed: ${res.status}`);
   }
   return res.json() as Promise<T>;
-}
-
-/**
- * Links to a course on USC's Schedule of Classes for a term.
- */
-export function uscCourseUrl(code: string, term: number): string {
-  const smashed = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  return `https://classes.usc.edu/term/${term}/catalogue/course/${smashed}`;
 }
 
 /** Lists every term, newest first. */
@@ -204,7 +197,7 @@ export function streamChat(
   };
   void (async () => {
     try {
-      const res = await fetch(`${API}/chat`, {
+      const res = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -18,28 +18,10 @@ from fastapi.middleware import gzip
 from starlette.responses import Response
 from starlette.types import Scope
 
+from server import config
 from server.src.agent import llm
 from server.src.data import catalog_db
 from server.src.routes import catalog, chat
-
-
-def _load_env_file() -> None:
-  """Loads key-value pairs from root .env file into environment variables."""
-  env_path = Path(".env")
-  if not env_path.is_file():
-    return
-  try:
-    with open(env_path, encoding="utf-8") as f:
-      for line in f:
-        trimmed = line.strip()
-        if trimmed and not trimmed.startswith("#") and "=" in trimmed:
-          key, val = trimmed.split("=", 1)
-          os.environ.setdefault(key.strip(), val.strip())
-  except OSError:
-    pass
-
-
-_load_env_file()
 
 
 @contextlib.asynccontextmanager
@@ -90,7 +72,7 @@ def health_check() -> dict[str, str]:
 
 # In production the built client is served from here, so the page and the
 # API share one origin. During development Vite serves it and proxies /api.
-_CLIENT = Path(__file__).resolve().parents[1] / "client" / "dist"
+_CLIENT = config.CLIENT_DIST_DIR
 
 
 class _Client(staticfiles.StaticFiles):
@@ -119,6 +101,11 @@ class _Client(staticfiles.StaticFiles):
 if _CLIENT.is_dir():
   app.mount("/", _Client(directory=_CLIENT, html=True))
 
+__all__ = [
+  "app",
+  "health_check",
+  "lifespan",
+]
 
 if __name__ == "__main__":
   # Development server (`npm run dev`). A short graceful shutdown keeps
@@ -126,7 +113,7 @@ if __name__ == "__main__":
   uvicorn.run(
     "server.main:app",
     host="127.0.0.1",
-    port=int(os.getenv("PORT", "18800")),
+    port=config.PORT,
     reload=True,
     reload_dirs=["server"],
     timeout_graceful_shutdown=1,

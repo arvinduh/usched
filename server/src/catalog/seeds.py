@@ -2,17 +2,14 @@
 
 Seeds are the source of truth for data USC states only in prose (how many
 courses each GE category needs, which AP exams earn what). They live as
-reviewable JSON next to this module and are read at build time.
+reviewable JSON in server/seeds and are read at build time.
 """
 
 import dataclasses
 import json
-import pathlib
 
+from server import config
 from server.src.catalog import records
-
-
-_DIR = pathlib.Path(__file__).resolve().parent / "seeds"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -35,7 +32,9 @@ class ApSeed:
 
 def ge_rules() -> list[GeRule]:
   """Reads seeds/ge_categories.json."""
-  data = json.loads((_DIR / "ge_categories.json").read_text(encoding="utf-8"))
+  data = json.loads(
+    (config.SEEDS_DIR / "ge_categories.json").read_text(encoding="utf-8")
+  )
   return [
     GeRule(c["code"], c["area"], int(c["required_count"]))
     for c in data["categories"]
@@ -44,13 +43,20 @@ def ge_rules() -> list[GeRule]:
 
 def bachelor_minimum_units() -> float:
   """Reads seeds/degree_policy.json: units any bachelor's degree requires."""
-  data = json.loads((_DIR / "degree_policy.json").read_text(encoding="utf-8"))
-  return float(data["bachelor_minimum_units"])
+  policy_file = config.SEEDS_DIR / "degree_policy.json"
+  if not policy_file.is_file():
+    return config.DEFAULT_BACHELOR_MINIMUM_UNITS
+  data = json.loads(policy_file.read_text(encoding="utf-8"))
+  return float(
+    data.get("bachelor_minimum_units", config.DEFAULT_BACHELOR_MINIMUM_UNITS)
+  )
 
 
 def ap_exams() -> ApSeed:
   """Reads seeds/ap_exams.json."""
-  data = json.loads((_DIR / "ap_exams.json").read_text(encoding="utf-8"))
+  data = json.loads(
+    (config.SEEDS_DIR / "ap_exams.json").read_text(encoding="utf-8")
+  )
   seed = ApSeed([], [], [])
   for exam in data["exams"]:
     seed.exams.append(
@@ -66,3 +72,12 @@ def ap_exams() -> ApSeed:
       records.ApExamWaiver(exam["id"], code) for code in exam["waives"]
     )
   return seed
+
+
+__all__ = [
+  "ApSeed",
+  "GeRule",
+  "ap_exams",
+  "bachelor_minimum_units",
+  "ge_rules",
+]

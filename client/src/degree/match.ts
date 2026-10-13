@@ -7,7 +7,7 @@
  * programs only; the picker owns presentation.
  */
 
-import abbreviations from '../../../server/src/data/abbreviations.json';
+import abbreviations from '../../../server/seeds/abbreviations.json';
 import type { ProgramSummary } from '../types';
 
 const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = abbreviations;

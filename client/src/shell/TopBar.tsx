@@ -11,6 +11,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { ResetButton } from '../components/ResetButton/ResetButton';
+import { APP_NAME } from '../config';
 import { setTheme, useTheme } from '../state/theme';
 import type { Theme } from '../state/theme';
 import type { Term } from '../types';
@@ -92,7 +93,7 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
   return (
     <header className={styles.bar}>
       <button type="button" className={styles.wordmark} onClick={onHome}>
-        usched
+        {APP_NAME}
       </button>
 
       <button
