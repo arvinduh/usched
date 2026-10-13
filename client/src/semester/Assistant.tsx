@@ -217,6 +217,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
               onOpenCourse={props.onOpenCode}
               onNewChat={props.onNewChat}
               stateOf={stateOf}
+              busy={props.busy}
             />
           ) : (
             <div className={styles.starters}>

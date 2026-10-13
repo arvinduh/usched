@@ -172,6 +172,10 @@ export function getApExams(): Promise<readonly ApExam[]> {
 /** Callbacks for one streamed advisor reply. */
 export interface ChatHandlers {
   readonly onToken: (token: string) => void;
+  /** A tool the advisor started, in words ("Searching courses for …"). */
+  readonly onStep: (step: string) => void;
+  /** A piece of the advisor's reasoning summary. */
+  readonly onThought: (text: string) => void;
   /** The reply's last event: chips and any unverified courses. */
   readonly onClose: (event: ClosingEvent) => void;
   readonly onDone: () => void;
@@ -185,7 +189,7 @@ export interface ChatHandlers {
  */
 export function streamChat(
   request: ChatRequest,
-  { onToken, onClose, onDone }: ChatHandlers,
+  { onToken, onStep, onThought, onClose, onDone }: ChatHandlers,
 ): () => void {
   const controller = new AbortController();
   let finished = false;
@@ -228,9 +232,15 @@ export function streamChat(
           }
           const parsed = JSON.parse(data) as
             | { readonly token: string }
+            | { readonly step: string }
+            | { readonly thought: string }
             | ClosingEvent;
           if ('token' in parsed) {
             onToken(parsed.token);
+          } else if ('step' in parsed) {
+            onStep(parsed.step);
+          } else if ('thought' in parsed) {
+            onThought(parsed.thought);
           } else {
             onClose(parsed);
           }
