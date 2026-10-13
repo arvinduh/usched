@@ -315,6 +315,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
         setText={setText}
         bar={bar}
         top={results[0] ?? null}
+        suggestions={bar.kind === 'took' ? courses : []}
         busy={props.busy}
         inputRef={props.inputRef}
         onOpen={props.onOpenCourse}
