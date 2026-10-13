@@ -90,11 +90,13 @@ if _CLIENT.is_dir():
 
 
 if __name__ == "__main__":
+  # Development server (`npm run dev`). A short graceful shutdown keeps
+  # Ctrl+C from waiting on connections the browser holds open.
   uvicorn.run(
     "server.main:app",
     host="127.0.0.1",
-    port=18800,
+    port=int(os.getenv("PORT", "18800")),
     reload=True,
+    reload_dirs=["server"],
     timeout_graceful_shutdown=1,
-    timeout_keep_alive=3,
   )
