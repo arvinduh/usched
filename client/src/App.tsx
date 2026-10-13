@@ -614,7 +614,17 @@ function Planner({
   };
 
   if (!programId && !welcomed) {
-    return <Welcome programs={programs} onChoose={selectProgram} onSkip={skipWelcome} />;
+    // A new program opens its degree, where taken courses get marked next.
+    return (
+      <Welcome
+        programs={programs}
+        onChoose={(id) => {
+          selectProgram(id);
+          setSpace('degree');
+        }}
+        onSkip={skipWelcome}
+      />
+    );
   }
 
   const plan: CoursePlan = {
