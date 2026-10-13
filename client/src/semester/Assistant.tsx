@@ -81,9 +81,23 @@ function filterChips(f: SectionFilter): readonly FilterChip[] {
   return chips;
 }
 
-/** Shows a layer, or hides it in place so it keeps its scroll position. */
-function layer(isShown: boolean): React.CSSProperties | undefined {
-  return isShown ? undefined : { visibility: 'hidden' };
+/**
+ * One scrolling layer of the column. A covered layer skips style, layout,
+ * and paint, yet keeps its state and scroll: its body remembers its last
+ * rendered size, so the scroller's height (and so its offset) survives.
+ */
+function Layer({
+  covered,
+  children,
+  ...rest
+}: { readonly covered: boolean } & React.ComponentProps<'div'>): React.JSX.Element {
+  return (
+    <div className={styles.layer} {...rest}>
+      <div className={styles.layerBody} data-covered={covered}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -180,7 +194,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   return (
     <div className={styles.assistant}>
       <div className={styles.layers}>
-        <div className={styles.layer} style={layer(!typing && !card)}>
+        <Layer covered={typing || card !== null}>
           {props.savedCourses.length > 0 && (
             <section className={styles.saved}>
               <h3 className={styles.heading}>Saved</h3>
@@ -211,15 +225,10 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
               ))}
             </div>
           )}
-        </div>
+        </Layer>
 
         {typing && (
-          <div
-            className={styles.layer}
-            style={layer(!card)}
-            ref={resultsLayer}
-            onKeyDown={onResultsKey}
-          >
+          <Layer covered={card !== null} ref={resultsLayer} onKeyDown={onResultsKey}>
             {!taken && (
               <div className={styles.resultsHead}>
                 <div className={styles.chips}>
@@ -305,10 +314,10 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
               </p>
             )}
             <div ref={sentinel} className={styles.sentinel} />
-          </div>
+          </Layer>
         )}
 
-        {card && <div className={styles.layer}>{card}</div>}
+        {card && <Layer covered={false}>{card}</Layer>}
       </div>
 
       <Composer
