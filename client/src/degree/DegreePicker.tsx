@@ -7,13 +7,11 @@
  * first-run welcome also uses. Selection is delegated to the caller.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { ProgramSummary } from '../types';
 import { indexPrograms, rankPrograms } from './match';
 import styles from './Degree.module.css';
-
-const MAX_RESULTS = 8;
 
 /**
  * Properties for the degree picker.
@@ -82,13 +80,18 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
   const { programs, onChoose, onCancel } = props;
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
+  const list = useRef<HTMLUListElement>(null);
   const detailOf = useProgramDetail(programs);
 
   const index = useMemo(() => indexPrograms(programs), [programs]);
-  const matches = useMemo(
-    () => rankPrograms(index, query).slice(0, MAX_RESULTS),
-    [index, query],
-  );
+  // Typing stays immediate; re-ranking every program follows a beat behind.
+  const deferredQuery = useDeferredValue(query);
+  const matches = useMemo(() => rankPrograms(index, deferredQuery), [index, deferredQuery]);
+
+  const moveTo = (i: number): void => {
+    setCursor(i);
+    list.current?.children[i]?.scrollIntoView({ block: 'nearest' });
+  };
 
   return (
     <div className={styles.combo}>
@@ -104,15 +107,16 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
         onChange={(e) => {
           setQuery(e.target.value);
           setCursor(0);
+          list.current?.scrollTo({ top: 0 });
         }}
         onBlur={onCancel}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setCursor((c) => Math.min(c + 1, matches.length - 1));
+            moveTo(Math.min(cursor + 1, matches.length - 1));
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            setCursor((c) => Math.max(c - 1, 0));
+            moveTo(Math.max(cursor - 1, 0));
           } else if (e.key === 'Enter' && matches[cursor]) {
             onChoose(matches[cursor].id);
           } else if (e.key === 'Escape' && onCancel) {
@@ -121,34 +125,61 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
           }
         }}
       />
-      <ul id="degree-options" role="listbox" className={styles.options}>
-        {matches.map((d, i) => {
-          const detail = detailOf(d);
-          return (
-            <li
-              key={d.id}
-              id={`degree-${d.id}`}
-              role="option"
-              aria-selected={i === cursor}
-              className={`${styles.option} ${i === cursor ? styles.optionOn : ''}`}
-              onMouseEnter={() => setCursor(i)}
-              // Choose on mousedown so the input's blur doesn't close first.
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onChoose(d.id);
-              }}
-            >
-              <span className={styles.optionText}>
-                <span>{d.name}</span>
-                {detail && <span className={styles.optionEmphasis}>{detail}</span>}
-              </span>
-              <TypeChip type={typeOf(d)} />
-            </li>
-          );
-        })}
+      <ul ref={list} id="degree-options" role="listbox" className={styles.options}>
+        {matches.map((d, i) => (
+          <ProgramOption
+            key={d.id}
+            program={d}
+            detail={detailOf(d)}
+            position={i}
+            isActive={i === cursor}
+            onHover={setCursor}
+            onChoose={onChoose}
+          />
+        ))}
         {matches.length === 0 && <li className={styles.optionEmpty}>No programs match.</li>}
       </ul>
     </div>
+  );
+}
+
+/**
+ * Properties for one program in the combobox's list.
+ */
+interface ProgramOptionProps {
+  readonly program: ProgramSummary;
+  readonly detail: string;
+  readonly position: number;
+  readonly isActive: boolean;
+  readonly onHover: (position: number) => void;
+  readonly onChoose: (programId: string) => void;
+}
+
+/**
+ * Renders one choice. Its own component, so moving the cursor re-renders
+ * the two rows it leaves and enters rather than every program.
+ */
+function ProgramOption(props: ProgramOptionProps): React.JSX.Element {
+  const { program, detail, position, isActive, onHover, onChoose } = props;
+  return (
+    <li
+      id={`degree-${program.id}`}
+      role="option"
+      aria-selected={isActive}
+      className={`${styles.option} ${isActive ? styles.optionOn : ''}`}
+      onMouseEnter={() => onHover(position)}
+      // Choose on mousedown so the input's blur doesn't close first.
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onChoose(program.id);
+      }}
+    >
+      <span className={styles.optionText}>
+        <span>{program.name}</span>
+        {detail && <span className={styles.optionEmphasis}>{detail}</span>}
+      </span>
+      <TypeChip type={typeOf(program)} />
+    </li>
   );
 }
 
