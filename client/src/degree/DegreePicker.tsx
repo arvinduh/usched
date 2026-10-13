@@ -10,7 +10,7 @@
 import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { ProgramSummary } from '../types';
-import { indexPrograms, rankPrograms } from './match';
+import { indexPrograms, LEVELS, levelOf, rankPrograms, type Level } from './match';
 import styles from './Degree.module.css';
 
 /**
@@ -80,21 +80,51 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
   const { programs, onChoose, onCancel } = props;
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
+  // Null shows every level.
+  const [level, setLevel] = useState<Level | null>(null);
   const list = useRef<HTMLUListElement>(null);
   const detailOf = useProgramDetail(programs);
 
   const index = useMemo(() => indexPrograms(programs), [programs]);
+  // Chips only for levels the catalog has, and none when there is one.
+  const levels = useMemo(() => {
+    const present = new Set(programs.map(levelOf));
+    const offered = LEVELS.filter((l) => present.has(l.level));
+    return offered.length > 1 ? offered : [];
+  }, [programs]);
+  const pool = useMemo(
+    () => (level ? index.filter((p) => levelOf(p.program) === level) : index),
+    [index, level],
+  );
   // Typing stays immediate; re-ranking every program follows a beat behind.
   const deferredQuery = useDeferredValue(query);
-  const matches = useMemo(() => rankPrograms(index, deferredQuery), [index, deferredQuery]);
+  const matches = useMemo(() => rankPrograms(pool, deferredQuery), [pool, deferredQuery]);
 
   const moveTo = (i: number): void => {
     setCursor(i);
     list.current?.children[i]?.scrollIntoView({ block: 'nearest' });
   };
+  const restart = (): void => {
+    setCursor(0);
+    list.current?.scrollTo({ top: 0 });
+  };
 
   return (
-    <div className={styles.combo}>
+    <div
+      className={styles.combo}
+      // Focus may move between the input and the chips; leaving both closes.
+      onBlur={(e) => {
+        if (onCancel && !e.currentTarget.contains(e.relatedTarget)) {
+          onCancel();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && onCancel) {
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+    >
       <input
         autoFocus
         className={styles.comboInput}
@@ -106,10 +136,8 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
         aria-activedescendant={matches[cursor] ? `degree-${matches[cursor].id}` : undefined}
         onChange={(e) => {
           setQuery(e.target.value);
-          setCursor(0);
-          list.current?.scrollTo({ top: 0 });
+          restart();
         }}
-        onBlur={onCancel}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -119,26 +147,45 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
             moveTo(Math.max(cursor - 1, 0));
           } else if (e.key === 'Enter' && matches[cursor]) {
             onChoose(matches[cursor].id);
-          } else if (e.key === 'Escape' && onCancel) {
-            e.stopPropagation();
-            onCancel();
           }
         }}
       />
-      <ul ref={list} id="degree-options" role="listbox" className={styles.options}>
-        {matches.map((d, i) => (
-          <ProgramOption
-            key={d.id}
-            program={d}
-            detail={detailOf(d)}
-            position={i}
-            isActive={i === cursor}
-            onHover={setCursor}
-            onChoose={onChoose}
-          />
-        ))}
-        {matches.length === 0 && <li className={styles.optionEmpty}>No programs match.</li>}
-      </ul>
+      <div className={styles.popup}>
+        {levels.length > 0 && (
+          <div role="group" aria-label="Program level" className={styles.levels}>
+            {[{ level: null, label: 'All' }, ...levels].map((l) => (
+              <button
+                key={l.label}
+                type="button"
+                aria-pressed={level === l.level}
+                className={`${styles.level} ${level === l.level ? styles.levelOn : ''}`}
+                // Keep focus in the input, so typing carries on after a click.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setLevel(l.level);
+                  restart();
+                }}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <ul ref={list} id="degree-options" role="listbox" className={styles.options}>
+          {matches.map((d, i) => (
+            <ProgramOption
+              key={d.id}
+              program={d}
+              detail={detailOf(d)}
+              position={i}
+              isActive={i === cursor}
+              onHover={setCursor}
+              onChoose={onChoose}
+            />
+          ))}
+          {matches.length === 0 && <li className={styles.optionEmpty}>No programs match.</li>}
+        </ul>
+      </div>
     </div>
   );
 }

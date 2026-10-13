@@ -3,14 +3,44 @@
  *
  * Reads the server's abbreviation list, so "ai for business" finds
  * Artificial Intelligence for Business and "cs games" finds Computer
- * Science (Games), just as course search expands them. Ranks programs
- * only; the picker owns presentation.
+ * Science (Games), just as course search expands them. Ranks and groups
+ * programs only; the picker owns presentation.
  */
 
 import abbreviations from '../../../server/src/data/abbreviations.json';
 import type { ProgramSummary } from '../types';
 
 const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = abbreviations;
+
+/** How far along a program leads: what the picker's chips filter by. */
+export type Level = 'major' | 'minor' | 'master' | 'doctoral';
+
+/** The chips' order and labels. */
+export const LEVELS: readonly { readonly level: Level; readonly label: string }[] = [
+  { level: 'major', label: 'Major' },
+  { level: 'minor', label: 'Minor' },
+  { level: 'master', label: "Master's" },
+  { level: 'doctoral', label: 'Doctoral' },
+];
+
+/**
+ * Groups a program by its degree type: BS is a major, MS a master's, PhD
+ * or MD doctoral. Null for types that fit none, which only "All" shows.
+ */
+export function levelOf(p: ProgramSummary): Level | null {
+  if (p.kind === 'minor') {
+    return 'minor';
+  }
+  const type = p.degree_type ?? '';
+  if (type.startsWith('B')) {
+    return 'major';
+  }
+  // Before master's: MD is a doctorate, as are PhD, JD, EdD, and DPT.
+  if (/^D|D$/.test(type)) {
+    return 'doctoral';
+  }
+  return /^(M|LLM)/.test(type) ? 'master' : null;
+}
 
 /** A program with its title split once, for matching on every keystroke. */
 export interface IndexedProgram {
