@@ -343,6 +343,14 @@ export interface components {
              * @default []
              */
             ap_credits: components["schemas"]["ApCredit"][];
+            /**
+             * Variants
+             * @description The student's other schedules.
+             * @default []
+             */
+            variants: components["schemas"]["Variant"][];
+            /** @description What the student is looking at as they ask. */
+            screen?: components["schemas"]["Screen"];
         };
         /**
          * ChatTurn
@@ -812,6 +820,26 @@ export interface components {
             inclusive: boolean;
         };
         /**
+         * Screen
+         * @description What the student is looking at as they ask.
+         *
+         *     Attributes:
+         *       page: The planner (week and column) or the degree page.
+         *       open_course: The course whose card is open, if any.
+         *       proposal: The advisor's proposal the week projects, not yet kept.
+         */
+        Screen: {
+            /**
+             * Page
+             * @default planner
+             * @enum {string}
+             */
+            page: "planner" | "degree";
+            /** Open Course */
+            open_course?: string | null;
+            proposal?: components["schemas"]["Variant"] | null;
+        };
+        /**
          * Search
          * @description Runs a course search.
          */
@@ -935,6 +963,16 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * Variant
+         * @description A named schedule: one the student keeps, or a proposal on the week.
+         */
+        Variant: {
+            /** Name */
+            name: string;
+            /** Section Ids */
+            section_ids: string[];
         };
         /**
          * WatchCourse

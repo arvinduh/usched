@@ -2,14 +2,14 @@
  * Ephemeral advisor conversation state and token streaming.
  *
  * Holds the message list in memory only, so a reload starts a fresh
- * conversation. Plan context (term, schedule, shortlist, completed, program)
- * is passed in per message by the caller; this hook never reads the plan
+ * conversation. Plan context (term, schedules, shortlist, completed,
+ * program) and what is on screen are passed in per message by the caller; this hook never reads the plan
  * store.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamChat } from '../api/client';
-import type { ApCredit, ChatMessage, Chip } from '../types';
+import type { ApCredit, ChatMessage, Chip, Screen, Variant } from '../types';
 
 /**
  * Plan snapshot sent alongside each message to ground the advisor.
@@ -22,6 +22,10 @@ export interface AdvisorContext {
   readonly completedCodes: readonly string[];
   readonly apCredits: readonly ApCredit[];
   readonly programId: string;
+  /** The student's other schedules. */
+  readonly variants: readonly Variant[];
+  /** What the student is looking at as they ask. */
+  readonly screen: Screen;
 }
 
 /**
@@ -86,6 +90,8 @@ export function useAdvisorChat(
         shortlisted: [...context.shortlistedCodes],
         completed: [...context.completedCodes],
         ap_credits: [...context.apCredits],
+        variants: [...context.variants],
+        screen: context.screen,
       },
       {
         onToken: (token) => {

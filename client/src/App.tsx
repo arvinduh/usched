@@ -55,7 +55,7 @@ import {
   toggleSection,
   toggleWatch,
 } from './state/actions';
-import { setExpanded, setProposals } from './state/preview';
+import { setExpanded, setProposals, shownProposal, usePreview } from './state/preview';
 import type { Proposal } from './state/preview';
 import { reset, useStore, useTermPlan } from './state/store';
 import { showToast, undoLast } from './state/toast';
@@ -178,6 +178,7 @@ function Planner({
   const [paneWidth, setPaneWidth] = useState(readPaneWidth);
   const [space, setSpace] = useState<Space>('planner');
   const [opened, setOpened] = useState<Opened | null>(null);
+  const proposal = usePreview(shownProposal);
   // The latest open request, so a slow lookup never replaces a newer card.
   const opening = useRef('');
 
@@ -494,6 +495,15 @@ function Planner({
   };
 
   const handleAsk = (text: string): void => {
+    // What the student was looking at, captured before the view resets.
+    const screen = {
+      page: space,
+      open_course: opened?.code ?? null,
+      proposal: proposal && {
+        name: proposal.name,
+        section_ids: [...proposal.sectionIds],
+      },
+    };
     go('planner');
     closeCourse();
     setSearchText('');
@@ -504,6 +514,10 @@ function Planner({
       completedCodes: completedCourseIds,
       apCredits,
       programId,
+      variants: configurations
+        .filter((c) => c.id !== activeConfig.id)
+        .map((c) => ({ name: c.name, section_ids: [...c.section_ids] })),
+      screen,
     });
   };
 
