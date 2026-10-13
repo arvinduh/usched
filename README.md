@@ -4,16 +4,18 @@ A calm course planner for USC students. Find classes, pick sections right on
 your week, and see how each choice moves you toward your degree. Everything you
 plan stays in your browser.
 
-Everything happens on one screen: your week, and beside it one column with one
-input.
+Two places that work as one: the planner (your week, and beside it one column
+with one input) and your degree, which drops down from the top bar's meter.
 
 - **The input** does whatever you type: a course opens it, a question asks the
   advisor, and "took CSCI 103L, MATH 125" marks courses taken. It always says
   what Enter will do.
-- **The column** shows your saved courses, your degree, and the conversation
-  when you're not typing, and live matches while you are. Your degree's
-  requirement tree reads at a glance: loose chips mean take all, chips in a box
-  mean pick one; ✓ is taken, striped is on this term's week.
+- **The column** shows your saved courses, the degree courses you can take
+  next, and the conversation when you're not typing, and live matches while
+  you are.
+- **Your degree** (click the meter or press `D`) reads at a glance: loose chips
+  mean take all, chips in a box mean pick one; ✓ is taken, striped is on this
+  term's week. Hover a course to mark it taken; click it to plan it.
 - **One course card** opens from anywhere a course appears: the degree, search,
   an advisor reply, or a block on the week. It shows prerequisites and
   sections, and its sections ghost onto the week; click a ghost to take it.
@@ -84,7 +86,8 @@ except the advisor works, and asking a question explains what to set up.
 | :-------------- | :------------------------------------------------ |
 | `/` or `⌘J`     | Focus the input                                   |
 | `↑` `↓` `→`     | Move through matches; open the one under focus    |
-| `Esc`           | Close the course card, then clear the input       |
+| `D`             | Open or close your degree                         |
+| `Esc`           | Close the degree, the course card, then the input |
 | `[` `]`         | Previous / next schedule variant                  |
 | `⌘Enter`        | Ask the advisor even when the text names a course |
 | `⌘Z` / `Ctrl+Z` | Undo the last change                              |
