@@ -4,19 +4,28 @@ A calm course planner for USC students. Find classes, pick sections right on
 your week, and see how each choice moves you toward your degree. Everything you
 plan stays in your browser.
 
-- **Semester**: pick any fetched term from the top bar; each keeps its own
-  schedules. One input at the bottom of the left pane asks the advisor or finds
-  courses, and says what Enter will do as you type. Opening a course ghosts
-  every section onto your week; click a ghost to take it. Linked lectures, labs,
-  and quizzes stay together, and conflicts, units, missing components, and
-  D-clearance show up as you go.
-- **Degree**: pick your program by typing, mark what you've taken, and read its
-  requirement tree at a glance (loose chips mean take all, chips in a box mean
-  pick one). Hover a locked course to see what's blocking it.
-- **Advisor** (optional): answers from a brief of your real progress, next
-  courses, and week; searches the catalog and proposes whole schedules you keep
-  or discard. Courses it names that no source backs are flagged. Runs on Gemini
-  (hosted) or a local Ollama model.
+Everything happens on one screen: your week, and beside it one column with one
+input.
+
+- **The input** does whatever you type: a course opens it, a question asks the
+  advisor, and "took CSCI 103L, MATH 125" marks courses taken. It always says
+  what Enter will do.
+- **The column** shows your saved courses, your degree, and the conversation
+  when you're not typing, and live matches while you are. Your degree's
+  requirement tree reads at a glance: loose chips mean take all, chips in a box
+  mean pick one; ✓ is taken, striped is on this term's week.
+- **One course card** opens from anywhere a course appears: the degree, search,
+  an advisor reply, or a block on the week. It shows prerequisites and
+  sections, and its sections ghost onto the week; click a ghost to take it.
+  Linked lectures, labs, and quizzes stay together, and conflicts, units,
+  missing components, and D-clearance show up as you go.
+- **The advisor** (optional) answers from a brief of your real progress, next
+  courses, and week. Schedules it proposes appear on your week right away:
+  flip through the options and keep one. Courses it names that the catalog
+  lacks are flagged. Runs on Gemini (hosted) or a local Ollama model.
+
+Pick any fetched term from the top bar; each keeps its own schedules. The first
+visit asks for your program.
 
 ## Requirements
 
@@ -73,14 +82,14 @@ except the advisor works, and asking a question explains what to set up.
 
 | Key             | Action                                            |
 | :-------------- | :------------------------------------------------ |
-| `/`             | Search courses, or type a question to ask         |
-| `↑` `↓` `→` `←` | Move through results, expand and collapse courses |
-| `D`             | Switch between your week and your degree          |
+| `/` or `⌘J`     | Focus the input                                   |
+| `↑` `↓` `→`     | Move through matches; open the one under focus    |
+| `Esc`           | Close the course card, then clear the input       |
 | `[` `]`         | Previous / next schedule variant                  |
-| `⌘J` / `Ctrl+J` | Ask the advisor                                   |
-| `⌘Z` / `Ctrl+Z` | Undo the last removal                             |
+| `⌘Enter`        | Ask the advisor even when the text names a course |
+| `⌘Z` / `Ctrl+Z` | Undo the last change                              |
 
-Right-click a section to add it to another variant. The `⋯` menu copies your
+Right-click a section to add it to another variant. The settings menu copies your
 section numbers for registration and resets all local data.
 
 ## Commands
