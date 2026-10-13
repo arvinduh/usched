@@ -27,6 +27,20 @@
 }
 
 .meter:hover,
+.meterOn {
+  background: var(--hover);
+}
+
+.meterOn .label {
+  color: var(--text-primary);
+}
+
+/* The Degree page's bar takes this name while it is open; names must be
+   unique on screen, so the meter only holds it while the page is closed. */
+.morph {
+  view-transition-name: degree-progress;
+}
+
 .label {
   font-size: 12px;
   color: var(--text-muted);

@@ -31,11 +31,13 @@ interface TermCache {
 }
 
 /**
- * Merges the catalog page with cached plan courses and hydrates misses.
+ * Merges the catalog page with cached plan courses and hydrates misses,
+ * including `wantedCodes` the caller is about to show (next up).
  */
 export function usePlanCourses(
   term: number,
   catalog: readonly Course[],
+  wantedCodes: readonly string[],
 ): PlanCourses {
   const configurations = useTermPlan((p) => p.configurations);
   const watched = useTermPlan((p) => p.watchedCourseIds);
@@ -103,7 +105,7 @@ export function usePlanCourses(
         ...proposals.flatMap((p) => p.sectionIds),
       ]),
     ].filter((id) => !sectionsById.has(id) && !ids.has(`s:${id}`));
-    const codes = watched.filter(
+    const codes = [...new Set([...watched, ...wantedCodes])].filter(
       (code) => !coursesByCode.has(code) && !ids.has(`c:${code}`),
     );
     if (sectionIds.length === 0 && codes.length === 0) {
@@ -130,6 +132,7 @@ export function usePlanCourses(
     proposals,
     sectionsById,
     term,
+    wantedCodes,
     watched,
   ]);
 

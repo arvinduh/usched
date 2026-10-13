@@ -3,12 +3,13 @@
  *
  * One input sits at the bottom; what fills the column follows what the
  * student is doing, never a tab or mode they pick. At rest it is the feed:
- * saved courses, their degree, then the conversation (or prompts to start
- * one). Typing lays live course matches over the feed, and an open course
- * lays its card over both. Covered layers stay mounted and keep their
- * scroll, so closing a card or clearing the text returns exactly where the
- * student was. The degree and the card arrive as rendered slots; plan
- * edits, chat sending, and navigation belong to the caller.
+ * saved courses, the degree courses they can take next, then the
+ * conversation (or prompts to start one). Typing lays live course matches
+ * over the feed, and an open course lays its card over both. Covered
+ * layers stay mounted and keep their scroll, so closing a card or clearing
+ * the text returns exactly where the student was. The card arrives as a
+ * rendered slot; plan edits, chat sending, and navigation belong to the
+ * caller.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -104,8 +105,8 @@ export interface AssistantProps {
   readonly onOpenCourse: (course: Course) => void;
   /** Opens a course named by code, as advisor replies name them. */
   readonly onOpenCode: (code: string) => void;
-  /** The degree audit, shown in the feed. */
-  readonly degree: React.ReactNode;
+  /** Degree courses the student can take next, best first. */
+  readonly nextUp: readonly Course[];
   /** The open course's card, or null. */
   readonly card: React.ReactNode;
   readonly savedCourses: readonly Course[];
@@ -186,7 +187,12 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
               {props.savedCourses.map(line)}
             </section>
           )}
-          {props.degree}
+          {props.nextUp.length > 0 && (
+            <section className={styles.saved}>
+              <h3 className={styles.heading}>Next up</h3>
+              {props.nextUp.map(line)}
+            </section>
+          )}
           {messages.length > 0 ? (
             <Thread
               messages={messages}

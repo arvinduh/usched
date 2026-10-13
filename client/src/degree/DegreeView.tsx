@@ -43,7 +43,9 @@ export interface DegreeViewProps {
   readonly completed: ReadonlySet<string>;
   /** Courses on the active week keyed by `courseKey`. */
   readonly planned: ReadonlySet<string>;
+  readonly plannedUnits: number;
   readonly onOpenCourse: (code: string, title: string | null) => void;
+  readonly onToggleTaken: (code: string) => void;
   readonly onBrowseGe: (letter: string) => void;
 }
 
@@ -51,7 +53,7 @@ export interface DegreeViewProps {
  * Renders the Degree space.
  */
 export function DegreeView(props: DegreeViewProps): React.JSX.Element {
-  const { program, audit, completed, planned } = props;
+  const { program, audit, completed, planned, plannedUnits } = props;
   const [hovered, setHovered] = useState<string | null>(null);
 
   const locked = useMemo(
@@ -79,7 +81,14 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
     term: props.term,
     onHover: setHovered,
     onOpen: props.onOpenCourse,
+    onToggleTaken: props.onToggleTaken,
   };
+
+  const total = program?.total_units ?? 0;
+  const done = audit?.units ?? 0;
+  const share = (n: number): string =>
+    total > 0 ? `${Math.min(100, (n / total) * 100)}%` : '0%';
+  const remaining = Math.max(0, total - done - plannedUnits);
 
   return (
     <div className={styles.page}>
@@ -91,6 +100,31 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
 
       {program && (
         <>
+          {total > 0 && (
+            <div className={styles.hero}>
+              <p className={styles.heroFigure}>
+                {done}
+                <span className={styles.muted}> / {total}</span>
+              </p>
+              <div className={styles.heroBar}>
+                <span className={styles.heroDone} style={{ width: share(done) }} />
+                <span
+                  className={styles.heroPlanned}
+                  style={{ width: share(plannedUnits) }}
+                />
+              </div>
+              <p className={styles.heroLine}>
+                {plannedUnits > 0 && (
+                  <>
+                    <span className={styles.plus}>+{plannedUnits} this term</span>
+                    {' · '}
+                  </>
+                )}
+                {remaining} to go
+              </p>
+            </div>
+          )}
+
           <section className={styles.group}>
             <h2 className={styles.heading}>Requirements</h2>
             <Legend />
@@ -242,7 +276,8 @@ function Credits({
         })}
       </div>
       <p className={styles.creditsHint}>
-        Taken a course? Type “took CSCI 103L, MATH 125” below.
+        Taken a course? Hover it above and mark it, or type “took CSCI 103L,
+        MATH 125” into the planner.
       </p>
     </section>
   );

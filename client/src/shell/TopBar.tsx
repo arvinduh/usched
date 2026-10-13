@@ -1,9 +1,10 @@
 /**
  * The app's only chrome: wordmark, degree meter, term, and settings.
  *
- * The meter shows completed, planned-this-term, and remaining units; it and
- * the wordmark return the column to rest, where the degree is. The term
- * picker switches which semester is planned. The bar holds no state of its
+ * The meter shows completed, planned-this-term, and remaining units, and
+ * clicking it drops the Degree page down from it (or `D`); the wordmark
+ * returns to the planner at rest. The term picker switches which semester
+ * is planned. The bar holds no state of its
  * own beyond whether the menu is open.
  */
 
@@ -33,6 +34,8 @@ export interface TopBarProps {
   readonly terms: readonly Term[];
   readonly term: number;
   readonly onSelectTerm: (term: number) => void;
+  readonly isDegreeOpen: boolean;
+  readonly onToggleDegree: () => void;
   readonly onHome: () => void;
   readonly onCopySections: () => void;
   readonly onReset: () => void;
@@ -47,6 +50,8 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
     terms,
     term,
     onSelectTerm,
+    isDegreeOpen,
+    onToggleDegree,
     onHome,
     onCopySections,
     onReset,
@@ -91,12 +96,13 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
 
       <button
         type="button"
-        className={styles.meter}
-        onClick={onHome}
-        title="Your degree"
+        className={`${styles.meter} ${isDegreeOpen ? styles.meterOn : ''}`}
+        onClick={onToggleDegree}
+        aria-pressed={isDegreeOpen}
+        title={isDegreeOpen ? 'Back to planning (D)' : 'Your degree (D)'}
       >
         <span className={styles.label}>Degree</span>
-        <span className={styles.track}>
+        <span className={`${styles.track} ${isDegreeOpen ? '' : styles.morph}`}>
           <span className={styles.done} style={{ width: share(units?.completed ?? 0) }} />
           <span className={styles.planned} style={{ width: share(units?.planned ?? 0) }} />
         </span>

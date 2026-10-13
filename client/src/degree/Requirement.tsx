@@ -5,8 +5,9 @@
  * slots: a loose chip is a course to take; chips gathered in a box are
  * alternatives, any one of which fills the slot. Nested requirements
  * indent beneath their parent. Chip fill encodes state (done, planned this
- * term, available, locked). Clicking a chip opens that course's card;
- * plan edits and navigation go to the caller.
+ * term, available, locked). Hovering a chip shows the course and lets the
+ * student mark it taken in place; clicking opens its card in the planner.
+ * Plan edits and navigation go to the caller.
  */
 
 import React from 'react';
@@ -39,6 +40,7 @@ export interface ChipContext {
   readonly onHover: (key: string | null) => void;
   /** Opens the course's card; `title` covers courses this term lacks. */
   readonly onOpen: (code: string, title: string | null) => void;
+  readonly onToggleTaken: (code: string) => void;
 }
 
 type ChipState = 'done' | 'planned' | 'open' | 'locked';
@@ -239,6 +241,14 @@ function Chip({
           </span>
         )}
         <span className={styles.popActions}>
+          <button
+            type="button"
+            className={styles.popAction}
+            onClick={() => ctx.onToggleTaken(code)}
+          >
+            <Check size={11} />
+            {state === 'done' ? 'Unmark taken' : 'Mark taken'}
+          </button>
           <a
             className={styles.popLink}
             href={uscCourseUrl(code, ctx.term)}
