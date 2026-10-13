@@ -24,7 +24,8 @@ from server.src.agent import llm
 
 
 _API = "https://generativelanguage.googleapis.com/v1beta/models"
-_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+# A minute of silence means a stuck request; another attempt is faster.
+_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
 _CONFIG = {"maxOutputTokens": 2048, "temperature": 0.4}
 _RETRY_AFTER_S = 1.5
 # Overloaded (503) and rate-limited (429) requests are worth another try.
@@ -134,8 +135,8 @@ class Gemini:
   ) -> Iterator[dict[str, Any]]:
     """Streams one request, retrying then falling back while overloaded.
 
-    Overload is reported before any part arrives, so a retry never repeats
-    text already shown.
+    Overload, timeouts, and dropped connections that come before any part
+    retry; none repeats text already shown.
     """
     plan = [self._models[0], *self._models]
     for attempt, model in enumerate(plan):
@@ -146,15 +147,21 @@ class Gemini:
         if attempt == len(plan) - 1:
           raise
         logging.warning(
-          "Gemini %s is busy; trying %s", model, plan[attempt + 1]
+          "Gemini %s is busy or slow; trying %s", model, plan[attempt + 1]
         )
         time.sleep(_RETRY_AFTER_S)
 
   def _stream(
     self, client: httpx.Client, model: str, body: Mapping[str, Any]
   ) -> Iterator[dict[str, Any]]:
-    """Yields each content part of a streamed response, in order."""
+    """Yields each content part of a streamed response, in order.
+
+    A timeout or dropped connection before the first part is transient: no
+    text was shown, so another attempt or model can take over. After it,
+    a retry would repeat text, so the reply ends with an explanation.
+    """
     url = f"{_API}/{model}:streamGenerateContent"
+    started = False
     try:
       with client.stream(
         "POST",
@@ -174,7 +181,16 @@ class Gemini:
             continue
           chunk = json.loads(line.removeprefix("data:"))
           for candidate in chunk.get("candidates") or []:
-            yield from (candidate.get("content") or {}).get("parts") or []
+            for part in (candidate.get("content") or {}).get("parts") or []:
+              started = True
+              yield part
+    except httpx.TransportError as e:
+      logging.warning("Gemini %s failed: %s", model, e)
+      if not started:
+        raise _Transient("The advisor took too long to answer.") from e
+      raise llm.ModelError(
+        "The advisor stopped mid-reply; try asking again."
+      ) from e
     except httpx.HTTPError as e:
       logging.warning("Gemini request failed: %s", e)
       raise llm.ModelError(f"Couldn't reach Gemini ({e}).") from e
