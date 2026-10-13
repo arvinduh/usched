@@ -26,7 +26,13 @@ from server.src.agent import llm
 _API = "https://generativelanguage.googleapis.com/v1beta/models"
 # A minute of silence means a stuck request; another attempt is faster.
 _TIMEOUT = httpx.Timeout(45.0, connect=10.0)
-_CONFIG = {"maxOutputTokens": 2048, "temperature": 0.4}
+# Thought summaries stream ahead of the answer, so the student sees the
+# advisor reason instead of waiting on silence.
+_CONFIG = {
+  "maxOutputTokens": 2048,
+  "temperature": 0.4,
+  "thinkingConfig": {"includeThoughts": True},
+}
 _RETRY_AFTER_S = 1.5
 # Overloaded (503) and rate-limited (429) requests are worth another try.
 _TRANSIENT = frozenset(
@@ -71,7 +77,7 @@ class Gemini:
     message: str,
     tools: Sequence[llm.Tool],
     execute: llm.Execute,
-  ) -> Iterator[str]:
+  ) -> Iterator[llm.Event]:
     """Streams the reply; see llm.Model.reply."""
     contents: list[dict[str, Any]] = [
       {
@@ -103,7 +109,7 @@ class Gemini:
 
       def turn(
         rounds: Sequence[llm.Round], allow_tools: bool
-      ) -> Iterator[str | llm.Step]:
+      ) -> Iterator[str | llm.Thought | llm.Step]:
         nonlocal answered
         request = {**body, "contents": contents + _replay(rounds)}
         if tools:
@@ -112,7 +118,11 @@ class Gemini:
         parts: list[dict[str, Any]] = []
         for part in self._attempts(client, request):
           parts.append(part)
-          if part.get("text") and not part.get("thought"):
+          if not part.get("text"):
+            continue
+          if part.get("thought"):
+            yield llm.Thought(part["text"])
+          else:
             answered = True
             yield part["text"]
         yield llm.Step(

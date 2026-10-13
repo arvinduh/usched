@@ -170,7 +170,11 @@ def _token(text: str) -> str:
 def stream(
   request: ChatRequest, conn: sqlite3.Connection, model: llm.Model
 ) -> Iterator[str]:
-  """Yields SSE events: tokens, then one closing event, then `[DONE]`."""
+  """Yields SSE events, then one closing event, then `[DONE]`.
+
+  Events are `{token}` for answer text, `{thought}` for the model's
+  reasoning summary, and `{step}` as each tool starts, in words.
+  """
   from_tools: list[chips.Chip] = []
   flagged: list[str] = []
   reason = model.unavailable()
@@ -202,7 +206,7 @@ def stream(
 
     reply: list[str] = []
     try:
-      for token in model.reply(
+      for event in model.reply(
         f"{SYSTEM_PROMPT}\n{facts.text}",
         [
           llm.Turn(t.role, remembered(conn, request.term, t))
@@ -212,8 +216,14 @@ def stream(
         tools.TOOLS,
         execute,
       ):
-        reply.append(token)
-        yield _token(token)
+        match event:
+          case str():
+            reply.append(event)
+            yield _token(event)
+          case llm.Thought(text=text):
+            yield _event({"thought": text})
+          case llm.Acting(call=call):
+            yield _event({"step": tools.describe(call.name, call.arguments)})
     except llm.ModelError as e:
       yield _token(f"\n\n{e}")
     flagged = unverified("".join(reply), grounded, conn)

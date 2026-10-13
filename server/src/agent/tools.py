@@ -428,6 +428,26 @@ def mark_taken(
   return ToolResult(" ".join(filter(None, lines)), actions)
 
 
+def describe(name: str, arguments: Mapping[str, Any]) -> str:
+  """What a tool call is doing, in words a student reads while it runs."""
+  listed = ", ".join(arguments.get("course_codes") or [])
+  match name:
+    case "search_courses":
+      return f"Searching courses for “{arguments.get('query', '')}”"
+    case "get_course_details":
+      return f"Reading {arguments.get('course_code', 'a course')}"
+    case "solve_schedule":
+      return (
+        f"Building schedules with {listed}" if listed else "Building schedules"
+      )
+    case "edit_week":
+      return "Editing your week"
+    case "mark_taken":
+      return f"Recording {listed} as taken" if listed else "Recording courses"
+    case _:
+      return "Working"
+
+
 _TOOLS: Mapping[str, Callable[..., ToolResult]] = {
   "search_courses": search_courses,
   "get_course_details": get_course_details,

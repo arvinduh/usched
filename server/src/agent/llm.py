@@ -67,6 +67,24 @@ class Step:
 
 
 @dataclasses.dataclass(frozen=True)
+class Thought:
+  """A summary of the model's reasoning, streamed while it thinks."""
+
+  text: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Acting:
+  """A tool the model is about to run, so the student can see it work."""
+
+  call: Call
+
+
+# What a reply streams: answer text, reasoning, and tools as they start.
+Event = str | Thought | Acting
+
+
+@dataclasses.dataclass(frozen=True)
 class Round:
   """A finished tool round: the turn that called tools, and their results."""
 
@@ -75,12 +93,12 @@ class Round:
 
 
 # One model turn: given the rounds so far and whether tools are allowed,
-# streams reply text, then yields the Step that ended the turn.
-ModelTurn = Callable[[Sequence[Round], bool], Iterator[str | Step]]
+# streams reply text and thoughts, then yields the Step that ended it.
+ModelTurn = Callable[[Sequence[Round], bool], Iterator[str | Thought | Step]]
 
 
-def run(turn: ModelTurn, execute: Execute) -> Iterator[str]:
-  """Runs the tool loop every provider shares, streaming reply text.
+def run(turn: ModelTurn, execute: Execute) -> Iterator[Event]:
+  """Runs the tool loop every provider shares, streaming what happens.
 
   Each turn may call tools, whose results feed the next; after
   `TOOL_ROUNDS` rounds, one more turn forbids tools, so a reply always
@@ -96,7 +114,10 @@ def run(turn: ModelTurn, execute: Execute) -> Iterator[str]:
         yield event
     if step is None or not step.calls:
       return
-    results = [execute(c.name, c.arguments) for c in step.calls]
+    results: list[str] = []
+    for call in step.calls:
+      yield Acting(call)
+      results.append(execute(call.name, call.arguments))
     rounds.append(Round(step, results))
 
 
@@ -120,8 +141,8 @@ class Model(Protocol):
     message: str,
     tools: Sequence[Tool],
     execute: Execute,
-  ) -> Iterator[str]:
-    """Streams reply text, running any tools the model calls in between.
+  ) -> Iterator[Event]:
+    """Streams the reply, its reasoning, and each tool as it runs.
 
     Raises:
       ModelError: The provider failed; its message explains why.
