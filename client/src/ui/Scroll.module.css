@@ -1,0 +1,25 @@
+/*
+ * Scroll areas whose scrollbar stays out of sight until the pointer is over
+ * them, then fades in, like overlay scrollbars. The gutter is always
+ * reserved, so showing the thumb never shifts the content. Compose it into
+ * any class that scrolls.
+ */
+
+/* Registered so it can transition; not inherited, so only the scroller's
+   own style updates while it fades, never its subtree. */
+@property --thumb {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--thumb) transparent;
+  transition: --thumb 240ms ease-out;
+}
+
+.scroll:hover {
+  --thumb: var(--text-muted);
+  transition-duration: 120ms;
+}

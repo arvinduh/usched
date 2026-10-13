@@ -13,12 +13,12 @@
 
 /* Layers stack in place; the covered ones keep their scroll. */
 .layer {
+  composes: scroll from '../ui/Scroll.module.css';
   position: absolute;
   inset: 0;
   overflow-y: auto;
   padding: 4px 6px 12px;
   background: var(--bg);
-  scrollbar-width: thin;
 }
 
 /* Remembers its last rendered size, so covering it keeps the scroll. */
