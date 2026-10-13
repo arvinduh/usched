@@ -303,7 +303,7 @@ function Credits({
         })}
       </div>
       <p className={styles.creditsHint}>
-        Taken a course? Click it above to mark it, or type “took CSCI 103L,
+        Taken a course? Click it above to mark it, or type “/took CSCI 103L,
         MATH 125” into the planner.
       </p>
     </section>

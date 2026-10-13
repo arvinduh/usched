@@ -585,7 +585,7 @@ function Planner({
   const handleChip = (chip: Chip): void => {
     applyActionChip(chip, {
       search: (query) =>
-        COURSE_CODE.test(query.trim()) ? openCode(query.trim()) : setSearchText(query),
+        COURSE_CODE.test(query.trim()) ? openCode(query.trim()) : setSearchText(`>${query}`),
     });
   };
 
@@ -637,6 +637,15 @@ function Planner({
         focusInput();
         return;
       }
+      // ">" anywhere starts a course search, as it does in the bar.
+      if (e.key === '>' && !isTyping(e.target)) {
+        e.preventDefault();
+        if (!searchInput.current?.value) {
+          setSearchText('>');
+        }
+        focusInput();
+        return;
+      }
       if (mod && key === 'z' && !isTyping(e.target)) {
         if (undoLast()) {
           e.preventDefault();
@@ -664,7 +673,7 @@ function Planner({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [peel, focusInput, go]);
+  }, [peel, focusInput, go, setSearchText]);
 
   // Drag the pane edge to resize. Moves write the CSS variable directly so
   // the app does not re-render per pointer event; the width is committed
@@ -748,7 +757,7 @@ function Planner({
             onToggleTaken={handleToggleCompleted}
             onBrowseGe={(letter) => {
               go('planner');
-              setSearchText(`ge ${letter.toLowerCase()} `);
+              setSearchText(`>ge ${letter.toLowerCase()} `);
             }}
             onCountGe={(code, isFull) =>
               showToast(
@@ -775,6 +784,7 @@ function Planner({
               onChip={handleChip}
               onProject={projectProposals}
               onNewChat={chat.clear}
+              onOpenDegree={() => go('degree')}
               onEscape={peel}
               onOpenCourse={openCourse}
               onOpenCode={openCode}

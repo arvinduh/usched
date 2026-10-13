@@ -387,7 +387,7 @@ export function Week(props: WeekProps): React.JSX.Element {
 
         {timed.length === 0 && ghosts.length === 0 && (
           <p className={styles.empty}>
-            Type a course below, or ask for a schedule
+            Type &gt; and a course below, or ask for a schedule
           </p>
         )}
       </div>

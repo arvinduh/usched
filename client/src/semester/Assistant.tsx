@@ -2,10 +2,11 @@
  * The column beside the week: everything that is not the week itself.
  *
  * One input sits at the bottom; what fills the column follows what the
- * student is doing, never a tab or mode they pick. At rest it is the feed:
- * saved courses, the degree courses they can take next, then the
- * conversation (or prompts to start one). Typing lays live course matches
- * over the feed, and an open course lays its card over both. Covered
+ * student is doing. At rest it is the feed: saved courses, the degree
+ * courses they can take next, then the conversation (or prompts to start
+ * one). Typing talks to the advisor and leaves the feed in view; only a
+ * ">" search lays live course matches over it, and an open course lays its
+ * card over both. Covered
  * layers stay mounted and keep their scroll, so closing a card or clearing
  * the text returns exactly where the student was. The card arrives as a
  * rendered slot; plan edits, chat sending, and navigation belong to the
@@ -13,14 +14,14 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, CircleCheck, ListFilter, X } from 'lucide-react';
+import { ArrowUp, ListFilter, X } from 'lucide-react';
 import type { CatalogSearch } from '../hooks/useCatalogSearch';
-import { courseKey, displayCode } from '../lib/degree';
+import { courseKey } from '../lib/degree';
 import { NO_FILTER, activeFilterCount, courseMatches, sortCourses } from '../lib/filter';
 import type { DayPart, SectionFilter, SortKey } from '../lib/filter';
-import { takenCodes } from '../lib/query';
 import type { Chip, ChatMessage, Course, Section } from '../types';
 import { Composer } from './Composer';
+import type { CommandName } from './Composer';
 import { CourseLine } from './Course';
 import type { CoursePlan } from './Course';
 import { FilterPanel } from './FilterPanel';
@@ -116,6 +117,7 @@ export interface AssistantProps {
   readonly onChip: (chip: Chip) => void;
   readonly onProject: (chips: readonly Chip[]) => void;
   readonly onNewChat: () => void;
+  readonly onOpenDegree: () => void;
   /** Closes the topmost layer: the card, else the search text. */
   readonly onEscape: () => void;
   readonly onOpenCourse: (course: Course) => void;
@@ -138,9 +140,9 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   const [filter, setFilter] = useState<SectionFilter>(NO_FILTER);
   const [sort, setSort] = useState<SortKey>('relevance');
   const [panelOpen, setPanelOpen] = useState(false);
-  const { text, setText, parsed, courses, isSearching, hasMore, loadMore } = search;
-  const typing = text.trim() !== '';
-  const taken = takenCodes(text);
+  const { text, setText, bar, parsed, courses, isSearching, hasMore, loadMore } = search;
+  const query = bar.kind === 'courses' ? bar.query : '';
+  const searching = query !== '';
   const plannedKeys = new Set(props.plan.scheduledCourseIds.map(courseKey));
   const stateOf = (id: string): 'taken' | 'planned' | null => {
     const key = courseKey(id);
@@ -164,7 +166,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = sentinel.current;
-    if (!typing || !node || !hasMore) {
+    if (!searching || !node || !hasMore) {
       return;
     }
     const observer = new IntersectionObserver((entries) => {
@@ -174,7 +176,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [typing, hasMore, loadMore]);
+  }, [searching, hasMore, loadMore]);
 
   // Arrow keys walk the results; Right opens the course under focus.
   const onResultsKey = (e: React.KeyboardEvent<HTMLDivElement>): void => {
@@ -196,7 +198,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   return (
     <div className={styles.assistant}>
       <div className={styles.layers}>
-        <Layer covered={typing || card !== null}>
+        <Layer covered={searching || card !== null}>
           {props.savedCourses.length > 0 && (
             <section className={styles.saved}>
               <h3 className={styles.heading}>Saved</h3>
@@ -230,87 +232,73 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
           )}
         </Layer>
 
-        {typing && (
+        {searching && (
           <Layer covered={card !== null} ref={resultsLayer} onKeyDown={onResultsKey}>
-            {!taken && (
-              <div className={styles.resultsHead}>
-                <div className={styles.chips}>
-                  {parsed.tokens.map((token) => (
-                    <button
-                      key={token.raw}
-                      type="button"
-                      className={`${styles.chip} ${styles.chipOn}`}
-                      onClick={() => setText(text.replace(token.raw, '').trim())}
-                    >
-                      {token.label}
-                      <X size={11} />
-                    </button>
-                  ))}
-                  {filterChips(filter).map((chip) => (
-                    <button
-                      key={chip.label}
-                      type="button"
-                      className={`${styles.chip} ${styles.chipOn}`}
-                      onClick={() => setFilter(chip.clear)}
-                    >
-                      {chip.label}
-                      <X size={11} />
-                    </button>
-                  ))}
+            <div className={styles.resultsHead}>
+              <div className={styles.chips}>
+                {parsed.tokens.map((token) => (
                   <button
+                    key={token.raw}
                     type="button"
-                    className={`${styles.chip} ${panelOpen ? styles.chipActive : ''}`}
-                    aria-expanded={panelOpen}
-                    onClick={() => setPanelOpen((v) => !v)}
+                    className={`${styles.chip} ${styles.chipOn}`}
+                    onClick={() => setText(text.replace(token.raw, '').trim())}
                   >
-                    <ListFilter size={12} />
-                    Filter
-                    {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
+                    {token.label}
+                    <X size={11} />
                   </button>
-                  <span className={styles.sort}>
-                    <Select
-                      value={sort}
-                      options={SORT_OPTIONS}
-                      onChange={setSort}
-                      label="Sort by"
-                      align="end"
-                    />
-                  </span>
-                </div>
-                {panelOpen && (
-                  <FilterPanel
-                    filter={filter}
-                    onFilter={setFilter}
-                    parsed={parsed}
-                    text={text}
-                    setText={setText}
+                ))}
+                {filterChips(filter).map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    className={`${styles.chip} ${styles.chipOn}`}
+                    onClick={() => setFilter(chip.clear)}
+                  >
+                    {chip.label}
+                    <X size={11} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`${styles.chip} ${panelOpen ? styles.chipActive : ''}`}
+                  aria-expanded={panelOpen}
+                  onClick={() => setPanelOpen((v) => !v)}
+                >
+                  <ListFilter size={12} />
+                  Filter
+                  {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
+                </button>
+                <span className={styles.sort}>
+                  <Select
+                    value={sort}
+                    options={SORT_OPTIONS}
+                    onChange={setSort}
+                    label="Sort by"
+                    align="end"
                   />
-                )}
+                </span>
               </div>
-            )}
-            {taken ? (
-              <button
-                type="button"
-                data-nav="taken"
-                className={styles.ask}
-                onClick={() => props.onTaken(taken)}
-              >
-                <CircleCheck size={12} />
-                Mark {taken.map(displayCode).join(', ')} taken
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-nav="ask"
-                className={styles.ask}
-                onClick={() => props.onAsk(text.trim())}
-              >
-                <ArrowUp size={12} />
-                Ask “{text.trim()}”
-              </button>
-            )}
-            {!taken && results.map(line)}
-            {!taken && results.length === 0 && !hasMore && !isSearching && (
+              {panelOpen && (
+                <FilterPanel
+                  filter={filter}
+                  onFilter={setFilter}
+                  parsed={parsed}
+                  text={text}
+                  setText={setText}
+                />
+              )}
+            </div>
+            <button
+              type="button"
+              data-nav="ask"
+              className={styles.ask}
+              onClick={() => props.onAsk(query)}
+            >
+              <ArrowUp size={12} />
+              Ask “{query}”
+            </button>
+            {results.map(line)}
+            {results.length === 0 && !hasMore && !isSearching && (
               <p className={styles.empty}>
                 {courses.length > 0 ? 'Nothing matches these filters.' : 'No matching courses.'}
               </p>
@@ -325,12 +313,16 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
       <Composer
         text={text}
         setText={setText}
+        bar={bar}
         top={results[0] ?? null}
         busy={props.busy}
         inputRef={props.inputRef}
         onOpen={props.onOpenCourse}
         onAsk={props.onAsk}
         onTaken={props.onTaken}
+        onCommand={(name: CommandName) =>
+          name === 'new' ? props.onNewChat() : props.onOpenDegree()
+        }
         onEscape={props.onEscape}
         onArrowUp={() =>
           resultsLayer.current?.querySelector<HTMLElement>('[data-nav]')?.focus()

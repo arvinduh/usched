@@ -1,19 +1,31 @@
 /**
- * The column's single input: ask the advisor or find a course.
+ * The column's single input, in one of three modes set by its first
+ * character, never guessed from the words.
  *
- * Matches appear in the column above as you type, so the input itself only
- * states what Enter will do: record courses for "took CSCI 103L, MATH 125",
- * open the best match for course-like text, or ask the advisor for
- * questions. Cmd/Ctrl+Enter always asks. Routing
- * decisions live here; their effects belong to the caller.
+ * Plain text talks to the advisor. ">" finds courses, whose matches fill
+ * the column above. "/" runs a command: "/took CSCI 103L, MATH 125"
+ * records courses taken, "/new" starts a new chat, and "/degree" opens
+ * degree progress. The input states what Enter will do; routing lives
+ * here, and its effects belong to the caller.
  */
 
 import React from 'react';
 import { CornerDownLeft } from 'lucide-react';
 import { displayCode } from '../lib/degree';
-import { looksLikeQuestion, takenCodes } from '../lib/query';
+import type { Bar } from '../lib/query';
 import type { Course } from '../types';
 import styles from './Assistant.module.css';
+
+/** Commands other than /took, which takes course codes. */
+export type CommandName = 'new' | 'degree';
+
+/** Every command, in the order a list of them shows. */
+const COMMANDS: readonly { readonly name: 'took' | CommandName; readonly hint: string }[] =
+  [
+    { name: 'took', hint: 'Mark courses you have taken' },
+    { name: 'new', hint: 'Start a new chat' },
+    { name: 'degree', hint: 'Open degree progress' },
+  ];
 
 /**
  * Properties for the composer.
@@ -21,7 +33,8 @@ import styles from './Assistant.module.css';
 export interface ComposerProps {
   readonly text: string;
   readonly setText: (text: string) => void;
-  /** The best catalog match for `text`, if any. */
+  readonly bar: Bar;
+  /** The best catalog match for a ">" search, if any. */
   readonly top: Course | null;
   /** True while the advisor is still replying; asking again waits. */
   readonly busy: boolean;
@@ -30,33 +43,67 @@ export interface ComposerProps {
   readonly onAsk: (text: string) => void;
   /** Records courses as taken, given as identities. */
   readonly onTaken: (codes: readonly string[]) => void;
+  readonly onCommand: (name: CommandName) => void;
   readonly onEscape: () => void;
   /** Moves focus up into the matches. */
   readonly onArrowUp: () => void;
 }
 
+/** What Enter does for the bar as it reads now, or null for nothing. */
+function enterLabel(bar: Bar, top: Course | null, busy: boolean): string | null {
+  switch (bar.kind) {
+    case 'chat':
+      return bar.text ? (busy ? 'Replying…' : 'Ask') : null;
+    case 'courses':
+      return top ? `Open ${displayCode(top.code)}` : null;
+    case 'took':
+      return bar.codes.length > 0 ? `Mark ${bar.codes.length} taken` : null;
+    case 'commands':
+      return COMMANDS.some((c) => c.name === bar.name) ? `Run /${bar.name}` : null;
+  }
+}
+
 /**
- * Renders the input and its Enter hint.
+ * Renders the input and what Enter will do.
  */
 export function Composer(props: ComposerProps): React.JSX.Element {
-  const { text, setText, top, busy, inputRef, onOpen, onAsk, onTaken, onEscape, onArrowUp } =
-    props;
-  const query = text.trim();
-  const taken = takenCodes(text);
-  // A question asks; anything else opens the best match when there is one.
-  const opens = query !== '' && !taken && !looksLikeQuestion(text) && top !== null;
+  const { text, setText, bar, top, busy, inputRef, onEscape, onArrowUp } = props;
+
+  const onEnter = (ask: boolean): void => {
+    switch (bar.kind) {
+      case 'chat':
+        if (bar.text && !busy) {
+          props.onAsk(bar.text);
+        }
+        return;
+      case 'courses':
+        if (ask && bar.query && !busy) {
+          props.onAsk(bar.query);
+        } else if (top) {
+          props.onOpen(top);
+        }
+        return;
+      case 'took':
+        if (bar.codes.length > 0) {
+          props.onTaken(bar.codes);
+        }
+        return;
+      case 'commands':
+        if (bar.name === 'took') {
+          setText('/took ');
+        } else if (bar.name === 'new' || bar.name === 'degree') {
+          setText('');
+          props.onCommand(bar.name);
+        }
+        return;
+    }
+  };
 
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (taken && !(e.metaKey || e.ctrlKey)) {
-        onTaken(taken);
-      } else if (opens && top && !(e.metaKey || e.ctrlKey)) {
-        onOpen(top);
-      } else if (query && !busy) {
-        onAsk(query);
-      }
-    } else if (e.key === 'ArrowUp' && query) {
+      onEnter(e.metaKey || e.ctrlKey);
+    } else if (e.key === 'ArrowUp' && bar.kind === 'courses' && bar.query) {
       e.preventDefault();
       onArrowUp();
     } else if (e.key === 'Escape') {
@@ -65,6 +112,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
     }
   };
 
+  const label = enterLabel(bar, top, busy);
   return (
     <div className={styles.composer}>
       <div className={styles.inputWrap}>
@@ -74,24 +122,23 @@ export function Composer(props: ComposerProps): React.JSX.Element {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
-          placeholder="Ask anything, or type a course"
-          aria-label="Ask the advisor or search courses"
+          placeholder="Ask anything"
+          aria-label="Ask the advisor; start with > to find courses, / for commands"
           spellCheck={false}
         />
         <span className={styles.hint} aria-live="polite">
-          {query ? (
-            <>
-              <CornerDownLeft size={11} />
-              {taken
-                ? `Mark ${taken.length} taken`
-                : opens && top
-                  ? `Open ${displayCode(top.code)}`
-                  : busy
-                    ? 'Replying…'
-                    : 'Ask'}
-            </>
+          {text ? (
+            label && (
+              <>
+                <CornerDownLeft size={11} />
+                {label}
+              </>
+            )
           ) : (
-            <kbd className={styles.kbd}>/</kbd>
+            <>
+              <kbd className={styles.kbd}>&gt;</kbd> courses
+              <kbd className={styles.kbd}>/</kbd> commands
+            </>
           )}
         </span>
       </div>
