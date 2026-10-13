@@ -1,17 +1,28 @@
 /**
  * Pure helpers for course codes in degree and plan contexts.
  *
- * Course codes are compared case-insensitively because the catalogue and
- * the schedule of classes disagree on suffix case ("BUAD-310G" vs
- * "BUAD-310g"); this module owns that canonical form and code extraction
- * from pasted text.
+ * Sources spell one course differently: attribute letters move or vanish
+ * (MATH-118gx, MATH-118xg, "MATH 118"), but department, number, and
+ * sequence letter never change. This module owns that identity, mirroring
+ * the server's codes.identity, and code extraction from pasted text.
  */
 
+const PARTS = /^\s*([A-Za-z]{2,5})[\s-]*(\d{3})([A-Za-z]*)\s*$/;
+/** Letters that describe a course rather than identify it (L lab, g GE...). */
+const ATTRIBUTES = new Set(['l', 'g', 'x', 'm', 'w', 'p']);
+
 /**
- * Canonical form of a course ID for comparisons.
+ * A course code's identity for comparisons: CHEM-105aLg becomes CHEM-105A
+ * and MATH-118gx becomes MATH-118. Text that is not a code is upper-cased.
  */
 export function courseKey(courseId: string): string {
-  return courseId.trim().toUpperCase();
+  const match = PARTS.exec(courseId);
+  if (!match) {
+    return courseId.trim().toUpperCase();
+  }
+  const first = match[3].slice(0, 1).toLowerCase();
+  const sequence = first && !ATTRIBUTES.has(first) ? first.toUpperCase() : '';
+  return `${match[1].toUpperCase()}-${match[2]}${sequence}`;
 }
 
 /**
