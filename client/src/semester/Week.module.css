@@ -210,8 +210,10 @@
   z-index: 1;
 }
 
+/* Keyboard focus only: a click leaves nothing pinned once the pointer goes. */
 .block:hover,
-.block:focus-within {
+.block:focus-visible,
+.block:has(:focus-visible) {
   z-index: 5;
 }
 
@@ -247,6 +249,12 @@
 }
 
 /* Its row in the course card is under the pointer, or it is. */
+/* The course whose other sections the week is showing as ghosts. */
+.blockPicked .face {
+  outline: 1.5px solid currentColor;
+  outline-offset: 1px;
+}
+
 .blockFocus .face {
   box-shadow: inset 0 0 0 1.5px currentColor;
 }
@@ -288,7 +296,8 @@
 }
 
 .block:hover .popover,
-.block:focus-within .popover {
+.block:focus-visible .popover,
+.block:has(:focus-visible) .popover {
   display: flex;
 }
 

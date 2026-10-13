@@ -29,7 +29,7 @@ import { useAdvisorChat } from './hooks/useAdvisorChat';
 import { useCatalogSearch } from './hooks/useCatalogSearch';
 import { DegreeView } from './degree/DegreeView';
 import { courseKey, displayCode } from './lib/degree';
-import { totalUnits } from './lib/schedule';
+import { isTimed, totalUnits } from './lib/schedule';
 import { Assistant } from './semester/Assistant';
 import { CourseCard } from './semester/Course';
 import type { CoursePlan } from './semester/Course';
@@ -431,6 +431,26 @@ function Planner({
     setExpanded(null);
   }, []);
 
+  // A block clicked on the week shows its course's other sections there as
+  // ghosts to swap in, leaving the column as it was. Without one picked,
+  // the week shows the open card's sections, if any.
+  const expanded = usePreview((p) => p.expanded);
+  const resting = opened?.course ?? null;
+  const pickBlock = (course: Course): void => {
+    if (expanded?.code === course.code) {
+      setExpanded(resting);
+    } else if (course.sections.some((s) => isTimed(s) && !activeIds.has(s.id))) {
+      setExpanded(course);
+    } else {
+      showToast(`${displayCode(course.code)} has no other sections this term`);
+    }
+  };
+  const clearPick = (): void => {
+    if (expanded !== resting) {
+      setExpanded(resting);
+    }
+  };
+
   // From the Degree page, a course opens in the planner, where its
   // sections can land on the week.
   const openFromDegree = (code: string, title: string | null): void => {
@@ -591,16 +611,19 @@ function Planner({
 
   const isCardOpen = opened !== null;
   // Escape peels one layer, from the input or anywhere: the Degree page,
-  // the card, then the search text.
+  // a block's picked sections, the card, then the search text.
+  const isPicking = expanded !== resting;
   const peel = useCallback((): void => {
     if (currentSpace.current === 'degree') {
       go('planner');
+    } else if (isPicking) {
+      setExpanded(resting);
     } else if (isCardOpen) {
       closeCourse();
     } else {
       setSearchText('');
     }
-  }, [go, isCardOpen, closeCourse, setSearchText]);
+  }, [go, isPicking, resting, isCardOpen, closeCourse, setSearchText]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -790,6 +813,8 @@ function Planner({
               onToggleSection={handleToggleSection}
               onRemove={handleRemove}
               onFocusCourse={openCourse}
+              onPickBlock={pickBlock}
+              onClearPick={clearPick}
               onKeepProposal={handleKeepProposal}
               onDiscardProposal={() => setProposals([])}
             />
