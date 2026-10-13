@@ -116,6 +116,45 @@ def test_full_text_search_is_term_scoped(db):
   assert ("CSCI-104L",) in hits
 
 
+def test_catalogue_courses_define_every_course(db):
+  assert _one(db, "SELECT COUNT(*) FROM catalogue_course")[0] == 8
+  # Offered nowhere, yet a course with an identity.
+  assert _one(db, "SELECT key FROM course WHERE code = 'ACCT-415x'") == (
+    "ACCT-415",
+  )
+
+
+def test_the_catalogues_spelling_is_canonical_everywhere(db):
+  # The schedule wrote CSCI-445L; the catalogue's CSCI-445Lx wins.
+  assert _one(
+    db,
+    """SELECT DISTINCT o.course_code FROM offering o
+       JOIN course c ON c.code = o.course_code WHERE c.key = 'CSCI-445'""",
+  ) == ("CSCI-445Lx",)
+  assert _one(db, "SELECT COUNT(*) FROM course WHERE key = 'CSCI-445'")[0] == 1
+  binary = _one(
+    db,
+    """SELECT COUNT(*) FROM section s JOIN course c ON c.code = s.course_code
+       WHERE s.course_code != c.code COLLATE BINARY""",
+  )
+  assert binary == (0,)
+
+
+def test_ge_unions_page_lists_and_course_statements(db):
+  rows = set(db.execute("SELECT ge_code, resolved_code FROM ge_course"))
+  assert ("GE-A", "CSCI-104L") in rows  # From the GE page.
+  assert ("GE-E", "CSCI-445Lx") in rows  # From the course itself.
+
+
+def test_catalogue_headings_name_departments_the_schedule_lacks(db):
+  assert _one(
+    db, "SELECT name, school_code FROM department WHERE code = 'ACCT'"
+  ) == (
+    "Accounting",
+    None,
+  )
+
+
 def test_foreign_keys_hold(db):
   assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 

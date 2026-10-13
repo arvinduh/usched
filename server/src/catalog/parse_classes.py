@@ -11,7 +11,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from server.src.catalog import records
+from server.src.catalog import codes, records
 
 
 # Weekday bitmask used by `meeting.days`.
@@ -119,7 +119,11 @@ def _parse_course(course: Mapping[str, Any], term: int, out: Listing) -> None:
 
   out.courses.append(
     records.Course(
-      code=code, department_code=prefix, number=number, suffix=suffix
+      code=code,
+      key=codes.course_key(code) or code.upper(),
+      department_code=prefix,
+      number=number,
+      suffix=suffix,
     )
   )
   out.offerings.append(

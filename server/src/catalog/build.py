@@ -1,8 +1,10 @@
 """Builds the catalog database from scratch out of the raw cache and seeds.
 
 Collects every cached payload through the parsers, deduplicates rows by
-primary key, resolves course references against the catalog, and writes a
-fresh database to a temporary file that atomically replaces the old one.
+primary key, gives every course one canonical spelling (the catalogue's,
+where it defines the course), resolves course references against the
+catalog, and writes a fresh database to a temporary file that atomically
+replaces the old one.
 Builds are offline and deterministic: the same cache gives the same database.
 """
 
@@ -21,8 +23,10 @@ from server.src.catalog import (
   cache,
   catalogue_site,
   classes_api,
+  codes,
   parse_catalogue,
   parse_classes,
+  parse_courses,
   records,
   rmp,
   seeds,
@@ -33,10 +37,25 @@ SCHEMA_PATH = pathlib.Path(__file__).resolve().parent / "schema.sql"
 DEFAULT_DB = pathlib.Path(__file__).resolve().parents[2] / "data" / "catalog.db"
 _GE_PAGE_TITLE = "General Education"
 _BASE_CODE = re.compile(r"^([A-Za-z]+)-(\d+)")
+_CODE_PARTS = re.compile(r"^([A-Za-z]+)-(\d+)(.*)$")
+# Term-data tables whose course_code takes the canonical spelling.
+_COURSE_CODE_TABLES = (
+  "offering",
+  "offering_usc_ge",
+  "requisite_group",
+  "requisite_course",
+  "restriction",
+  "section",
+)
 
 
 def _code(code: str) -> str:
   return code.lower()
+
+
+def _course(code: str) -> str:
+  """A course code's identity, the key that merges its spellings."""
+  return codes.course_key(code) or code.upper()
 
 
 # Primary key of each term-data table, used to drop duplicate rows that the
@@ -44,22 +63,22 @@ def _code(code: str) -> str:
 _KEYS: Mapping[str, Callable[[Any], Hashable]] = {
   "school": lambda r: r.code,
   "department": lambda r: _code(r.code),
-  "course": lambda r: _code(r.code),
-  "offering": lambda r: (r.term_code, _code(r.course_code)),
+  "course": lambda r: r.key,
+  "offering": lambda r: (r.term_code, _course(r.course_code)),
   "offering_usc_ge": lambda r: (
     r.term_code,
-    _code(r.course_code),
+    _course(r.course_code),
     r.usc_ge_code,
   ),
   "requisite_group": lambda r: (
     r.term_code,
-    _code(r.course_code),
+    _course(r.course_code),
     r.kind,
     r.position,
   ),
   "requisite_course": lambda r: (
     r.term_code,
-    _code(r.course_code),
+    _course(r.course_code),
     r.kind,
     r.group_position,
     r.option_position,
@@ -67,7 +86,7 @@ _KEYS: Mapping[str, Callable[[Any], Hashable]] = {
   ),
   "restriction": lambda r: (
     r.term_code,
-    _code(r.course_code),
+    _course(r.course_code),
     r.kind,
     r.position,
   ),
@@ -75,6 +94,8 @@ _KEYS: Mapping[str, Callable[[Any], Hashable]] = {
   "meeting": lambda r: (r.term_code, r.section_id, r.position),
   "instructor": lambda r: r.key,
   "section_instructor": lambda r: (r.term_code, r.section_id, r.position),
+  "catalogue_course": lambda r: (r.catalogue_id, _course(r.code)),
+  "ge_course": lambda r: (r.catalogue_id, r.ge_code, _course(r.listed_code)),
 }
 
 
@@ -147,6 +168,14 @@ class _Table:
   def has(self, key: Hashable) -> bool:
     return key in self._rows
 
+  def get(self, key: Hashable) -> Any | None:
+    kept = self._rows.get(key)
+    return kept[0] if kept else None
+
+  def remap(self, fn: Callable[[Any], Any]) -> None:
+    """Rewrites every row in place; `fn` must not change a row's key."""
+    self._rows = {k: (fn(row), home) for k, (row, home) in self._rows.items()}
+
   def rows(self) -> list[Any]:
     return [row for row, _ in self._rows.values()]
 
@@ -164,7 +193,6 @@ class _Collected:
   profiles: list[records.RmpProfile] = dataclasses.field(default_factory=list)
   catalogue: records.Catalogue | None = None
   ge_names: dict[str, str] = dataclasses.field(default_factory=dict)
-  ge_courses: list[records.GeCourse] = dataclasses.field(default_factory=list)
   programs: list[parse_catalogue.ProgramPage] = dataclasses.field(
     default_factory=list
   )
@@ -205,11 +233,9 @@ def _add_listing(
       )
   # Rows of courses this listing's program owns come from their home
   # listing; the rest are cross-listed copies.
-  home = {
-    _code(c.code) for c in listing.courses if c.department_code == program
-  }
+  home = {c.key for c in listing.courses if c.department_code == program}
   section_home = {
-    s.id for s in listing.sections if _code(s.course_code) in home
+    s.id for s in listing.sections if _course(s.course_code) in home
   }
 
   def split(
@@ -219,7 +245,7 @@ def _add_listing(
     tables[name].add(r for r in rows if not is_home(r))
 
   def by_course(row: Any) -> bool:
-    return _code(row.course_code) in home
+    return _course(row.course_code) in home
 
   def by_section(row: Any) -> bool:
     return row.section_id in section_home
@@ -261,7 +287,7 @@ def _collect_catalogue(raw: cache.RawCache, out: _Collected) -> None:
       continue
     page = raw.read_text(key)
     if link.title == _GE_PAGE_TITLE:
-      out.ge_courses = parse_catalogue.parse_ge_lists(page, catoid)
+      out.tables["ge_course"].add(parse_catalogue.parse_ge_lists(page, catoid))
       out.ge_names = parse_catalogue.ge_category_names(page)
     try:
       out.programs.append(
@@ -269,18 +295,64 @@ def _collect_catalogue(raw: cache.RawCache, out: _Collected) -> None:
       )
     except ValueError as e:
       logging.warning("Skipped program %s: %s", link.title, e)
+  for key in raw.keys(f"catalogue/{catoid}/courses", "*.html"):
+    _add_course_page(
+      parse_courses.parse_page(raw.read_text(key), catoid), out.tables
+    )
+
+
+def _add_course_page(
+  page: parse_courses.CoursePage, tables: dict[str, _Table]
+) -> None:
+  tables["catalogue_course"].add(page.courses)
+  tables["ge_course"].add(page.ge_courses)
+  # The catalogue defines courses, so its spelling of a code is canonical.
+  for course in page.courses:
+    match = _CODE_PARTS.match(course.code)
+    if match is not None:
+      prefix, number, suffix = match.groups()
+      tables["course"].add(
+        [
+          records.Course(
+            course.code, _course(course.code), prefix, number, suffix
+          )
+        ],
+        home=True,
+      )
+  # Name departments the schedule lacks or names only by their code.
+  for prefix, name in page.department_names.items():
+    kept = tables["department"].get(_code(prefix))
+    if kept is None or kept.name == kept.code:
+      tables["department"].add([records.Department(prefix, name, None, None)])
+
+
+def _canonicalize(tables: dict[str, _Table]) -> None:
+  """Respells every course_code as the course table spells it."""
+  canon = {c.key: c.code for c in tables["course"].rows()}
+
+  def respell(row: Any) -> Any:
+    code = canon.get(_course(row.course_code), row.course_code)
+    return (
+      row
+      if code == row.course_code
+      else dataclasses.replace(row, course_code=code)
+    )
+
+  for name in _COURSE_CODE_TABLES:
+    tables[name].remap(respell)
 
 
 class _Resolver:
   """Maps a course code as some source wrote it to a catalog course.
 
-  Exact codes match case-insensitively. Otherwise a code like CSCI-103
-  matches CSCI-103L only when exactly one course has that department and
-  number; ambiguous codes (CHEM-105 with 105aLg and 105bL) stay unresolved.
+  A code matches the course with the same identity (CHEM-105A matches
+  CHEM-105aLg). Otherwise a code without a sequence letter matches when
+  exactly one course has its department and number; ambiguous codes
+  (CHEM-105 with 105aLg and 105bL) stay unresolved.
   """
 
   def __init__(self, courses: Sequence[records.Course]) -> None:
-    self._exact = {_code(c.code): c.code for c in courses}
+    self._exact = {c.key: c.code for c in courses}
     self._by_number: dict[tuple[str, str], list[str]] = collections.defaultdict(
       list
     )
@@ -288,7 +360,7 @@ class _Resolver:
       self._by_number[(_code(c.department_code), c.number)].append(c.code)
 
   def __call__(self, code: str) -> str | None:
-    exact = self._exact.get(_code(code))
+    exact = self._exact.get(_course(code))
     if exact is not None:
       return exact
     match = _BASE_CODE.match(code)
@@ -374,12 +446,15 @@ def _write_catalogue(
   pages = data.programs
   return {
     "catalogue": _insert(conn, "catalogue", _tuples([data.catalogue])),
+    "catalogue_course": _insert(
+      conn, "catalogue_course", _tuples(data.tables["catalogue_course"].rows())
+    ),
     "ge_course": _insert(
       conn,
       "ge_course",
       (
         (*dataclasses.astuple(g), resolve(g.listed_code))
-        for g in data.ge_courses
+        for g in data.tables["ge_course"].rows()
       ),
     ),
     "program": _insert(conn, "program", _tuples(p.program for p in pages)),
@@ -439,6 +514,7 @@ def build(
   _collect_classes(raw, data)
   _collect_rmp(raw, data)
   _collect_catalogue(raw, data)
+  _canonicalize(data.tables)
   for name, table in data.tables.items():
     if table.duplicates:
       logging.info("Dropped %d duplicate %s rows", table.duplicates, name)

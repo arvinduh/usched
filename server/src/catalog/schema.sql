@@ -28,7 +28,8 @@ CREATE TABLE school (
 CREATE TABLE department (
   code TEXT PRIMARY KEY COLLATE NOCASE, -- program prefix, e.g. CSCI
   name TEXT NOT NULL,
-  school_code TEXT NOT NULL REFERENCES school (code),
+  school_code TEXT REFERENCES school (code), -- NULL: only the catalogue
+                                      -- lists this prefix
   note TEXT                           -- USC's program note, if any
 );
 
@@ -37,7 +38,11 @@ CREATE TABLE department (
 -- A course's identity across terms. Everything that can change from term
 -- to term lives on `offering`.
 CREATE TABLE course (
-  code TEXT PRIMARY KEY COLLATE NOCASE, -- DEPT-NUMBER+SUFFIX, e.g. CSCI-104L
+  code TEXT PRIMARY KEY COLLATE NOCASE, -- DEPT-NUMBER+SUFFIX, e.g. CSCI-104L,
+                                      -- spelled as the catalogue spells it
+  key TEXT NOT NULL UNIQUE COLLATE NOCASE, -- identity: department, number,
+                                      -- sequence (CHEM-105aLg -> CHEM-105A);
+                                      -- attribute letters vary by source
   department_code TEXT NOT NULL REFERENCES department (code),
   number TEXT NOT NULL,               -- e.g. 104
   suffix TEXT NOT NULL                -- e.g. L, g, xg, AL (sequence A);
@@ -220,9 +225,38 @@ CREATE TABLE catalogue (
   name TEXT NOT NULL                  -- e.g. 2026-2027 USC Catalogue
 );
 
--- The catalogue's General Education course lists: which courses count for
--- which category in a catalogue year. A course may count for two (one Core,
--- one Global).
+-- A course as the catalogue defines it for a year: every course USC has,
+-- offered this term or not. Rules are kept as the catalogue words them;
+-- the schedule's structured requisites live on requisite_group.
+CREATE TABLE catalogue_course (
+  catalogue_id INTEGER NOT NULL REFERENCES catalogue (id),
+  code TEXT NOT NULL COLLATE NOCASE REFERENCES course (code),
+  title TEXT NOT NULL,
+  units_min REAL,                     -- smallest and largest value listed;
+  units_max REAL,                     -- NULL when the catalogue lists none
+  units_text TEXT NOT NULL,           -- as written, e.g. "2, 4" or "1 each"
+  max_units REAL,                     -- most units a repeatable course allows
+  terms_offered TEXT,                 -- e.g. FaSp, FaSpSm, Irregular
+  instruction_mode TEXT,              -- e.g. Lecture, Lab Required
+  grading_option TEXT,                -- e.g. Letter, Credit/No Credit
+  description TEXT,
+  prerequisite TEXT,
+  corequisite TEXT,
+  concurrent TEXT,
+  recommended_prep TEXT,
+  registration_restriction TEXT,
+  credit_restriction TEXT,
+  duplicate_credit TEXT,              -- e.g. "In former ACAD 175"
+  cross_listed_code TEXT,             -- the same course under another code
+  enroll_in_code TEXT,                -- set on stubs: register under this code
+  notes TEXT,                         -- remaining prose, e.g. old GE status
+  PRIMARY KEY (catalogue_id, code)
+);
+
+-- Which courses count for which GE category in a catalogue year: the
+-- union of the General Education page's lists and each course's own
+-- "Satisfies ... Category" statement, since neither alone is complete. A
+-- course may count for two (one Core, one Global).
 CREATE TABLE ge_course (
   catalogue_id INTEGER NOT NULL REFERENCES catalogue (id),
   ge_code TEXT NOT NULL REFERENCES ge_category (code),

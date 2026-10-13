@@ -25,6 +25,14 @@ GE_PAGE = """
 <h4>GE-F. Quantitative Reasoning</h4>
 <li class="acalog-course">MATH 125g Calculus I Units: 4</li>
 """
+# The catalogue spells CSCI 445's attribute letters unlike the schedule
+# (445Lx vs 445L) and states its GE category on the course itself.
+COURSE_PAGE = """
+<h2>Computer Science</h2>
+<li><h3>CSCI 445Lx Introduction to Robotics</h3>Units: 4<br>
+Terms Offered: Sp<hr>
+Robots.<br>Satisfies New General Education in Category E: Physical Sciences</li>
+"""
 RMP_SEARCH = {
   "data": {
     "newSearch": {
@@ -69,6 +77,11 @@ def catalog_path(tmp_path_factory) -> pathlib.Path:
     (FIXTURES / "program-cs.html").read_text(encoding="utf-8"),
   )
   raw.write_text("catalogue/22/programs/31554.html", GE_PAGE)
+  raw.write_text(
+    "catalogue/22/courses/001.html",
+    (FIXTURES / "courses-page.html").read_text(encoding="utf-8"),
+  )
+  raw.write_text("catalogue/22/courses/002.html", COURSE_PAGE)
 
   target = root.parent / "catalog.db"
   target.write_text("stale database to be replaced")

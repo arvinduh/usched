@@ -33,7 +33,7 @@ class Department:
 
   code: str
   name: str
-  school_code: str
+  school_code: str | None  # None for prefixes only the catalogue lists
   note: str | None
 
 
@@ -42,6 +42,7 @@ class Course:
   """A course's identity across terms."""
 
   code: str
+  key: str  # identity: department, number, sequence (codes.course_key)
   department_code: str
   number: str
   suffix: str
