@@ -226,6 +226,25 @@
   margin: 0;
 }
 
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend .miniChip {
+  gap: 4px;
+  font-family: inherit;
+}
+
+.legendHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 .requirement {
   display: flex;
   flex-direction: column;

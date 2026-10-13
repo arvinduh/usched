@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { Check, Lock } from 'lucide-react';
 import { lookupCourses } from '../api/client';
 import { courseKey, displayCode, extractCourseCodes } from '../lib/degree';
 import type {
@@ -127,7 +128,10 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
           )}
 
           <section className={styles.group}>
-            <h2 className={styles.heading}>Requirements</h2>
+            <header className={styles.headingRow}>
+              <h2 className={styles.heading}>Requirements</h2>
+              <Legend />
+            </header>
             <RequirementTree program={program} audit={audit} ctx={ctx} />
           </section>
         </>
@@ -149,6 +153,26 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
         onRecord={props.onRecordCompleted}
       />
     </div>
+  );
+}
+
+/**
+ * Explains chip states: taken counts toward the degree already, this term
+ * means a section is on the active week, and clicking marks a course taken.
+ */
+function Legend(): React.JSX.Element {
+  return (
+    <span className={styles.legend}>
+      <span className={`${styles.miniChip} ${styles.done}`}>
+        <Check size={10} /> Taken
+      </span>
+      <span className={`${styles.miniChip} ${styles.planned}`}>This term</span>
+      <span className={`${styles.miniChip} ${styles.open}`}>To take</span>
+      <span className={`${styles.miniChip} ${styles.locked}`}>
+        <Lock size={9} /> Needs prerequisites
+      </span>
+      <span className={styles.legendHint}>Click a course to mark it taken.</span>
+    </span>
   );
 }
 
