@@ -24,7 +24,7 @@ with one input) and your degree, which drops down from the top bar's meter.
 - **The advisor** (optional) answers from a brief of your real progress, next
   courses, and week. Schedules it proposes appear on your week right away:
   flip through the options and keep one. Courses it names that the catalog
-  lacks are flagged. Runs on Gemini (hosted) or a local Ollama model.
+  lacks are flagged. Runs on Gemini.
 
 Pick any fetched term from the top bar; each keeps its own schedules. The first
 visit asks for your program.
@@ -35,9 +35,9 @@ visit asks for your program.
 | :------------------------- | :----------------------------------------------------- |
 | Node.js 20+                | `brew install node` / `winget install OpenJS.NodeJS`   |
 | uv (manages Python 3.14)   | `brew install uv` / `winget install astral-sh.uv`      |
-| Ollama (advisor, optional) | `brew install ollama` / `winget install Ollama.Ollama` |
 
-For the advisor, use either Ollama or a free Gemini API key (below).
+For the advisor, get a free Gemini API key at
+[Google AI Studio](https://aistudio.google.com) and put it in `.env` (below).
 
 ## Setup
 
@@ -76,9 +76,8 @@ One process runs both with hot reload; Ctrl+C stops both and hands the terminal
 back clean. Run it with `uv run`, not through `npm run`: on Windows, npm's batch
 wrappers can survive Ctrl+C and swallow every other keystroke.
 
-The advisor uses Gemini when `GEMINI_API_KEY` is set in `.env`, otherwise Ollama:
-run `ollama pull qwen3.5:4b` once (about 3.3 GB), and keep the Ollama app open. Without either, everything
-except the advisor works, and asking a question explains what to set up.
+The advisor needs `GEMINI_API_KEY` in `.env`. Without it, everything except the
+advisor works, and asking a question explains what to set up.
 
 ## Using it
 
@@ -113,13 +112,10 @@ section numbers for registration and resets all local data.
 
 `.env` at the repo root (or the host's environment settings); all optional:
 
-| Variable              | Default                        | Purpose                    |
-| :-------------------- | :----------------------------- | :------------------------- |
-| `GEMINI_API_KEY`      | none                           | Use Gemini for the advisor |
-| `GEMINI_MODEL`        | `gemini-flash-latest`          | Which Gemini model         |
-| `OLLAMA_HOST`         | `http://127.0.0.1:11434`       | Ollama endpoint            |
-| `OLLAMA_MODEL`        | `qwen3.5:4b`                   | Which Ollama model         |
-| `USCHED_LLM_PROVIDER` | gemini with a key, else ollama | Force `gemini` or `ollama` |
+| Variable         | Default               | Purpose                         |
+| :--------------- | :-------------------- | :------------------------------ |
+| `GEMINI_API_KEY` | none                  | Turns on the advisor            |
+| `GEMINI_MODEL`   | `gemini-flash-latest` | Which Gemini model it runs on   |
 
 ## Deploying
 
@@ -193,8 +189,8 @@ server/
     catalog/           Fetchers, pure parsers, schema, and the build
     data/              Read-only catalog queries and API models
     engine/            Schedule solver, degree and GE audits
-    agent/             Advisor: student brief, tools, chips, Gemini and
-                       Ollama providers, SSE streaming
+    agent/             Advisor: student brief, tools, chips, the Gemini
+                       model and its tool loop, SSE streaming
     routes/            Term-scoped catalog routes and chat
 tests/                 Pytest suites mirroring server/src
 client/src/

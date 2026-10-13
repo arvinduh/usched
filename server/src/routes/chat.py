@@ -2,7 +2,7 @@
 
 This module exposes the streaming dialogue endpoint for academic advising,
 prerequisite navigation, and schedule optimization. The advisor itself is
-blocking (synchronous Ollama and SQLite calls), so this route owns moving it
+blocking (synchronous model and SQLite calls), so this route owns moving it
 off the event loop; the advisor module owns what gets said.
 """
 

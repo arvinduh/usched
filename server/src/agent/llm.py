@@ -1,17 +1,13 @@
 """The language-model interface the advisor talks to, and its configuration.
 
-A provider takes a system prompt, the conversation so far, the student's
-message, and tools, and streams reply text. Providers are drop-in
-replacements: the tools, prompt, and tool loop (`run`) are shared, and a
-provider only translates one model turn to and from its wire format.
-Which provider runs is configuration:
+A model takes a system prompt, the conversation so far, the student's
+message, and tools, and streams reply text. The tool loop (`run`) lives
+here, apart from any wire format, so the model module only translates one
+turn, and tests fake a whole model behind the `Model` protocol. The model
+is Gemini, configured by the environment:
 
-  USCHED_LLM_PROVIDER   gemini | ollama; default gemini when GEMINI_API_KEY
-                        is set, else ollama
-  GEMINI_API_KEY        Google AI Studio key (hosted deployments)
+  GEMINI_API_KEY        Google AI Studio key
   GEMINI_MODEL          default gemini-flash-latest
-  OLLAMA_HOST           default http://127.0.0.1:11434 (local development)
-  OLLAMA_MODEL          default qwen3.5:4b
 """
 
 import dataclasses
@@ -128,16 +124,10 @@ class Model(Protocol):
 
 
 def from_env() -> Model:
-  """Builds the provider the environment selects (see the module doc)."""
-  from server.src.agent import gemini, ollama
+  """Builds the model the environment configures (see the module doc)."""
+  from server.src.agent import gemini
 
-  key = os.getenv("GEMINI_API_KEY", "")
-  provider = os.getenv("USCHED_LLM_PROVIDER") or ("gemini" if key else "ollama")
-  if provider == "gemini":
-    return gemini.Gemini(key, os.getenv("GEMINI_MODEL", "gemini-flash-latest"))
-  if provider == "ollama":
-    return ollama.Ollama(
-      os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434"),
-      os.getenv("OLLAMA_MODEL", "qwen3.5:4b"),
-    )
-  raise ValueError(f"USCHED_LLM_PROVIDER must be gemini or ollama: {provider}")
+  return gemini.Gemini(
+    os.getenv("GEMINI_API_KEY", ""),
+    os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+  )

@@ -1,6 +1,6 @@
 """The student brief: the facts the advisor answers from, computed up front.
 
-A small model asked "what can I take?" invents plausible courses unless
+A model asked "what can I take?" invents plausible courses unless
 the real answer is already in front of it. Each message therefore carries
 a brief built from the catalog in milliseconds: degree progress, courses
 the student can take next (offered this term, prerequisites met), open GE

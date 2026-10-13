@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from server.src.agent import gemini, llm, ollama
+from server.src.agent import gemini, llm
 
 
 TOOLS = [
@@ -114,69 +114,14 @@ def test_gemini_without_a_key_explains_how_to_get_one():
   assert gemini.Gemini("key", "m").unavailable() is None
 
 
-def test_ollama_forbids_tools_on_its_last_round():
-  offered: list[bool] = []
-
-  def handle(request: httpx.Request) -> httpx.Response:
-    offered.append("tools" in json.loads(request.content))
-    call = {"function": {"name": "search_courses", "arguments": {}}}
-    line = {"message": {"content": "", "tool_calls": [call]}}
-    return httpx.Response(200, content=json.dumps(line))
-
-  model = ollama.Ollama("http://ollama", "qwen", httpx.MockTransport(handle))
-  list(model.reply("s", [], "q", TOOLS, lambda name, args: "none"))
-  assert offered == [True, True, False]
-
-
-def test_ollama_streams_then_answers_tool_results():
-  payloads: list[dict[str, Any]] = []
-
-  def handle(request: httpx.Request) -> httpx.Response:
-    payloads.append(json.loads(request.content))
-    if len(payloads) == 1:
-      call = {
-        "function": {"name": "search_courses", "arguments": {"query": "x"}}
-      }
-      lines = [{"message": {"content": "", "tool_calls": [call]}}]
-    else:
-      lines = [{"message": {"content": "Done"}}, {"message": {"content": "."}}]
-    return httpx.Response(200, content="\n".join(map(json.dumps, lines)))
-
-  model = ollama.Ollama("http://ollama", "qwen", httpx.MockTransport(handle))
-  text = "".join(
-    model.reply("sys", [], "q", TOOLS, lambda name, args: "result")
-  )
-  assert text == "Done."
-  assert payloads[1]["messages"][-2]["tool_calls"][0]["function"]["name"] == (
-    "search_courses"
-  )
-  assert payloads[1]["messages"][-1] == {
-    "role": "tool",
-    "name": "search_courses",
-    "content": "result",
-  }
-
-
-def test_ollama_reports_a_stopped_daemon():
-  def refuse(request: httpx.Request) -> httpx.Response:
-    raise httpx.ConnectError("refused", request=request)
-
-  model = ollama.Ollama("http://ollama", "qwen", httpx.MockTransport(refuse))
-  reason = model.unavailable()
-  assert reason is not None and "offline" in reason
-
-
-def test_the_environment_picks_the_provider(monkeypatch):
-  for name in ("USCHED_LLM_PROVIDER", "GEMINI_API_KEY", "GEMINI_MODEL"):
+def test_the_environment_configures_gemini(monkeypatch):
+  for name in ("GEMINI_API_KEY", "GEMINI_MODEL"):
     monkeypatch.delenv(name, raising=False)
-  assert isinstance(llm.from_env(), ollama.Ollama)
-  monkeypatch.setenv("GEMINI_API_KEY", "key")
   model = llm.from_env()
-  assert (
-    isinstance(model, gemini.Gemini) and model.name == "gemini-flash-latest"
-  )
-  monkeypatch.setenv("USCHED_LLM_PROVIDER", "ollama")
-  assert isinstance(llm.from_env(), ollama.Ollama)
-  monkeypatch.setenv("USCHED_LLM_PROVIDER", "openai")
-  with pytest.raises(ValueError, match="gemini or ollama"):
-    llm.from_env()
+  assert isinstance(model, gemini.Gemini)
+  assert model.name == "gemini-flash-latest"
+  assert model.unavailable() is not None
+  monkeypatch.setenv("GEMINI_API_KEY", "key")
+  monkeypatch.setenv("GEMINI_MODEL", "gemini-pro-latest")
+  model = llm.from_env()
+  assert model.name == "gemini-pro-latest" and model.unavailable() is None
