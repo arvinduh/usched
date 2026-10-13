@@ -37,7 +37,10 @@ interface Completion {
   readonly key: string;
   readonly label: string;
   readonly detail: string;
+  /** Enter: runs a command, or adds a course. */
   readonly choose: () => void;
+  /** Tab: completes the text without running anything. */
+  readonly fill: () => void;
 }
 
 /**
@@ -109,6 +112,10 @@ export function Composer(props: ComposerProps): React.JSX.Element {
           label: `/${c.name}`,
           detail: c.hint,
           choose: () => runCommand(c.name),
+          fill: () => {
+            setText(c.name === 'took' ? '/took ' : `/${c.name}`);
+            setCursor(0);
+          },
         }))
       : bar.kind === 'took' && bar.partial
         ? props.suggestions
@@ -119,6 +126,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
               label: displayCode(c.code),
               detail: c.title,
               choose: () => complete(c.code),
+              fill: () => complete(c.code),
             }))
         : [];
   const active = completions[Math.min(cursor, completions.length - 1)];
@@ -163,7 +171,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
       setCursor((Math.min(cursor, completions.length - 1) + step + completions.length) % completions.length);
     } else if (e.key === 'Tab' && active) {
       e.preventDefault();
-      active.choose();
+      active.fill();
     } else if (e.key === 'Enter') {
       e.preventDefault();
       onEnter(e.metaKey || e.ctrlKey);
