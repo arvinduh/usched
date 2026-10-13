@@ -23,7 +23,7 @@ import {
 import { formatRange } from '../lib/time';
 import { setFocus, usePreview } from '../state/preview';
 import { ContextMenu } from '../ui/ContextMenu';
-import { DayStrip, RatingPair, SeatMeter, TypeSwatch } from '../ui/Glyphs';
+import { DayStrip, RatingPair, SeatNote, TypeSwatch } from '../ui/Glyphs';
 import { hueFor } from '../ui/encoding';
 import type { Course, CourseRef, RequisiteGroup, Section, Units } from '../types';
 import styles from './Course.module.css';
@@ -433,7 +433,7 @@ function SectionRow({
             count={rated.num_ratings}
           />
         )}
-        <SeatMeter
+        <SeatNote
           enrolled={section.registered}
           capacity={section.capacity}
           waitlist={section.waitlisted}
