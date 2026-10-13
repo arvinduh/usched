@@ -11,6 +11,7 @@ from the catalog (categories, exams); this module is pure.
 import collections
 from collections.abc import Mapping, Sequence
 
+from server.src.catalog import codes
 from server.src.data import catalog_models as m
 
 
@@ -25,7 +26,7 @@ def audit(
 
   Args:
     categories: GE categories with their area and seat count.
-    course_ge: Lowercased course code to the categories it counts for.
+    course_ge: Course identity (codes.identity) to its categories.
     completed: Course codes the student took; order breaks ties.
     exams: AP exam policy.
     credits: The student's AP results; failing scores earn nothing.
@@ -41,7 +42,8 @@ def audit(
     if c.exam_id in by_id and c.score >= by_id[c.exam_id].min_score
   ]
   credit_ge += [
-    (("course", code), course_ge.get(code.lower(), ())) for code in completed
+    (("course", code), course_ge.get(codes.identity(code), ()))
+    for code in completed
   ]
   filled: dict[str, list[int]] = collections.defaultdict(list)
   for area in {c.area for c in categories}:

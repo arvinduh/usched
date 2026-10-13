@@ -25,9 +25,9 @@ def _filled(progress: list[m.GeProgress]) -> dict[str, list[str]]:
 def test_matching_moves_a_flexible_course_to_leave_room():
   # Greedy would put HIST-1 in GE-B and strand GE-C; matching does not.
   course_ge = {
-    "hist-1": ["GE-B", "GE-C"],
-    "phil-1": ["GE-B"],
-    "phil-2": ["GE-B"],
+    "HIST-1": ["GE-B", "GE-C"],
+    "PHIL-1": ["GE-B"],
+    "PHIL-2": ["GE-B"],
   }
   result = ge_audit.audit(
     CATEGORIES, course_ge, ["HIST-1", "PHIL-1", "PHIL-2"], [], []
@@ -40,7 +40,7 @@ def test_matching_moves_a_flexible_course_to_leave_room():
 
 
 def test_a_course_counts_once_per_area():
-  course_ge = {"anth-1": ["GE-B", "GE-C", "GE-G"]}
+  course_ge = {"ANTH-1": ["GE-B", "GE-C", "GE-G"]}
   result = _filled(ge_audit.audit(CATEGORIES, course_ge, ["ANTH-1"], [], []))
   core = result["GE-B"] + result["GE-C"]
   assert core == ["ANTH-1"]
@@ -60,6 +60,6 @@ def test_ap_credit_needs_the_exams_minimum_score():
 
 def test_codes_match_case_insensitively_and_unknowns_are_ignored():
   result = ge_audit.audit(
-    CATEGORIES, {"phil-1": ["GE-B"]}, ["Phil-1", "X-1"], [], []
+    CATEGORIES, {"PHIL-1": ["GE-B"]}, ["Phil-1", "X-1"], [], []
   )
   assert _filled(result)["GE-B"] == ["Phil-1"]

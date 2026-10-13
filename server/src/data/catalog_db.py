@@ -3,8 +3,10 @@
 The only module that queries catalog.db at runtime. Pages of courses load
 in batches (one query per child table for the whole page) and are
 assembled into API models, so a 100-course search costs about ten queries
-rather than one per course. Building the database belongs to the catalog
-package; this module never writes.
+rather than one per course. Codes from callers may be spelled any way a
+source spells them (MATH-118xg, math 118); they are matched by identity
+(codes.identity) and results are keyed the same way. Building the
+database belongs to the catalog package; this module never writes.
 """
 
 import collections
@@ -13,6 +15,7 @@ import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from server.src.catalog import codes as course_codes
 from server.src.data import catalog_models as m
 from server.src.data import search
 
@@ -145,6 +148,18 @@ def search_courses(
   return courses(conn, term, codes)
 
 
+def canonical(conn: sqlite3.Connection, codes: Iterable[str]) -> dict[str, str]:
+  """Maps each code's identity to the catalog's spelling, for known courses."""
+  keys = list(dict.fromkeys(map(course_codes.identity, codes)))
+  if not keys:
+    return {}
+  return dict(
+    conn.execute(
+      f"SELECT key, code FROM course WHERE key IN ({_marks(keys)})", keys
+    ).fetchall()
+  )
+
+
 def course(conn: sqlite3.Connection, term: int, code: str) -> m.Course | None:
   """Loads one course in a term, or None if it is not offered then."""
   found = courses(conn, term, [code])
@@ -154,26 +169,31 @@ def course(conn: sqlite3.Connection, term: int, code: str) -> m.Course | None:
 def courses(
   conn: sqlite3.Connection, term: int, codes: Sequence[str]
 ) -> list[m.Course]:
-  """Loads full courses in `codes` order; codes not offered are skipped."""
-  if not codes:
+  """Loads full courses in `codes` order; codes not offered are skipped.
+
+  Two spellings of one course load it once.
+  """
+  known = list(canonical(conn, codes).values())
+  if not known:
     return []
   rows = {
-    r["course_code"].lower(): r
+    r["key"]: r
     for r in conn.execute(
-      f"""SELECT o.*, c.department_code, c.number, c.suffix
+      f"""SELECT o.*, c.key, c.department_code, c.number, c.suffix
           FROM offering o JOIN course c ON c.code = o.course_code
-          WHERE o.term_code = ? AND o.course_code IN ({_marks(codes)})""",
-      [term, *codes],
+          WHERE o.term_code = ? AND o.course_code IN ({_marks(known)})""",
+      [term, *known],
     )
   }
-  found = [rows[c.lower()] for c in codes if c.lower() in rows]
-  keys = [r["course_code"] for r in found]
-  ge = _ge(conn, keys)
-  requisites = _requisites(conn, term, keys)
-  restrictions = _restrictions(conn, term, keys)
+  wanted = dict.fromkeys(map(course_codes.identity, codes))
+  found = [rows[k] for k in wanted if k in rows]
+  offered = [r["course_code"] for r in found]
+  ge = _ge(conn, offered)
+  requisites = _requisites(conn, term, offered)
+  restrictions = _restrictions(conn, term, offered)
   sections_by_course = collections.defaultdict(list)
-  for s in _sections_where(conn, term, "s.course_code", keys):
-    sections_by_course[s.course_code.lower()].append(s)
+  for s in _sections_where(conn, term, "s.course_code", offered):
+    sections_by_course[course_codes.identity(s.course_code)].append(s)
   return [
     m.Course(
       term=term,
@@ -189,13 +209,13 @@ def courses(
       course_notes=r["course_notes"],
       term_notes=r["term_notes"],
       is_cross_listed=bool(r["is_cross_listed"]),
-      ge=ge.get(r["course_code"].lower(), []),
+      ge=ge.get(r["key"], []),
       requisites=requisites.get(
-        r["course_code"].lower(),
+        r["key"],
         m.Requisites(prerequisite=[], corequisite=[], concurrent=[]),
       ),
-      restrictions=restrictions.get(r["course_code"].lower(), []),
-      sections=sections_by_course.get(r["course_code"].lower(), []),
+      restrictions=restrictions.get(r["key"], []),
+      sections=sections_by_course.get(r["key"], []),
     )
     for r in found
   ]
@@ -211,22 +231,34 @@ def sections(
 def requisites_of(
   conn: sqlite3.Connection, term: int, codes: Sequence[str]
 ) -> dict[str, m.Requisites]:
-  """Maps lowercased codes offered in `term` to their requisites."""
-  return _requisites(conn, term, codes) if codes else {}
+  """Maps identities of courses offered in `term` to their requisites."""
+  known = list(canonical(conn, codes).values())
+  return _requisites(conn, term, known) if known else {}
 
 
 def units_of(
   conn: sqlite3.Connection, codes: Sequence[str]
 ) -> dict[str, m.Units]:
-  """Maps lowercased codes to their units in the latest term offering them."""
+  """Maps identities to units: the latest offering's, else the catalogue's.
+
+  Courses with neither are absent.
+  """
   out: dict[str, m.Units] = {}
-  if codes:
+  known = list(canonical(conn, codes).values())
+  if known:
     for code, low, high in conn.execute(
       f"""SELECT course_code, units_min, units_max FROM offering
-          WHERE course_code IN ({_marks(codes)}) ORDER BY term_code DESC""",
-      list(codes),
+          WHERE course_code IN ({_marks(known)}) ORDER BY term_code DESC""",
+      known,
     ):
-      out.setdefault(code.lower(), m.Units(min=low, max=high))
+      out.setdefault(course_codes.identity(code), m.Units(min=low, max=high))
+    for code, low, high in conn.execute(
+      f"""SELECT code, units_min, units_max FROM catalogue_course
+          WHERE catalogue_id = {_LATEST_CATALOGUE}
+            AND units_min IS NOT NULL AND code IN ({_marks(known)})""",
+      known,
+    ):
+      out.setdefault(course_codes.identity(code), m.Units(min=low, max=high))
   return out
 
 
@@ -239,7 +271,7 @@ def _ge(conn: sqlite3.Connection, codes: Sequence[str]) -> dict[str, list[str]]:
         ORDER BY ge_code""",
     list(codes),
   ):
-    out[row[0].lower()].append(row[1])
+    out[course_codes.identity(row[0])].append(row[1])
   return out
 
 
@@ -254,7 +286,7 @@ def _requisites(
         ORDER BY course_code, kind, position""",
     [term, *codes],
   ):
-    groups[(row[0].lower(), row[1], row[2])] = m.RequisiteGroup(
+    groups[(course_codes.identity(row[0]), row[1], row[2])] = m.RequisiteGroup(
       required_count=row[3], options=[]
     )
   for row in conn.execute(
@@ -266,7 +298,7 @@ def _requisites(
           position""",
     [term, *codes],
   ):
-    options = groups[(row[0].lower(), row[1], row[2])].options
+    options = groups[(course_codes.identity(row[0]), row[1], row[2])].options
     while len(options) <= row[3]:
       options.append([])
     options[row[3]].append(m.CourseRef(code=row[4], resolved=row[5]))
@@ -290,7 +322,7 @@ def _restrictions(
         ORDER BY course_code, kind, position""",
     [term, *codes],
   ):
-    out[row[0].lower()].append(
+    out[course_codes.identity(row[0])].append(
       m.Restriction(
         kind=row[1], code=row[2], description=row[3], inclusive=bool(row[4])
       )
@@ -409,9 +441,9 @@ def ge_categories(conn: sqlite3.Connection) -> list[m.GeCategory]:
 def ge_of(
   conn: sqlite3.Connection, codes: Iterable[str]
 ) -> dict[str, list[str]]:
-  """Maps course codes (lowercased) to the GE categories they count for."""
-  codes = list(codes)
-  return _ge(conn, codes) if codes else {}
+  """Maps identities of courses to the GE categories they count for."""
+  known = list(canonical(conn, codes).values())
+  return _ge(conn, known) if known else {}
 
 
 def programs(

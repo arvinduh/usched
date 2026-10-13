@@ -68,10 +68,10 @@ def test_nothing_done():
 
 
 def test_slots_units_and_parents():
-  audit = program_audit.audit(PROGRAM, ["a-1", "A-3", "E-1"], {}, {})
+  audit = program_audit.audit(PROGRAM, ["A-1", "A-3", "E-1"], {}, {})
   assert _statuses(audit) == [PARTIAL, DONE, PARTIAL, MANUAL]
   # A-1 fills requirement 1 first, so it cannot also count toward 2.
-  assert audit.requirements[1].courses == ["a-1", "A-3"]
+  assert audit.requirements[1].courses == ["A-1", "A-3"]
   assert audit.requirements[2].courses == ["E-1"]
   assert audit.requirements[0].units == 12
   done = program_audit.audit(PROGRAM, ["A-1", "A-2", "E-1", "E-2"], {}, {})
@@ -79,7 +79,7 @@ def test_slots_units_and_parents():
 
 
 def test_units_prefer_the_catalog_and_count_courses_outside_the_program():
-  units = {"e-1": m.Units(min=2, max=4), "x-9": m.Units(min=3, max=3)}
+  units = {"E-1": m.Units(min=2, max=4), "X-9": m.Units(min=3, max=3)}
   audit = program_audit.audit(PROGRAM, ["E-1", "X-9", "Y-1"], units, {})
   assert audit.requirements[2].units == 2
   assert audit.units == 5  # Y-1's units are unknown.
@@ -91,7 +91,7 @@ def test_locked_courses_follow_prerequisites():
     corequisite=[],
     concurrent=[],
   )
-  requisites = {"e-2": needs_a1, "e-1": needs_a1}
+  requisites = {"E-2": needs_a1, "E-1": needs_a1}
   assert program_audit.audit(PROGRAM, [], {}, requisites).locked == {
     "E-1": ["A-1"],
     "E-2": ["A-1"],
@@ -104,6 +104,6 @@ def test_prerequisite_groups_need_their_count_of_complete_options():
     required_count=1, options=[[_ref("A-1"), _ref("A-2")], [_ref("B-1")]]
   )
   req = m.Requisites(prerequisite=[group], corequisite=[], concurrent=[])
-  assert program_audit.unmet_prerequisites(req, {"a-1"}) == [group]
-  assert not program_audit.unmet_prerequisites(req, {"a-1", "a-2"})
-  assert not program_audit.unmet_prerequisites(req, {"b-1"})
+  assert program_audit.unmet_prerequisites(req, {"A-1"}) == [group]
+  assert not program_audit.unmet_prerequisites(req, {"A-1", "A-2"})
+  assert not program_audit.unmet_prerequisites(req, {"B-1"})

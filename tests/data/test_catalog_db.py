@@ -57,6 +57,13 @@ def test_courses_keep_request_order_and_skip_unknown_codes(conn):
   assert [c.code for c in found] == ["CSCI-420", "CHEM-108L"]
 
 
+def test_any_spelling_finds_a_course(conn):
+  for spelling in ("CSCI 104", "csci-104l", "CSCI-104Lg"):
+    course = catalog_db.course(conn, 20271, spelling)
+    assert course is not None and course.code == "CSCI-104L", spelling
+  assert len(catalog_db.courses(conn, 20271, ["CSCI-104L", "CSCI 104"])) == 1
+
+
 def test_course_is_scoped_to_its_term(conn):
   assert catalog_db.course(conn, 20253, "CSCI-104L") is None
 

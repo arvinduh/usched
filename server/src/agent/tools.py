@@ -13,6 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from server.src.agent import chips
+from server.src.catalog import codes
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
 from server.src.engine import program_audit, schedule
@@ -281,8 +282,8 @@ def solve_schedule(
 ) -> ToolResult:
   """Finds the three best schedules and offers each as a proposal."""
   courses = catalog_db.courses(conn, student.term, list(course_codes))
-  found_codes = {c.code.lower() for c in courses}
-  missing = [c for c in course_codes if c.lower() not in found_codes]
+  found_codes = {codes.identity(c.code) for c in courses}
+  missing = [c for c in course_codes if codes.identity(c) not in found_codes]
   if missing:
     return ToolResult(f"Not offered this term: {', '.join(missing)}.")
   prefs = schedule.Preferences(
@@ -353,15 +354,15 @@ def audit_program(
     for p in result.requirements
     if parents[p.position] is None and p.status != m.RequirementStatus.DONE
   ]
-  done = {c.lower() for c in student.completed}
-  locked = {c.lower() for c in result.locked}
+  done = {codes.identity(c) for c in student.completed}
+  locked = {codes.identity(c) for c in result.locked}
   ready = list(
     dict.fromkeys(
       code
       for code in listed
-      if code.lower() in requisites
-      and code.lower() not in done
-      and code.lower() not in locked
+      if codes.identity(code) in requisites
+      and codes.identity(code) not in done
+      and codes.identity(code) not in locked
     )
   )
   total = f"/{program.total_units:g}" if program.total_units else ""

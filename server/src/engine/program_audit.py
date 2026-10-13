@@ -11,6 +11,7 @@ courses are locked. This module is pure; catalog_db supplies the data.
 import collections
 from collections.abc import Mapping, Sequence
 
+from server.src.catalog import codes
 from server.src.data import catalog_models as m
 
 
@@ -18,13 +19,13 @@ Status = m.RequirementStatus
 
 
 def _key(ref: m.CourseRef) -> str:
-  return (ref.resolved or ref.code).lower()
+  return codes.identity(ref.resolved or ref.code)
 
 
 def unmet_prerequisites(
   requisites: m.Requisites, done: set[str]
 ) -> list[m.RequisiteGroup]:
-  """Prerequisite groups completed courses (lowercased) do not meet.
+  """Prerequisite groups completed courses (by identity) do not meet.
 
   Corequisites and concurrent courses may be taken alongside, so they never
   lock a course.
@@ -48,12 +49,12 @@ def audit(
   Args:
     program: The program and its requirement tree.
     completed: Course codes the student took.
-    units: Lowercased code to the course's units; a variable-unit course
+    units: Course identity to its units; a variable-unit course
       counts its minimum. Courses missing here count the catalogue's units
       for the slot they fill, or nothing.
-    requisites: Lowercased code to requisites in the planning term.
+    requisites: Course identity to requisites in the planning term.
   """
-  shown = {c.lower(): c for c in completed}
+  shown = {codes.identity(c): c for c in completed}
   claimed: set[str] = set()
   own: dict[int, list[str]] = collections.defaultdict(list)
   own_units: dict[int, float] = collections.defaultdict(float)
