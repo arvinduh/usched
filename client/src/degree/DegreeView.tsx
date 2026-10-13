@@ -8,12 +8,13 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { getDepartments } from '../api/client';
+import { lookupCourses } from '../api/client';
 import { courseKey, displayCode, extractCourseCodes } from '../lib/degree';
 import type {
   ApCredit,
   ApExam,
   GeProgress,
+  KnownCourse,
   Program,
   ProgramAudit,
   ProgramSummary,
@@ -227,22 +228,34 @@ function Credits({
   readonly onRecord: (courseIds: readonly string[]) => void;
 }): React.JSX.Element {
   const [pasted, setPasted] = useState('');
-  // Real department codes, loaded on first paste, weed out look-alikes such
-  // as "the 100 level".
-  const [departments, setDepartments] = useState<ReadonlySet<string> | null>(null);
-  const wantsDepartments = pasted !== '' && departments === null;
+  const candidates = useMemo(() => extractCourseCodes(pasted), [pasted]);
+  const lookupKey = candidates.join(',');
+  // The catalog decides what is a course; remembers which text it answered.
+  const [lookup, setLookup] = useState<{
+    readonly key: string;
+    readonly known: readonly KnownCourse[];
+  } | null>(null);
   useEffect(() => {
-    if (wantsDepartments) {
-      getDepartments()
-        .then((list) => setDepartments(new Set(list)))
-        .catch(console.error);
+    if (!lookupKey) {
+      return;
     }
-  }, [wantsDepartments]);
+    let stale = false;
+    const timer = setTimeout(() => {
+      lookupCourses(lookupKey.split(','))
+        .then((known) => !stale && setLookup({ key: lookupKey, known }))
+        .catch(console.error);
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [lookupKey]);
 
   const earned = new Set(credits.map((c) => c.exam_id));
-  const found = extractCourseCodes(pasted).filter(
-    (k) => !completed.has(k) && (departments?.has(k.split('-')[0]) ?? false),
-  );
+  const known = lookupKey && lookup?.key === lookupKey ? lookup.known : null;
+  const recognized = new Set(known?.map((c) => courseKey(c.code)));
+  const found = (known ?? []).filter((c) => !completed.has(courseKey(c.code)));
+  const unknown = known ? candidates.filter((k) => !recognized.has(k)) : [];
 
   return (
     <section>
@@ -279,15 +292,15 @@ function Credits({
           className={styles.pasteInput}
           value={pasted}
           onChange={(e) => setPasted(e.target.value)}
-          placeholder="Paste courses you've taken, like a STARS report"
+          placeholder="Paste courses you've taken, like CSCI 103L, MATH 125"
           rows={pasted ? 3 : 1}
         />
         {found.length > 0 && (
           <div className={styles.pasteFound}>
             <span className={styles.chips}>
-              {found.map((k) => (
-                <span key={k} className={styles.miniChip}>
-                  {displayCode(k)}
+              {found.map((c) => (
+                <span key={c.code} className={styles.miniChip} title={c.title}>
+                  {displayCode(c.code)}
                 </span>
               ))}
             </span>
@@ -295,13 +308,18 @@ function Credits({
               type="button"
               className={styles.primary}
               onClick={() => {
-                onRecord(found);
+                onRecord(found.map((c) => c.code));
                 setPasted('');
               }}
             >
               Mark {found.length} done
             </button>
           </div>
+        )}
+        {unknown.length > 0 && (
+          <p className={styles.pasteUnknown}>
+            Not USC courses: {unknown.map(displayCode).join(', ')}
+          </p>
         )}
       </div>
     </section>

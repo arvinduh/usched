@@ -86,7 +86,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/departments": {
+    "/api/courses": {
         parameters: {
             query?: never;
             header?: never;
@@ -94,10 +94,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Departments
-         * @description Lists every department code.
+         * Lookup Courses
+         * @description Recognizes comma-separated course codes written any way.
+         *
+         *     Answers with the catalog's spelling and title for each known course, in
+         *     request order; codes that name no course are left out.
          */
-        get: operations["list_departments_api_departments_get"];
+        get: operations["lookup_courses_api_courses_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -510,6 +513,19 @@ export interface components {
             /** Name */
             name: string;
             rmp: components["schemas"]["Rating"] | null;
+        };
+        /**
+         * KnownCourse
+         * @description A course the catalog knows, in its canonical spelling.
+         */
+        KnownCourse: {
+            /**
+             * Code
+             * @description e.g. BISC-101Lgx.
+             */
+            code: string;
+            /** Title */
+            title: string;
         };
         /**
          * MarkCompleted
@@ -1102,9 +1118,11 @@ export interface operations {
             };
         };
     };
-    list_departments_api_departments_get: {
+    lookup_courses_api_courses_get: {
         parameters: {
-            query?: never;
+            query: {
+                codes: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1117,7 +1135,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string[];
+                    "application/json": components["schemas"]["KnownCourse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

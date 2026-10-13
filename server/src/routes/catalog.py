@@ -91,10 +91,15 @@ def get_sections(conn: Conn, term: int, ids: str) -> list[m.Section]:
   return catalog_db.sections(conn, term, wanted)
 
 
-@router.get("/departments")
-def list_departments(conn: Conn) -> list[str]:
-  """Lists every department code."""
-  return catalog_db.departments(conn)
+@router.get("/courses")
+def lookup_courses(conn: Conn, codes: str) -> list[m.KnownCourse]:
+  """Recognizes comma-separated course codes written any way.
+
+  Answers with the catalog's spelling and title for each known course, in
+  request order; codes that name no course are left out.
+  """
+  wanted = [c for c in (s.strip() for s in codes.split(",")) if c]
+  return catalog_db.known_courses(conn, wanted[:200])
 
 
 @router.get("/programs")

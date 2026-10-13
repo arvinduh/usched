@@ -32,11 +32,13 @@ export function displayCode(courseId: string): string {
   return courseId.replace('-', ' ');
 }
 
-const CODE_PATTERN = /\b([A-Za-z]{2,4})[\s-]?(\d{3}[A-Za-z]{0,2})\b/g;
+// Up to five prefix and four suffix letters: BISC 101Lxg, AMST 101gmw.
+const CODE_PATTERN = /\b([A-Za-z]{2,5})[\s-]?(\d{3}[A-Za-z]{0,4})\b/g;
 
 /**
- * Extracts distinct course codes from free text such as a pasted transcript,
- * normalized to "DEPT-123X".
+ * Extracts distinct course-code candidates from free text, as identities
+ * (courseKey). Look-alikes such as "the 100 level" survive; the catalog
+ * decides which are courses.
  */
 export function extractCourseCodes(text: string): readonly string[] {
   const codes = new Set<string>();

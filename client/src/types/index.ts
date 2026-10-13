@@ -23,6 +23,7 @@ export type Units = Schemas['Units'];
 export type CourseRef = Schemas['CourseRef'];
 export type RequisiteGroup = Schemas['RequisiteGroup'];
 export type Restriction = Schemas['Restriction'];
+export type KnownCourse = Schemas['KnownCourse'];
 export type ProgramSummary = Schemas['ProgramSummary'];
 export type Program = Schemas['Program'];
 export type Requirement = Schemas['Requirement'];

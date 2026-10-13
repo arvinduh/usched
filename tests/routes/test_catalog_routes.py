@@ -48,6 +48,19 @@ def test_courses_load_by_code_in_one_request(client):
   assert [c["code"] for c in found] == ["CSCI-420", "CSCI-104L"]
 
 
+def test_lookup_recognizes_any_spelling_and_drops_unknowns(client):
+  found = client.get(
+    "/api/courses", params={"codes": "csci 104,CSCI 999,ACCT-415,CSCI-104L"}
+  ).json()
+  assert found == [
+    {"code": "CSCI-104L", "title": "Data Structures"},
+    {
+      "code": "ACCT-415x",
+      "title": "Intermediate Financial Accounting for Non-Accounting Majors",
+    },
+  ]
+
+
 def test_unknown_items_are_404(client):
   assert client.get("/api/terms/20253/courses/CSCI-104L").status_code == 404
   assert client.get("/api/programs/nope").status_code == 404
@@ -69,7 +82,6 @@ def test_programs_and_policy(client):
   degrees = client.get("/api/programs", params={"kind": "degree"}).json()
   assert [p["id"] for p in degrees] == ["computer-science-bs"]
   assert client.get("/api/programs/computer-science-bs").json()["requirements"]
-  assert "CSCI" in client.get("/api/departments").json()
   assert client.get("/api/ge-categories").json()[0]["code"] == "GE-A"
   assert client.get("/api/ap-exams").json()
 

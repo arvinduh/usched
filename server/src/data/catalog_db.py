@@ -440,9 +440,38 @@ def _instructors(
   return out
 
 
-def departments(conn: sqlite3.Connection) -> list[str]:
-  """Lists every department code, e.g. CSCI."""
-  return [r[0] for r in conn.execute("SELECT code FROM department ORDER BY 1")]
+def known_courses(
+  conn: sqlite3.Connection, codes: Sequence[str]
+) -> list[m.KnownCourse]:
+  """Looks codes up in any spelling; unknown codes are skipped.
+
+  Results follow `codes` order, once per course. Titles come from the
+  latest catalogue, else the latest offering.
+  """
+  spelled = canonical(conn, codes)
+  wanted = [
+    spelled[k]
+    for k in dict.fromkeys(map(course_codes.identity, codes))
+    if k in spelled
+  ]
+  if not wanted:
+    return []
+  titles = dict(
+    conn.execute(
+      f"""SELECT c.code, COALESCE(
+            (SELECT k.title FROM catalogue_course k
+             WHERE k.code = c.code AND k.catalogue_id = {_LATEST_CATALOGUE}),
+            (SELECT o.title FROM offering o WHERE o.course_code = c.code
+             ORDER BY o.term_code DESC LIMIT 1))
+          FROM course c WHERE c.code IN ({_marks(wanted)})""",
+      wanted,
+    ).fetchall()
+  )
+  return [
+    m.KnownCourse(code=code, title=titles[code])
+    for code in wanted
+    if titles.get(code)
+  ]
 
 
 def ge_categories(conn: sqlite3.Connection) -> list[m.GeCategory]:

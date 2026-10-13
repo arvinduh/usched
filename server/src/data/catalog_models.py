@@ -158,6 +158,13 @@ class Course(pydantic.BaseModel):
   sections: list[Section]
 
 
+class KnownCourse(pydantic.BaseModel):
+  """A course the catalog knows, in its canonical spelling."""
+
+  code: str = pydantic.Field(description="e.g. BISC-101Lgx.")
+  title: str
+
+
 class ProgramSummary(pydantic.BaseModel):
   """A degree, minor, certificate, or other program."""
 

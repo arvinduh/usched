@@ -563,6 +563,11 @@
   gap: 16px;
 }
 
+.pasteUnknown {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .primary {
   flex-shrink: 0;
   height: 28px;

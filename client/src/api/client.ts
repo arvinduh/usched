@@ -14,6 +14,7 @@ import type {
   Course,
   GeCategory,
   GeProgress,
+  KnownCourse,
   Program,
   ProgramAudit,
   ProgramSummary,
@@ -117,9 +118,14 @@ export function getSections(
   return get(`/terms/${term}/sections?ids=${encodeURIComponent(ids.join(','))}`);
 }
 
-/** Lists every department code, such as "CSCI". */
-export function getDepartments(): Promise<readonly string[]> {
-  return get('/departments');
+/**
+ * Recognizes course codes written any way, answering with the catalog's
+ * spelling and title for each known course; unknown codes are left out.
+ */
+export function lookupCourses(
+  codes: readonly string[],
+): Promise<readonly KnownCourse[]> {
+  return get(`/courses?codes=${encodeURIComponent(codes.join(','))}`);
 }
 
 /** Lists the current catalogue's programs. */
