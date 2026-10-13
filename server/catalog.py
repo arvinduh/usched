@@ -42,7 +42,9 @@ flags.DEFINE_float(
   "catalogue_max_age_days", 7, "Refetch catalogue pages older than this."
 )
 flags.DEFINE_bool("skip_rmp", False, "Skip RateMyProfessors searches.")
-flags.DEFINE_bool("skip_catalogue", False, "Skip degree program pages.")
+flags.DEFINE_bool(
+  "skip_catalogue", False, "Skip catalogue programs and courses."
+)
 
 
 def fetch(raw: cache.RawCache) -> None:
@@ -67,6 +69,13 @@ def fetch(raw: cache.RawCache) -> None:
     )
     print(
       f"Catalogue {catoid}: fetched {fetched} programs, {fresh} fresh, "
+      f"{len(failed)} failed"
+    )
+    fetched, fresh, failed = catalogue_site.fetch_courses(
+      raw, catoid, cookies, agent, FLAGS.catalogue_max_age_days * 24 * _HOUR_S
+    )
+    print(
+      f"Catalogue {catoid}: fetched {fetched} course pages, {fresh} fresh, "
       f"{len(failed)} failed"
     )
 

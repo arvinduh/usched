@@ -1,9 +1,10 @@
 """Fetches catalogue.usc.edu (Acalog) pages into the raw cache.
 
 The site sits behind a bot firewall, so a headless browser loads the
-program index once to obtain session cookies; program pages are then
-fetched over plain HTTP with those cookies, in parallel. The current
-catalogue year is discovered from the site rather than hard-coded.
+program index once to obtain session cookies; program pages and the
+course index are then fetched over plain HTTP with those cookies, in
+parallel. The current catalogue year is discovered from the site rather
+than hard-coded.
 """
 
 import concurrent.futures
@@ -12,7 +13,7 @@ import re
 import httpx
 from absl import logging
 
-from server.src.catalog import cache, http, parse_catalogue
+from server.src.catalog import cache, http, parse_catalogue, parse_courses
 
 
 BASE_URL = "https://catalogue.usc.edu"
@@ -28,6 +29,11 @@ def index_key(catoid: int) -> str:
 def program_key(catoid: int, poid: int) -> str:
   """Cache key for one program page."""
   return f"catalogue/{catoid}/programs/{poid}.html"
+
+
+def courses_key(catoid: int, page: int) -> str:
+  """Cache key for one expanded course index page."""
+  return f"catalogue/{catoid}/courses/{page:03d}.html"
 
 
 def fetch_index(raw: cache.RawCache) -> tuple[int, dict[str, str], str]:
@@ -114,3 +120,64 @@ def fetch_programs(
     with concurrent.futures.ThreadPoolExecutor(max_workers=_WORKERS) as pool:
       failed = [key for key in pool.map(fetch, pending) if key is not None]
   return len(pending) - len(failed), len(links) - len(pending), failed
+
+
+def fetch_courses(
+  raw: cache.RawCache,
+  catoid: int,
+  cookies: dict[str, str],
+  user_agent: str,
+  max_age_s: float,
+) -> tuple[int, int, list[str]]:
+  """Fetches every page of the expanded course index not fetched lately.
+
+  Page one comes first because its pager says how many pages there are.
+
+  Returns:
+    (fetched, skipped, failed keys).
+
+  Raises:
+    httpx.HTTPError: Page one could not be fetched, so the count is unknown.
+  """
+  navoid = parse_courses.course_index_navoid(raw.read_text(index_key(catoid)))
+  with http.client(
+    cookies=cookies,
+    headers={"User-Agent": user_agent, "Accept": "text/html"},
+  ) as client:
+
+    def get(page: int) -> str:
+      return http.request(
+        client,
+        "GET",
+        f"{BASE_URL}/content.php",
+        params={
+          "catoid": catoid,
+          "navoid": navoid,
+          "filter[cpage]": page,
+          "expand": 1,
+        },
+      ).text
+
+    def fetch(page: int) -> str | None:
+      key = courses_key(catoid, page)
+      try:
+        raw.write_text(key, get(page))
+      except httpx.HTTPError as e:
+        logging.warning("Failed to fetch course page %d: %s", page, e)
+        return key
+      return None
+
+    first = courses_key(catoid, 1)
+    fetched_first = not raw.is_fresh(first, max_age_s)
+    if fetched_first:
+      raw.write_text(first, get(1))
+    pages = parse_courses.page_count(raw.read_text(first))
+    pending = [
+      p
+      for p in range(2, pages + 1)
+      if not raw.is_fresh(courses_key(catoid, p), max_age_s)
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_WORKERS) as pool:
+      failed = [key for key in pool.map(fetch, pending) if key is not None]
+  fetched = len(pending) - len(failed) + fetched_first
+  return fetched, pages - fetched - len(failed), failed

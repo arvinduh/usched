@@ -234,6 +234,33 @@ class GeCourse:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class CatalogueCourse:
+  """A course as the catalogue defines it for a year; mirrors the table."""
+
+  catalogue_id: int
+  code: str
+  title: str
+  units_min: float | None
+  units_max: float | None
+  units_text: str
+  max_units: float | None
+  terms_offered: str | None
+  instruction_mode: str | None
+  grading_option: str | None
+  description: str | None
+  prerequisite: str | None
+  corequisite: str | None
+  concurrent: str | None
+  recommended_prep: str | None
+  registration_restriction: str | None
+  credit_restriction: str | None
+  duplicate_credit: str | None
+  cross_listed_code: str | None
+  enroll_in_code: str | None
+  notes: str | None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Program:
   """A degree, minor, certificate, or other program in a catalogue year."""
 
