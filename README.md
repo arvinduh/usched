@@ -100,10 +100,12 @@ section numbers for registration and resets all local data.
 | `npm run fix`       | Auto-format and auto-fix both halves                    |
 | `npm run start`     | Build and serve production on http://localhost:8000     |
 | `npm run api`       | Regenerate client types after changing API models       |
-| `npm run test:live` | Test the configured advisor model for real (uses quota) |
+| `npm run test:live` | Run the advisor's evals on the real model (uses quota)   |
 
-`check` runs no network calls; `test:live` talks to the real Gemini your `.env`
-configures.
+`check` runs no network calls. `test:live` asks the real Gemini your `.env`
+configures a set of student questions (fit a course, keep Fridays free, drop a
+course, "option 2 but…") and checks what each reply did: its schedules exist,
+have no conflicts, and keep what they should, and it names no unknown course.
 
 ## Deploying
 

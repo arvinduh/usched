@@ -2,25 +2,16 @@
 
 import dataclasses
 import json
-import sqlite3
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
 from server.src.agent import advisor, brief, chips, tools
-from server.src.data import catalog_db
 from server.src.data import catalog_models as m
 
 
 TERM = 20271
-
-
-@pytest.fixture(scope="module")
-def conn(catalog_path) -> Iterator[sqlite3.Connection]:
-  conn = catalog_db.CatalogDb(catalog_path).connect()
-  yield conn
-  conn.close()
 
 
 def test_search_lists_matches_with_search_chips(conn):
@@ -60,6 +51,36 @@ def test_solve_fits_courses_around_the_week_and_keeps_it(conn):
   assert "Keeps your week: CHEM-251x 17367" in result.content
 
 
+def test_edit_week_swaps_removes_and_previews_the_result(conn):
+  # 29989 is CSCI 104L's group-B lecture; it swaps out lecture 29905.
+  result = tools.edit_week(
+    conn,
+    TERM,
+    ["17367", "29905"],
+    add_sections=["29989"],
+    remove_courses=["CHEM 251x"],
+  )
+  (proposal,) = result.chips
+  assert isinstance(proposal, chips.ProposeSchedule)
+  assert proposal.section_ids == ["29989"]
+  # Group A's lecture comes with a lab and a quiz to pick.
+  partial = tools.edit_week(conn, TERM, [], add_sections=["29905"])
+  assert "CSCI-104L still needs a Lab and a Quiz" in partial.content
+  unchanged = tools.edit_week(conn, TERM, ["17367"], remove_sections=["1"])
+  assert unchanged.content == "That leaves the week unchanged."
+  assert tools.edit_week(conn, TERM, [], add_sections=["0"]).content == (
+    "Not sections this term: 0."
+  )
+
+
+def test_mark_taken_records_only_catalog_courses(conn):
+  result = tools.mark_taken(conn, TERM, ["csci 103l", "FAKE 999"])
+  assert result.chips == [
+    chips.MarkTaken(label="Marked CSCI-103L taken", course_codes=["CSCI-103L"])
+  ]
+  assert result.content == "Marked taken: CSCI-103L. Not USC courses: FAKE 999."
+
+
 def test_execute_reports_unknown_tools_and_bad_arguments(conn):
   assert "Unknown tool" in tools.execute("nope", {}, conn, TERM, []).content
   bad = tools.execute("search_courses", {"q": "x"}, conn, TERM, [])
@@ -88,6 +109,24 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
   assert {"CSCI-104", "CSCI-420", "CSCI-103"} <= facts.grounded
 
 
+def test_the_brief_says_what_is_on_screen_and_the_other_schedules(conn):
+  student = dataclasses.replace(
+    STUDENT,
+    variants=[brief.Variant("B", ["17367"])],
+    screen=brief.Screen(
+      page="planner",
+      open_course="CSCI-445Lx",
+      proposal=brief.Variant("Option 2", ["30386", "29910"]),
+    ),
+  )
+  text = brief.build(conn, student).text
+  assert "Other schedule B: CHEM-251x (17367)" in text
+  assert "On screen: the planner" in text
+  assert "Open course: CSCI-445Lx" in text
+  assert "proposal Option 2: CSCI-445Lx (30386, 29910), not yet kept" in text
+  assert "CHEM-251" in brief.build(conn, student).grounded
+
+
 def test_a_student_without_a_program_still_gets_a_brief(conn):
   facts = brief.build(conn, dataclasses.replace(STUDENT, program_id=None))
   assert "Program: not chosen" in facts.text
@@ -101,6 +140,26 @@ def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(conn):
   assert advisor.unverified("No courses here.", grounded, conn) == []
   # Never named by a source, but real: the catalog knows it.
   assert advisor.unverified("CSCI 445L is a fine elective.", set(), conn) == []
+
+
+def test_history_remembers_what_each_reply_offered(conn):
+  turn = advisor.ChatTurn(
+    role="assistant",
+    content="Two ways to fit it.",
+    action_chips=[
+      chips.ProposeSchedule(
+        label="Preview option 1", name="Option 1", section_ids=["17367"]
+      ),
+      chips.WatchCourse(label="Save", course_code="CSCI-104L"),
+      chips.Search(label="Show MATH-226", query="MATH-226"),
+    ],
+  )
+  assert advisor.remembered(conn, TERM, turn) == (
+    "Two ways to fit it.\n"
+    "[Your reply offered: Option 1: CHEM-251x (17367); saving CSCI-104L]"
+  )
+  plain = advisor.ChatTurn(role="user", content="hi")
+  assert advisor.remembered(conn, TERM, plain) == "hi"
 
 
 def test_closing_chips_prefer_tools_then_next_steps():

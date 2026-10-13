@@ -1,10 +1,12 @@
 """Tools the advisor model can call, and compact text renderings of sections.
 
-Three tools cover what the student brief cannot carry: searching the
-catalog, one course's full detail, and building schedules. Each reads the
-planning term through catalog_db, runs an engine where needed, and returns
-text for the model plus chips for the student. Text is terse on purpose:
-it is prompt context, not UI.
+Tools cover what the student brief cannot carry and what the student asks
+the advisor to do: searching the catalog, one course's full detail,
+building schedules, editing the week, and recording courses taken. Edits
+to the week come back as a proposal the student keeps or discards. Each
+tool reads the planning term through catalog_db, runs an engine where
+needed, and returns text for the model plus chips for the student. Text is
+terse on purpose: it is prompt context, not UI.
 """
 
 import dataclasses
@@ -60,6 +62,38 @@ TOOLS = [
         "course_code": {"type": "string", "description": "e.g. 'CSCI-104L'."}
       },
       "required": ["course_code"],
+    },
+  ),
+  llm.Tool(
+    "edit_week",
+    "Edits the student's week: adds sections by number (each swaps out its "
+    "course's section of the same type), removes sections, or drops whole "
+    "courses. The student sees the edited week and keeps or discards it.",
+    {
+      "type": "object",
+      "properties": {
+        "add_sections": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Section numbers to add, e.g. ['29905'].",
+        },
+        "remove_sections": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Section numbers to remove.",
+        },
+        "remove_courses": _CODES,
+      },
+    },
+  ),
+  llm.Tool(
+    "mark_taken",
+    "Records courses the student says they have already taken, so audits "
+    "and suggestions count them.",
+    {
+      "type": "object",
+      "properties": {"course_codes": _CODES},
+      "required": ["course_codes"],
     },
   ),
   llm.Tool(
@@ -308,10 +342,98 @@ def solve_schedule(
   return ToolResult("\n".join(lines), actions)
 
 
+def edit_week(
+  conn: sqlite3.Connection,
+  term: int,
+  week: Sequence[str],
+  add_sections: Sequence[str] = (),
+  remove_sections: Sequence[str] = (),
+  remove_courses: Sequence[str] = (),
+) -> ToolResult:
+  """Previews the week with sections added and removed; offers it to keep.
+
+  An added section swaps out its course's section of the same type (or of
+  an incompatible link group), as picking it by hand would.
+  """
+  adding = catalog_db.sections(conn, term, list(add_sections))
+  found = {s.id for s in adding}
+  if unknown := [sid for sid in add_sections if sid not in found]:
+    return ToolResult(f"Not sections this term: {', '.join(unknown)}.")
+  current = {s.id: s for s in catalog_db.sections(conn, term, list(week))}
+  dropped_courses = {codes.identity(c) for c in remove_courses}
+  result = [
+    current[sid]
+    for sid in week
+    if sid in current
+    and sid not in remove_sections
+    and codes.identity(current[sid].course_code) not in dropped_courses
+  ]
+  for section in sorted(adding, key=lambda s: list(add_sections).index(s.id)):
+    result = [o for o in result if not schedule.displaces(section, o)]
+    result.append(section)
+  ids = [s.id for s in result]
+  if ids == list(week):
+    return ToolResult("That leaves the week unchanged.")
+  lines = ["Edited week (shown to the student to keep or discard):"]
+  lines += [
+    f"- {s.course_code} {s.type} {s.id}: {when(s)} | {who(s)}" for s in result
+  ]
+  clashes = [
+    f"{a.course_code} {a.id} with {b.course_code} {b.id}"
+    for i, a in enumerate(result)
+    for b in result[i + 1 :]
+    if schedule.overlaps(a, b)
+  ]
+  if clashes:
+    lines.append(f"Conflicts: {'; '.join(clashes)}")
+  courses = list(dict.fromkeys(s.course_code for s in result))
+  for course in catalog_db.courses(conn, term, courses):
+    chosen = [s for s in result if s.course_code == course.code]
+    if missing := schedule.missing_types(course, chosen):
+      lines.append(f"{course.code} still needs a {' and a '.join(missing)}")
+  return ToolResult(
+    "\n".join(lines),
+    [
+      chips.ProposeSchedule(
+        label="Preview the edit", name="Edited week", section_ids=ids
+      )
+    ],
+  )
+
+
+def mark_taken(
+  conn: sqlite3.Connection, term: int, course_codes: Sequence[str]
+) -> ToolResult:
+  """Records courses the student says they took, once the catalog knows them."""
+  del term  # Taken courses span terms.
+  known = catalog_db.canonical(conn, course_codes)
+  spelled = [
+    known[k]
+    for k in dict.fromkeys(map(codes.identity, course_codes))
+    if k in known
+  ]
+  unknown = [c for c in course_codes if codes.identity(c) not in known]
+  lines = [f"Marked taken: {', '.join(spelled)}." if spelled else ""]
+  if unknown:
+    lines.append(f"Not USC courses: {', '.join(unknown)}.")
+  actions: list[chips.Chip] = (
+    [
+      chips.MarkTaken(
+        label=f"Marked {', '.join(spelled)} taken", course_codes=spelled
+      )
+    ]
+    if spelled
+    else []
+  )
+  return ToolResult(" ".join(filter(None, lines)), actions)
+
+
 _TOOLS: Mapping[str, Callable[..., ToolResult]] = {
   "search_courses": search_courses,
   "get_course_details": get_course_details,
   "solve_schedule": solve_schedule,
+  "edit_week": edit_week,
+  "mark_taken": mark_taken,
 }
 
 

@@ -36,6 +36,14 @@ class WatchCourse(pydantic.BaseModel):
   course_code: str
 
 
+class MarkTaken(pydantic.BaseModel):
+  """Records courses as taken; the client applies it with undo."""
+
+  action: Literal["mark_taken"] = "mark_taken"
+  label: str
+  course_codes: list[str]
+
+
 class Search(pydantic.BaseModel):
   """Runs a course search."""
 
@@ -45,6 +53,6 @@ class Search(pydantic.BaseModel):
 
 
 Chip = Annotated[
-  ProposeSchedule | EnrollSection | WatchCourse | Search,
+  ProposeSchedule | EnrollSection | WatchCourse | MarkTaken | Search,
   pydantic.Field(discriminator="action"),
 ]

@@ -343,6 +343,14 @@ export interface components {
              * @default []
              */
             ap_credits: components["schemas"]["ApCredit"][];
+            /**
+             * Variants
+             * @description The student's other schedules.
+             * @default []
+             */
+            variants: components["schemas"]["Variant"][];
+            /** @description What the student is looking at as they ask. */
+            screen?: components["schemas"]["Screen"];
         };
         /**
          * ChatTurn
@@ -356,6 +364,12 @@ export interface components {
             role: "user" | "assistant";
             /** Content */
             content: string;
+            /**
+             * Action Chips
+             * @description What an assistant turn offered, as it ended.
+             * @default []
+             */
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkTaken"] | components["schemas"]["Search"])[];
         };
         /**
          * ClosingEvent
@@ -363,7 +377,7 @@ export interface components {
          */
         ClosingEvent: {
             /** Action Chips */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Search"])[];
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkTaken"] | components["schemas"]["Search"])[];
             /**
              * Unverified
              * @description Courses the reply names that the catalog does not have.
@@ -531,6 +545,21 @@ export interface components {
             code: string;
             /** Title */
             title: string;
+        };
+        /**
+         * MarkTaken
+         * @description Records courses as taken; the client applies it with undo.
+         */
+        MarkTaken: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "mark_taken";
+            /** Label */
+            label: string;
+            /** Course Codes */
+            course_codes: string[];
         };
         /**
          * Meeting
@@ -812,6 +841,26 @@ export interface components {
             inclusive: boolean;
         };
         /**
+         * Screen
+         * @description What the student is looking at as they ask.
+         *
+         *     Attributes:
+         *       page: The planner (week and column) or the degree page.
+         *       open_course: The course whose card is open, if any.
+         *       proposal: The advisor's proposal the week projects, not yet kept.
+         */
+        Screen: {
+            /**
+             * Page
+             * @default planner
+             * @enum {string}
+             */
+            page: "planner" | "degree";
+            /** Open Course */
+            open_course?: string | null;
+            proposal?: components["schemas"]["Variant"] | null;
+        };
+        /**
          * Search
          * @description Runs a course search.
          */
@@ -935,6 +984,16 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * Variant
+         * @description A named schedule: one the student keeps, or a proposal on the week.
+         */
+        Variant: {
+            /** Name */
+            name: string;
+            /** Section Ids */
+            section_ids: string[];
         };
         /**
          * WatchCourse

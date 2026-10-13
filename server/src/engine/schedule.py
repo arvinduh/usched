@@ -208,6 +208,22 @@ def solve(
   return found[:limit]
 
 
+def displaces(section: m.Section, other: m.Section) -> bool:
+  """Whether adding `section` swaps `other` out of a week.
+
+  It does when both belong to one course and share a type, or sit in
+  link groups that cannot be taken together. Mirrors the client's rule.
+  """
+  if other.id == section.id or other.course_code != section.course_code:
+    return False
+  compatible = (
+    section.link_code is None
+    or other.link_code is None
+    or section.link_code == other.link_code
+  )
+  return other.type == section.type or not compatible
+
+
 def missing_types(course: m.Course, chosen: Sequence[m.Section]) -> list[str]:
   """Section types the chosen sections' link group still needs.
 

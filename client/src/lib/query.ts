@@ -71,15 +71,24 @@ export function looksLikeQuestion(text: string): boolean {
 }
 
 const TOOK = /^\s*(?:i\s+)?(?:took|taken|have taken|completed|finished|passed)\b/i;
+const CODE = /\b[A-Za-z]{2,5}[\s-]?\d{3}[A-Za-z]{0,4}\b/g;
+/** What may join codes in a list: "CSCI 103L, MATH 125 and WRIT 150." */
+const JOINERS = /\b(?:and|also|plus|too)\b|[\s,;.&+]/gi;
 
 /**
  * The course codes a "took ..." line names, as identities, or null when
- * the text is not one. The catalog still decides which are courses.
+ * the text is not one. Only codes and list joiners may follow "took";
+ * anything more ("I took CSCI 103L, what next?") is a question for the
+ * advisor. The catalog still decides which codes are courses.
  */
 export function takenCodes(text: string): readonly string[] | null {
   if (!TOOK.test(text)) {
     return null;
   }
-  const codes = extractCourseCodes(text.replace(TOOK, ''));
+  const rest = text.replace(TOOK, '');
+  if (rest.replace(CODE, '').replace(JOINERS, '') !== '') {
+    return null;
+  }
+  const codes = extractCourseCodes(rest);
   return codes.length > 0 ? codes : null;
 }

@@ -36,6 +36,8 @@ export type GeProgress = Schemas['GeProgress'];
 export type ApExam = Schemas['ApExam'];
 export type ApCredit = Schemas['ApCredit'];
 export type ChatRequest = Schemas['ChatRequest'];
+export type Screen = Schemas['Screen'];
+export type Variant = Schemas['Variant'];
 export type ClosingEvent = Schemas['ClosingEvent'];
 export type Chip = ClosingEvent['action_chips'][number];
 

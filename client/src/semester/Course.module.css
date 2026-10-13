@@ -1,8 +1,11 @@
+/* Rows off screen skip layout and paint until scrolled near. */
 .head {
   display: flex;
   align-items: center;
   border-radius: var(--radius-s);
   transition: background 100ms ease-out;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36px;
 }
 
 .head:hover {

@@ -24,6 +24,9 @@ class ChatTurn(pydantic.BaseModel):
 
   role: Literal["user", "assistant"]
   content: str
+  action_chips: list[chips.Chip] = pydantic.Field(
+    default=[], description="What an assistant turn offered, as it ended."
+  )
 
 
 class ChatRequest(pydantic.BaseModel):
@@ -43,6 +46,13 @@ class ChatRequest(pydantic.BaseModel):
     default=[], description="Codes of courses already taken."
   )
   ap_credits: list[catalog_models.ApCredit] = []
+  variants: list[brief.Variant] = pydantic.Field(
+    default=[], description="The student's other schedules."
+  )
+  screen: brief.Screen = pydantic.Field(
+    default_factory=brief.Screen,
+    description="What the student is looking at as they ask.",
+  )
 
 
 class ClosingEvent(pydantic.BaseModel):
@@ -62,6 +72,8 @@ Ground every answer in facts:
 - Name only courses that appear in the brief or in a tool result. For any
   other course, call search_courses or get_course_details first; never
   guess a course code, title, time, or instructor.
+- The brief also says what is on screen: "this course" is the open course,
+  and "this one" or "option 2" is the proposal the week shows.
 - If the facts do not answer the question, say so plainly.
 
 Work in steps: up to {llm.TOOL_ROUNDS} rounds of tool calls, then answer.
@@ -75,6 +87,9 @@ Let the student act on what you say:
   solve_schedule; its options appear on the student's week to keep.
 - When they ask about one course, call get_course_details; its sections
   become buttons that add them to the week.
+- When they ask to add, swap, or drop sections or courses, call edit_week
+  with section numbers from the brief or a tool result; they see the
+  edited week to keep. When they say they took a course, call mark_taken.
 
 Be strategic: point out workload traps, courses that unlock later
 requirements, and instructor ratings, and name sections so the student can
@@ -100,6 +115,32 @@ def closing_chips(
     found += [chips.Search(label=f"Show {c}", query=c) for c in next_codes[:2]]
   unique = {c.label: c for c in reversed(found)}
   return list(reversed(unique.values()))[:_MAX_CHIPS]
+
+
+def remembered(conn: sqlite3.Connection, term: int, turn: ChatTurn) -> str:
+  """A past turn as the model rereads it, with what the reply offered.
+
+  History is text, so without this the model forgets the schedules it
+  proposed and cannot resolve "option 2" or "the first one" later.
+  """
+  offered: list[str] = []
+  for chip in turn.action_chips:
+    match chip:
+      case chips.ProposeSchedule(name=name, section_ids=ids):
+        offered.append(
+          brief.schedule_line(conn, term, brief.Variant(name, ids))
+        )
+      case chips.EnrollSection(section_id=sid):
+        offered.append(f"adding section {sid}")
+      case chips.WatchCourse(course_code=code):
+        offered.append(f"saving {code}")
+      case chips.MarkTaken(course_codes=taken):
+        offered.append(f"marked {', '.join(taken)} taken")
+      case chips.Search():
+        pass
+  if not offered:
+    return turn.content
+  return f"{turn.content}\n[Your reply offered: {'; '.join(offered)}]"
 
 
 def unverified(
@@ -147,6 +188,8 @@ def stream(
         shortlisted=request.shortlisted,
         completed=request.completed,
         ap_credits=request.ap_credits,
+        variants=request.variants,
+        screen=request.screen,
       ),
     )
     next_codes = facts.next_codes
@@ -165,7 +208,8 @@ def stream(
       for token in model.reply(
         f"{SYSTEM_PROMPT}\n{facts.text}",
         [
-          llm.Turn(t.role, t.content) for t in request.history[-_HISTORY_TURNS:]
+          llm.Turn(t.role, remembered(conn, request.term, t))
+          for t in request.history[-_HISTORY_TURNS:]
         ],
         request.message,
         tools.TOOLS,

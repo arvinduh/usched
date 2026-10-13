@@ -21,6 +21,15 @@
   scrollbar-width: thin;
 }
 
+/* Remembers its last rendered size, so covering it keeps the scroll. */
+.layerBody {
+  contain-intrinsic-size: auto 0px;
+}
+
+.layerBody[data-covered='true'] {
+  content-visibility: hidden;
+}
+
 .saved {
   margin-bottom: 8px;
 }
