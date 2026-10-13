@@ -366,7 +366,7 @@ export interface components {
             action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Show"] | components["schemas"]["Search"])[];
             /**
              * Unverified
-             * @description Courses the reply names that no source established.
+             * @description Courses the reply names that the catalog does not have.
              */
             unverified: string[];
         };

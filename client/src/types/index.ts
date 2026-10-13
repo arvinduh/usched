@@ -56,6 +56,6 @@ export interface ChatMessage {
   readonly role: 'user' | 'assistant';
   readonly content: string;
   readonly chips?: readonly Chip[];
-  /** Courses the reply names that no source established. */
+  /** Courses the reply names that the catalog does not have. */
   readonly unverified?: readonly string[];
 }

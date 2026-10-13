@@ -1,8 +1,8 @@
 """Runs an advising conversation and streams it as Server-Sent Events.
 
 Owns the prompt, the student brief that grounds it, which chips end a
-reply, and the reply check: any course the reply names that neither the
-brief nor a tool result established is reported back as unverified.
+reply, and the reply check: any course the reply names that the brief, a
+tool result, and the catalog all lack is reported back as unverified.
 Models live behind llm.Model; tools and their renderings in `tools`;
 transport (threads, the event loop) in the chat route.
 """
@@ -16,7 +16,7 @@ import pydantic
 
 from server.src.agent import brief, chips, llm, tools
 from server.src.catalog import codes
-from server.src.data import catalog_models
+from server.src.data import catalog_db, catalog_models
 
 
 class ChatTurn(pydantic.BaseModel):
@@ -50,7 +50,7 @@ class ClosingEvent(pydantic.BaseModel):
 
   action_chips: list[chips.Chip]
   unverified: list[str] = pydantic.Field(
-    description="Courses the reply names that no source established."
+    description="Courses the reply names that the catalog does not have."
   )
 
 
@@ -152,11 +152,13 @@ def stream(
         yield _token(token)
     except llm.ModelError as e:
       yield _token(f"\n\n{e}")
-    unverified = [
-      written
+    named = {
+      key: written
       for key, written in codes.mentions("".join(reply)).items()
       if key not in grounded
-    ]
+    }
+    known = catalog_db.canonical(conn, named)
+    unverified = [w for key, w in named.items() if key not in known]
   closing = ClosingEvent(
     action_chips=closing_chips(request.message, from_tools, next_codes),
     unverified=unverified,

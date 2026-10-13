@@ -152,6 +152,13 @@ def test_courses_no_source_mentions_are_flagged(conn):
   assert closing["unverified"] == ["CSCI 999"]
 
 
+def test_catalog_courses_the_brief_omits_are_not_flagged(conn):
+  model = FakeModel(["CSCI 445L is a good elective."])
+  closing = _events(advisor.stream(_request(), conn, model))[-2]
+  assert "CSCI-445" not in model.seen_system
+  assert closing["unverified"] == []
+
+
 def test_tool_results_ground_courses_and_add_chips(conn):
   model = FakeModel(
     ["CSCI 445L fits."], call=("search_courses", {"query": "robot"})
