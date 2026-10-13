@@ -130,11 +130,11 @@ def _request(**overrides: Any) -> advisor.ChatRequest:
   return advisor.ChatRequest(**(fields | overrides))
 
 
-def test_an_unavailable_model_says_why_and_still_offers_chips(conn):
+def test_an_unavailable_model_says_why(conn):
   model = FakeModel([], reason="No key.")
   events = _events(advisor.stream(_request(message="hi"), conn, model))
   assert events[0] == {"token": "No key."}
-  assert [c["view"] for c in events[1]["action_chips"]] == ["degree", "week"]
+  assert events[1]["action_chips"] == []
   assert events[-1] == "[DONE]"
 
 

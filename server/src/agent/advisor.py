@@ -66,7 +66,7 @@ Ground every answer in facts:
 
 Let the student act on what you say:
 - When they want a schedule, or to fit courses together, call
-  solve_schedule; each option it finds becomes a button to preview and keep.
+  solve_schedule; its options appear on the student's week to keep.
 - When they ask about one course, call get_course_details; its sections
   become buttons that add them to the week.
 
@@ -86,25 +86,12 @@ _MAX_CHIPS = 4
 
 
 def closing_chips(
-  message: str, from_tools: Sequence[chips.Chip], next_codes: Sequence[str]
+  from_tools: Sequence[chips.Chip], next_codes: Sequence[str]
 ) -> list[chips.Chip]:
-  """Picks up to four chips: the tools' first, then ones the message invites.
-
-  With room left, suggests the courses the student can take next.
-  """
+  """Picks up to four chips: the tools' first, then courses to take next."""
   found: list[chips.Chip] = list(from_tools)
-  text = message.lower()
-  if any(w in text for w in ("degree", "audit", "graduat", "requirement")):
-    found.append(chips.Show(label="Open degree", view="degree"))
-  if any(w in text for w in ("schedule", "calendar", "conflict", "week")):
-    found.append(chips.Show(label="Open week", view="week"))
   if len(found) < 2:
     found += [chips.Search(label=f"Show {c}", query=c) for c in next_codes[:2]]
-  if not found:
-    found = [
-      chips.Show(label="Open degree", view="degree"),
-      chips.Show(label="Open week", view="week"),
-    ]
   unique = {c.label: c for c in reversed(found)}
   return list(reversed(unique.values()))[:_MAX_CHIPS]
 
@@ -171,7 +158,7 @@ def stream(
     known = catalog_db.canonical(conn, named)
     unverified = [w for key, w in named.items() if key not in known]
   closing = ClosingEvent(
-    action_chips=closing_chips(request.message, from_tools, next_codes),
+    action_chips=closing_chips(from_tools, next_codes),
     unverified=unverified,
   )
   yield _event(closing.model_dump())
