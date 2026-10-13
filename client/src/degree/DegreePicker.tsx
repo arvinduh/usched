@@ -3,13 +3,14 @@
  *
  * At rest it reads as a heading: program name, emphasis, and a type chip
  * (BS, BA, Minor). Clicking turns it into `ProgramSearch`, a combobox that
- * matches degrees and minors as you type, which the first-run welcome also
- * uses. Selection is delegated to the caller.
+ * matches degrees and minors as you type, abbreviations included, which the
+ * first-run welcome also uses. Selection is delegated to the caller.
  */
 
 import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { ProgramSummary } from '../types';
+import { indexPrograms, rankPrograms } from './match';
 import styles from './Degree.module.css';
 
 const MAX_RESULTS = 8;
@@ -41,23 +42,6 @@ export function TypeChip({ type }: { readonly type: string }): React.JSX.Element
       {type}
     </span>
   );
-}
-
-/**
- * Scores a title against the query: every query word must prefix some title
- * word. Lower is better; null means no match.
- */
-function score(title: string, words: readonly string[]): number | null {
-  const titleWords = title.toLowerCase().split(/[\s(),/-]+/).filter(Boolean);
-  let total = 0;
-  for (const word of words) {
-    const at = titleWords.findIndex((t) => t.startsWith(word));
-    if (at === -1) {
-      return null;
-    }
-    total += at;
-  }
-  return total;
 }
 
 /**
@@ -100,20 +84,11 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
   const [cursor, setCursor] = useState(0);
   const detailOf = useProgramDetail(programs);
 
-  const matches = useMemo(() => {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return programs
-      .map((p) => ({ program: p, rank: score(p.title, words) }))
-      .filter(
-        (m): m is { program: ProgramSummary; rank: number } => m.rank !== null,
-      )
-      .sort(
-        (a, b) =>
-          a.rank - b.rank || a.program.title.localeCompare(b.program.title),
-      )
-      .slice(0, MAX_RESULTS)
-      .map((m) => m.program);
-  }, [programs, query]);
+  const index = useMemo(() => indexPrograms(programs), [programs]);
+  const matches = useMemo(
+    () => rankPrograms(index, query).slice(0, MAX_RESULTS),
+    [index, query],
+  );
 
   return (
     <div className={styles.combo}>
