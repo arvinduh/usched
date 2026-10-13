@@ -1,12 +1,13 @@
 /**
  * Resolves the course and section records the student's plan points at.
  *
- * The persisted store keeps only codes and section numbers, and the catalog
- * list holds only the current search page, so neither can render the week
- * or the shortlist on its own. This hook keeps an in-memory cache of the
- * planning term's referenced courses beside the catalog page and fetches
+ * The persisted store keeps only codes and section numbers, so it cannot
+ * render the week or the shortlist on its own. This hook keeps an
+ * in-memory cache of the planning term's referenced courses and fetches
  * any reference it cannot resolve: on boot, on a term switch, after another
  * tab edits the plan, or when an advisor chip names a section never shown.
+ * Search results stay out of it: courses enter when the student opens,
+ * picks, or saves them, so paging through results never touches the week.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,12 +32,11 @@ interface TermCache {
 }
 
 /**
- * Merges the catalog page with cached plan courses and hydrates misses,
- * including `wantedCodes` the caller is about to show (next up).
+ * Resolves cached plan courses and hydrates misses, including
+ * `wantedCodes` the caller is about to show (next up).
  */
 export function usePlanCourses(
   term: number,
-  catalog: readonly Course[],
   wantedCodes: readonly string[],
 ): PlanCourses {
   const configurations = useTermPlan((p) => p.configurations);
@@ -51,15 +51,10 @@ export function usePlanCourses(
   const requested = useRef({ term, ids: new Set<string>() });
   const cached = cache.term === term ? cache.courses : undefined;
 
-  const coursesByCode = useMemo(() => {
-    const map = new Map(cached);
-    for (const course of catalog) {
-      if (course.term === term) {
-        map.set(course.code, course);
-      }
-    }
-    return map;
-  }, [cached, catalog, term]);
+  const coursesByCode = useMemo(
+    () => cached ?? new Map<string, Course>(),
+    [cached],
+  );
 
   const sectionsById = useMemo(() => {
     const map = new Map<string, Section>();

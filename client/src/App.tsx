@@ -231,7 +231,6 @@ function Planner({
   const setSearchText = search.setText;
   const { coursesByCode, sectionsById, remember } = usePlanCourses(
     term,
-    search.courses,
     nextUpIds,
   );
   // Proposals land on the week, so the planner comes forward to show them.
