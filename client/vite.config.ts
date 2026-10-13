@@ -1,24 +1,28 @@
 /**
  * Vite build and development configuration for the usched client.
  *
- * Configures the React compiler plugin, static port binding, and API proxy
- * forwarding to the local backend service.
+ * The dev server and its /api proxy read their ports from the repo's .env
+ * (CLIENT_PORT, and PORT for the API), matching the server.
  */
 
+import path from 'node:path';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 18801,
-    strictPort: true,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:18800',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  // The repo-root .env, wherever Vite is started from.
+  const env = loadEnv(mode, path.resolve(import.meta.dirname, '..'), '');
+  return {
+    plugins: [react()],
+    server: {
+      port: Number(env.CLIENT_PORT || 18801),
+      strictPort: true,
+      proxy: {
+        '/api': {
+          target: `http://127.0.0.1:${env.PORT || 18800}`,
+          changeOrigin: true,
+        },
       },
     },
-  },
+  };
 });
-

@@ -21,32 +21,29 @@ with one input) and your degree, which drops down from the top bar's meter.
   sections, and its sections ghost onto the week; click a ghost to take it.
   Linked lectures, labs, and quizzes stay together, and conflicts, units,
   missing components, and D-clearance show up as you go.
-- **The advisor** (optional) answers from a brief of your real progress, next
-  courses, and week. Schedules it proposes appear on your week right away:
-  flip through the options and keep one. Courses it names that the catalog
-  lacks are flagged. Runs on Gemini.
+- **The advisor** (optional, on Gemini) answers from a brief of your real
+  progress, next courses, and week. Schedules it proposes are built around
+  your week and appear on it right away: flip through the options and keep
+  one. Courses it names that the catalog lacks are flagged.
 
 Pick any fetched term from the top bar; each keeps its own schedules. The first
 visit asks for your program.
 
-## Requirements
-
-| Tool                       | Install                                                |
-| :------------------------- | :----------------------------------------------------- |
-| Node.js 20+                | `brew install node` / `winget install OpenJS.NodeJS`   |
-| uv (manages Python 3.14)   | `brew install uv` / `winget install astral-sh.uv`      |
-
-For the advisor, get a free Gemini API key at
-[Google AI Studio](https://aistudio.google.com) and put it in `.env` (below).
-
 ## Setup
+
+You need [Node.js](https://nodejs.org) 22+ and [uv](https://docs.astral.sh/uv/)
+(it manages Python). Then:
 
 ```bash
 git clone https://github.com/arvinduh/usched.git
 cd usched
-npm run setup              # Node packages for root and client, plus `uv sync`
+npm install                # Node packages, then Python (uv sync)
 cp .env.example .env       # PowerShell: Copy-Item .env.example .env
 ```
+
+For the advisor, fill in a Gemini key (free at
+[Google AI Studio](https://aistudio.google.com)) in `.env`; `.env.example`
+explains each setting. Without one, everything but the advisor works.
 
 ### Build the course catalog
 
@@ -61,23 +58,21 @@ npm run catalog
 ```
 
 This fetches every active term into a raw cache (`server/data/raw/`), then
-builds `server/data/catalog.db` from it. Rerunning refetches only what is stale
-(listings after 12 hours, ratings after 30 days, programs after 7), and
-`npm run catalog -- build` rebuilds from the cache without the network.
+builds and verifies `server/data/catalog.db`. Rerunning refetches only what is
+stale (listings after 12 hours, ratings after 30 days, programs after 7);
+`npm run catalog -- build` rebuilds offline from the cache, and
 `uv run catalog --helpfull` lists options such as `--terms=20271`.
 
 ## Run
 
 ```bash
-uv run dev           # App on http://127.0.0.1:18801, API on :18800 (docs at /docs)
+npm run dev
 ```
 
-One process runs both with hot reload; Ctrl+C stops both and hands the terminal
-back clean. Run it with `uv run`, not through `npm run`: on Windows, npm's batch
-wrappers can survive Ctrl+C and swallow every other keystroke.
-
-The advisor needs `GEMINI_API_KEY` in `.env`. Without it, everything except the
-advisor works, and asking a question explains what to set up.
+The app is at http://localhost:18801 and the API at http://localhost:18800/docs
+(ports come from `.env`). One Ctrl+C stops both. On Windows, `node --run dev`
+does the same without npm's batch wrapper, which otherwise answers Ctrl+C with a
+stray "Terminate batch job (Y/N)?".
 
 ## Using it
 
@@ -96,59 +91,56 @@ section numbers for registration and resets all local data.
 
 ## Commands
 
-| Command                   | What it does                                        |
-| :------------------------ | :-------------------------------------------------- |
-| `npm run setup`           | Install Node and Python dependencies                |
-| `npm run catalog`         | Fetch and build the catalog database                |
-| `uv run dev`              | API and client with hot reload; Ctrl+C stops both   |
-| `npm run check`           | Lint, type-check, and test (the CI gate)            |
-| `npm run build`           | Production client bundle                            |
-| `npm run serve`           | Build, then run production on http://127.0.0.1:8000 |
-| `npm run api`             | Regenerate client types from the server's schema    |
-| `npm run publish:catalog` | Upload the catalog for deployments (below)          |
-| `npm run format:py`       | Format Python with Ruff                             |
+| Command             | What it does                                            |
+| :------------------ | :------------------------------------------------------ |
+| `npm install`       | Install everything (Node, then Python via `uv sync`)    |
+| `npm run dev`       | API and app together, with reload                       |
+| `npm run catalog`   | Fetch, build, and verify the catalog (`-- publish` too) |
+| `npm run check`     | Lint, type-check, and test both halves                  |
+| `npm run fix`       | Auto-format and auto-fix both halves                    |
+| `npm run start`     | Build and serve production on http://localhost:8000     |
+| `npm run api`       | Regenerate client types after changing API models       |
+| `npm run test:live` | Test the configured advisor model for real (uses quota) |
 
-## Configuration
-
-`.env` at the repo root (or the host's environment settings); all optional:
-
-| Variable         | Default               | Purpose                         |
-| :--------------- | :-------------------- | :------------------------------ |
-| `GEMINI_API_KEY` | none                  | Turns on the advisor            |
-| `GEMINI_MODEL`   | `gemini-flash-latest` | Which Gemini model it runs on   |
+`check` runs no network calls; `test:live` talks to the real Gemini your `.env`
+configures.
 
 ## Deploying
 
 A free hosted copy (for a demo such as TAC fest) runs on
-[Render](https://render.com) with the advisor on Gemini. Your plans still live
-in each visitor's browser; the server only reads the catalog.
+[Render](https://render.com) with the advisor on Gemini. Plans still live in
+each visitor's browser; the server only reads the catalog.
 
 ```txt
-npm run catalog ─▶ npm run publish:catalog ─▶ GitHub release "catalog"
-                                                     │ downloaded at build
-git push main ─▶ Render builds the Dockerfile ─▶ https://usched-….onrender.com
+npm run catalog -- publish ─▶ GitHub release "catalog" ─┐ CATALOG_URL
+git push main ─▶ Render builds the Dockerfile ◀─────────┘
+              ─▶ https://usched-….onrender.com
 ```
 
-**You need:** a Render account (free; sign in with GitHub), a Gemini API key
-(free: [Google AI Studio](https://aistudio.google.com) › Get API key), and the
-[GitHub CLI](https://cli.github.com) signed in (`gh auth login`).
+**You need:** a Render account (free; sign in with GitHub), a Gemini API key,
+and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`).
 
-1. **Publish the data.** Build a fresh catalog, then upload it to this repo's
-   `catalog` release, where the image downloads it from (the database is never
-   committed):
+1. **Publish the data.** Build a fresh catalog and upload it to this repo's
+   `catalog` release (the database is never committed):
 
    ```bash
-   npm run catalog
-   npm run publish:catalog
+   npm run catalog -- fetch build publish
    ```
 
-2. **Check production locally** (optional): `npm run serve`, then open
-   http://127.0.0.1:8000. This is the same server the image runs.
+   It prints the `CATALOG_URL` the deployment downloads from.
 
-3. **Create the service.** In Render: **New › Blueprint**, pick this repository,
-   and Render reads `render.yaml`. Paste the Gemini key when it asks for
-   `GEMINI_API_KEY`, then **Apply**. The first build takes a few minutes; the
-   service page shows the public URL.
+2. **Check production locally** (optional): `npm run start`, then open
+   http://localhost:8000. This is the same server the image runs.
+
+3. **Create the service.** In Render: **New › Blueprint**, pick this repository;
+   Render reads `render.yaml` and asks for three values:
+
+   - `CATALOG_URL`: printed by step 1
+   - `GEMINI_API_KEY`: your key
+   - `GEMINI_MODELS`: the same list as in `.env.example`
+
+   Then **Apply**. The first build takes a few minutes; the service page shows
+   the public URL.
 
 4. **Keep it awake during the event.** Free services sleep after 15 idle minutes
    and take about a minute to wake. An hour before the demo, add a free
@@ -162,19 +154,21 @@ repeat step 1, then on Render use **Manual Deploy › Deploy latest commit**.
 **Taking it down:** delete the service on Render (and the UptimeRobot monitor).
 `gh release delete catalog` removes the published database.
 
-**Limits:** Gemini's free tier allows roughly 10–15 advisor messages a minute;
-past that the advisor says it is busy for a minute. Free-tier prompts may be
-used by Google to improve its models; prompts carry course codes and plans,
-never names.
+**Limits:** each Flash-Lite model allows 15 requests a minute on the free tier,
+and an advisor message takes one to three. Listing two models in `GEMINI_MODELS`
+doubles that, since each has its own quota; past it, the advisor says it is busy
+for a minute. Free-tier prompts may be used by Google to improve its models;
+prompts carry course codes and plans, never names.
 
 **Troubleshooting**
 
-| Symptom                                        | Fix                                               |
-| :--------------------------------------------- | :------------------------------------------------ |
-| Build fails downloading `catalog.db`           | Run step 1; the release must exist                |
-| Advisor asks for `GEMINI_API_KEY`              | Render › Environment › add the key, then redeploy |
-| Advisor says Gemini rejected the request (400) | The key is wrong or revoked; make a new one       |
-| The page takes a minute to load                | The service was asleep; see step 4                |
+| Symptom                                   | Fix                                             |
+| :---------------------------------------- | :---------------------------------------------- |
+| Build fails asking for `CATALOG_URL`      | Run step 1 and set the URL it prints            |
+| Advisor asks for a key or `GEMINI_MODELS` | Render › Environment › set it, then redeploy    |
+| Advisor says Gemini couldn't answer (400) | The key or a model name is wrong; check both    |
+| Advisor is often busy                     | Add another Flash-Lite model to `GEMINI_MODELS` |
+| The page takes a minute to load           | The service was asleep; see step 4              |
 
 ## Layout
 
@@ -183,10 +177,9 @@ Dockerfile             Production image: built client + API, one origin
 render.yaml            Render blueprint for the hosted demo
 server/
   main.py              FastAPI app; serves the built client when present
-  catalog.py           Catalog fetch and build CLI
-  publish.py           Uploads the catalog for deployments
+  catalog.py           Catalog CLI: fetch, build, publish
   src/
-    catalog/           Fetchers, pure parsers, schema, and the build
+    catalog/           Fetchers, pure parsers, schema, build, verify, publish
     data/              Read-only catalog queries and API models
     engine/            Schedule solver, degree and GE audits
     agent/             Advisor: student brief, tools, chips, the Gemini
@@ -194,9 +187,9 @@ server/
     routes/            Term-scoped catalog routes and chat
 tests/                 Pytest suites mirroring server/src
 client/src/
-  semester/            Search, course rows, ask pane, week canvas
+  semester/            The column, course lines and cards, the week
   degree/              Program picker, requirement chips, GE, credits
-  shell/               Top bar
+  shell/               Top bar and first-run welcome
   state/               Persisted plan store, previews, undo toasts
   lib/                 Pure schedule, query, and degree helpers
   ui/                  Shared glyphs, toast, context menu

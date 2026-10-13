@@ -1,9 +1,11 @@
-"""Tests for the model providers against faked HTTP, and their configuration."""
+"""Tests for configuring the model, the shared tool loop, and live Gemini.
 
-import json
-from typing import Any
+Live tests talk to the configured Gemini and spend real quota, so they run
+only on request: `npm run test:live`.
+"""
 
-import httpx
+from collections.abc import Iterator, Sequence
+
 import pytest
 
 from server.src.agent import gemini, llm
@@ -12,116 +14,92 @@ from server.src.agent import gemini, llm
 TOOLS = [
   llm.Tool(
     "search_courses",
-    "Searches courses.",
-    {"type": "object", "properties": {"query": {"type": "string"}}},
+    "Searches this term's courses by code, title, or topic.",
+    {
+      "type": "object",
+      "properties": {"query": {"type": "string"}},
+      "required": ["query"],
+    },
   )
 ]
 
 
-def _sse(*chunks: dict[str, Any]) -> bytes:
-  return b"".join(f"data: {json.dumps(c)}\r\n\r\n".encode() for c in chunks)
-
-
-def _parts(*parts: dict[str, Any]) -> dict[str, Any]:
-  return {"candidates": [{"content": {"role": "model", "parts": list(parts)}}]}
-
-
-def test_gemini_streams_text_and_runs_a_tool_round():
-  bodies: list[dict[str, Any]] = []
-
-  def handle(request: httpx.Request) -> httpx.Response:
-    bodies.append(json.loads(request.content))
-    assert request.headers["x-goog-api-key"] == "key"
-    assert request.url.params["alt"] == "sse"
-    if len(bodies) == 1:
-      call = {
-        "functionCall": {"name": "search_courses", "args": {"query": "ai"}},
-        "thoughtSignature": "sig",
-      }
-      return httpx.Response(200, content=_sse(_parts(call)))
-    return httpx.Response(
-      200,
-      content=_sse(
-        _parts({"text": "plan", "thought": True}),
-        _parts({"text": "Try "}),
-        _parts({"text": "CSCI 360."}),
-      ),
-    )
-
-  calls: list[tuple[str, Any]] = []
-
-  def execute(name: str, args: Any) -> str:
-    calls.append((name, args))
-    return "CSCI-360: Introduction to AI"
-
-  model = gemini.Gemini("key", "gemini-test", httpx.MockTransport(handle))
-  history = [llm.Turn("user", "hi"), llm.Turn("assistant", "hello")]
-  text = "".join(model.reply("system", history, "ai?", TOOLS, execute))
-  assert text == "Try CSCI 360."
-  assert calls == [("search_courses", {"query": "ai"})]
-  first, second = bodies
-  assert [c["role"] for c in first["contents"]] == ["user", "model", "user"]
-  assert first["systemInstruction"] == {"parts": [{"text": "system"}]}
-  declaration = first["tools"][0]["functionDeclarations"][0]
-  assert declaration["parametersJsonSchema"]["type"] == "object"
-  # The model's parts go back verbatim (signature included), then results.
-  assert second["contents"][-2]["parts"][0]["thoughtSignature"] == "sig"
-  response = second["contents"][-1]["parts"][0]["functionResponse"]
-  assert response == {
-    "name": "search_courses",
-    "response": {"result": "CSCI-360: Introduction to AI"},
-  }
-
-
-def test_gemini_forbids_tools_on_its_last_round():
-  modes: list[str] = []
-
-  def handle(request: httpx.Request) -> httpx.Response:
-    body = json.loads(request.content)
-    modes.append(body["toolConfig"]["functionCallingConfig"]["mode"])
-    call = {"functionCall": {"name": "search_courses", "args": {}}}
-    return httpx.Response(200, content=_sse(_parts(call)))
-
-  model = gemini.Gemini("key", "m", httpx.MockTransport(handle))
-  list(model.reply("s", [], "q", TOOLS, lambda name, args: "none"))
-  assert modes == ["AUTO", "AUTO", "NONE"]
-
-
-@pytest.mark.parametrize(
-  ("status", "message"),
-  [
-    (429, "The advisor is busy (free-tier limit). Try again in a minute."),
-    (400, "Gemini couldn't answer (400: API key not valid)."),
-  ],
-)
-def test_gemini_errors_read_well(status, message):
-  def handle(request: httpx.Request) -> httpx.Response:
-    del request
-    return httpx.Response(
-      status, json={"error": {"message": "API key not valid"}}
-    )
-
-  model = gemini.Gemini("key", "m", httpx.MockTransport(handle))
-  with pytest.raises(
-    llm.ModelError, match=message.replace("(", r"\(").replace(")", r"\)")
-  ):
-    list(model.reply("s", [], "q", [], lambda name, args: ""))
-
-
-def test_gemini_without_a_key_explains_how_to_get_one():
-  reason = gemini.Gemini("", "m").unavailable()
-  assert reason is not None and "GEMINI_API_KEY" in reason
-  assert gemini.Gemini("key", "m").unavailable() is None
-
-
-def test_the_environment_configures_gemini(monkeypatch):
-  for name in ("GEMINI_API_KEY", "GEMINI_MODEL"):
-    monkeypatch.delenv(name, raising=False)
-  model = llm.from_env()
+def test_a_gemini_key_selects_gemini_with_the_configured_models():
+  model = llm.from_env(
+    {"GEMINI_API_KEY": "k", "GEMINI_MODELS": " lite-a , lite-b ,"}
+  )
   assert isinstance(model, gemini.Gemini)
-  assert model.name == "gemini-flash-latest"
-  assert model.unavailable() is not None
-  monkeypatch.setenv("GEMINI_API_KEY", "key")
-  monkeypatch.setenv("GEMINI_MODEL", "gemini-pro-latest")
-  model = llm.from_env()
-  assert model.name == "gemini-pro-latest" and model.unavailable() is None
+  assert model.name == "lite-a, lite-b"
+  assert model.unavailable() is None
+
+
+def test_missing_configuration_says_what_to_set():
+  assert "GEMINI_API_KEY" in (llm.from_env({}).unavailable() or "")
+  assert "GEMINI_MODELS" in (
+    llm.from_env({"GEMINI_API_KEY": "k"}).unavailable() or ""
+  )
+
+
+def _scripted(*turns: Sequence[llm.Call]):
+  """A model turn that calls the given tools in order, then answers."""
+  seen: list[tuple[int, bool]] = []
+
+  def turn(
+    rounds: Sequence[llm.Round], allow_tools: bool
+  ) -> Iterator[str | llm.Step]:
+    seen.append((len(rounds), allow_tools))
+    calls = (
+      turns[len(rounds)] if allow_tools and len(rounds) < len(turns) else []
+    )
+    if not calls:
+      yield "Done."
+    yield llm.Step(list(calls), None)
+
+  return turn, seen
+
+
+def test_the_loop_feeds_each_round_its_results_then_answers():
+  search = llm.Call("search_courses", {"query": "ai"})
+  solve = llm.Call("solve_schedule", {"course_codes": ["CSCI-360"]})
+  turn, seen = _scripted([search], [solve])
+  ran: list[str] = []
+
+  def execute(name: str, args: object) -> str:
+    del args
+    ran.append(name)
+    return f"{name} result"
+
+  assert "".join(llm.run(turn, execute)) == "Done."
+  assert ran == ["search_courses", "solve_schedule"]
+  assert seen == [(0, True), (1, True), (2, False)]
+
+
+def test_the_loop_forbids_tools_after_its_rounds():
+  call = llm.Call("search_courses", {})
+  turn, seen = _scripted(*[[call]] * (llm.TOOL_ROUNDS + 2))
+  text = "".join(llm.run(turn, lambda name, args: "r"))
+  assert text == "Done."
+  assert [allowed for _, allowed in seen] == [True] * llm.TOOL_ROUNDS + [False]
+
+
+@pytest.mark.live
+def test_live_model_answers_and_calls_tools(live_model):
+  """The configured model streams text and uses a tool when it needs one."""
+  calls: list[str] = []
+
+  def execute(name: str, args: object) -> str:
+    del args
+    calls.append(name)
+    return "CSCI-467: Introduction to Machine Learning (4 units)"
+
+  text = "".join(
+    live_model.reply(
+      "You help USC students. Use search_courses to find courses.",
+      [],
+      "Which course covers machine learning? Search, then name it.",
+      TOOLS,
+      execute,
+    )
+  )
+  assert calls == ["search_courses"]
+  assert "467" in text

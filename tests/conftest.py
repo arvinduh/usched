@@ -4,6 +4,7 @@ import pathlib
 
 import pytest
 
+from server.src.agent import llm
 from server.src.catalog import build, cache, classes_api, rmp
 
 
@@ -55,6 +56,17 @@ RMP_SEARCH = {
     }
   }
 }
+
+
+@pytest.fixture
+def live_model() -> llm.Model:
+  """The model .env configures, as the server builds it; skips if unset."""
+  from server import main  # noqa: F401  # Loads .env, like the server.
+
+  model = llm.from_env()
+  if reason := model.unavailable():
+    pytest.skip(reason)
+  return model
 
 
 @pytest.fixture(scope="session")

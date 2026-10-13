@@ -7,7 +7,11 @@ turn, and tests fake a whole model behind the `Model` protocol. The model
 is Gemini, configured by the environment:
 
   GEMINI_API_KEY        Google AI Studio key
-  GEMINI_MODEL          default gemini-flash-latest
+  GEMINI_MODELS         comma-separated, preferred first; later ones take
+                        over while earlier ones are busy or out of quota
+
+Model names are configuration, never code: they change monthly, and the
+advisor says which variable to set when one is missing.
 """
 
 import dataclasses
@@ -125,11 +129,9 @@ class Model(Protocol):
     ...
 
 
-def from_env() -> Model:
-  """Builds the model the environment configures (see the module doc)."""
+def from_env(env: Mapping[str, str] = os.environ) -> Model:
+  """Builds the model `env` configures (see the module doc)."""
   from server.src.agent import gemini
 
-  return gemini.Gemini(
-    os.getenv("GEMINI_API_KEY", ""),
-    os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
-  )
+  models = [m.strip() for m in env.get("GEMINI_MODELS", "").split(",")]
+  return gemini.Gemini(env.get("GEMINI_API_KEY", ""), [m for m in models if m])

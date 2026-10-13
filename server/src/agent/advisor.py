@@ -9,7 +9,7 @@ transport (threads, the event loop) in the chat route.
 
 import json
 import sqlite3
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence, Set
 from typing import Any, Literal
 
 import pydantic
@@ -102,6 +102,23 @@ def closing_chips(
   return list(reversed(unique.values()))[:_MAX_CHIPS]
 
 
+def unverified(
+  reply: str, grounded: Set[str], conn: sqlite3.Connection
+) -> list[str]:
+  """Courses `reply` names, as written, that no source or catalog backs.
+
+  A course the brief and tools never mentioned is still real if the
+  catalog knows it in any term; only invented codes are flagged.
+  """
+  named = {
+    key: written
+    for key, written in codes.mentions(reply).items()
+    if key not in grounded
+  }
+  known = catalog_db.canonical(conn, named)
+  return [written for key, written in named.items() if key not in known]
+
+
 def _event(payload: Any) -> str:
   return f"data: {json.dumps(payload)}\n\n"
 
@@ -116,7 +133,7 @@ def stream(
   """Yields SSE events: tokens, then one closing event, then `[DONE]`."""
   from_tools: list[chips.Chip] = []
   next_codes: list[str] = []
-  unverified: list[str] = []
+  flagged: list[str] = []
   reason = model.unavailable()
   if reason:
     yield _token(reason)
@@ -158,16 +175,10 @@ def stream(
         yield _token(token)
     except llm.ModelError as e:
       yield _token(f"\n\n{e}")
-    named = {
-      key: written
-      for key, written in codes.mentions("".join(reply)).items()
-      if key not in grounded
-    }
-    known = catalog_db.canonical(conn, named)
-    unverified = [w for key, w in named.items() if key not in known]
+    flagged = unverified("".join(reply), grounded, conn)
   closing = ClosingEvent(
     action_chips=closing_chips(from_tools, next_codes),
-    unverified=unverified,
+    unverified=flagged,
   )
   yield _event(closing.model_dump())
   yield "data: [DONE]\n\n"

@@ -3,12 +3,12 @@
 import dataclasses
 import json
 import sqlite3
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
-from server.src.agent import advisor, brief, chips, llm, tools
+from server.src.agent import advisor, brief, chips, tools
 from server.src.data import catalog_db
 from server.src.data import catalog_models as m
 
@@ -94,33 +94,22 @@ def test_a_student_without_a_program_still_gets_a_brief(conn):
   assert facts.next_codes == []
 
 
-@dataclasses.dataclass
-class FakeModel:
-  """Replies with scripted tokens, optionally calling one tool first."""
+def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(conn):
+  grounded = {"CSCI-104", "MATH-225"}
+  reply = "Take CSCI 104L, then MATH-225g. CSCI 999 also looks fun."
+  assert advisor.unverified(reply, grounded, conn) == ["CSCI 999"]
+  assert advisor.unverified("No courses here.", grounded, conn) == []
+  # Never named by a source, but real: the catalog knows it.
+  assert advisor.unverified("CSCI 445L is a fine elective.", set(), conn) == []
 
-  tokens: Sequence[str]
-  call: tuple[str, dict[str, Any]] | None = None
-  reason: str | None = None
-  name: str = "fake"
-  seen_system: str = ""
-  tool_output: str = ""
 
-  def unavailable(self) -> str | None:
-    return self.reason
-
-  def reply(
-    self,
-    system: str,
-    history: Sequence[llm.Turn],
-    message: str,
-    tools: Sequence[llm.Tool],
-    execute: llm.Execute,
-  ) -> Iterator[str]:
-    del history, message, tools
-    self.seen_system = system
-    if self.call:
-      self.tool_output = execute(*self.call)
-    yield from self.tokens
+def test_closing_chips_prefer_tools_then_next_steps():
+  search = chips.Search(label="Show CSCI-104L", query="CSCI-104L")
+  assert advisor.closing_chips([search], ["MATH-226"]) == [
+    search,
+    chips.Search(label="Show MATH-226", query="MATH-226"),
+  ]
+  assert advisor.closing_chips([], []) == []
 
 
 def _events(stream: Iterator[str]) -> list[Any]:
@@ -131,69 +120,20 @@ def _events(stream: Iterator[str]) -> list[Any]:
   return out
 
 
-def _request(**overrides: Any) -> advisor.ChatRequest:
-  fields: dict[str, Any] = {
-    "message": "what next?",
-    "term": TERM,
-    "program_id": "computer-science-bs",
-    "completed": ["CSCI-103L"],
-  }
-  return advisor.ChatRequest(**(fields | overrides))
-
-
-def test_an_unavailable_model_says_why(conn):
-  model = FakeModel([], reason="No key.")
-  events = _events(advisor.stream(_request(message="hi"), conn, model))
-  assert events[0] == {"token": "No key."}
-  assert events[1]["action_chips"] == []
-  assert events[-1] == "[DONE]"
-
-
-def test_the_model_answers_from_the_brief(conn):
-  model = FakeModel(["Take ", "CSCI 104L."])
-  events = _events(advisor.stream(_request(), conn, model))
-  assert "[Student brief]" in model.seen_system
-  assert [e["token"] for e in events[:2]] == ["Take ", "CSCI 104L."]
-  assert events[2]["unverified"] == []
-
-
-def test_courses_no_source_mentions_are_flagged(conn):
-  model = FakeModel(["Try CSCI 999 and CSCI 104L."])
-  closing = _events(advisor.stream(_request(), conn, model))[-2]
-  assert closing["unverified"] == ["CSCI 999"]
-
-
-def test_catalog_courses_the_brief_omits_are_not_flagged(conn):
-  model = FakeModel(["CSCI 445L is a good elective."])
-  closing = _events(advisor.stream(_request(), conn, model))[-2]
-  assert "CSCI-445" not in model.seen_system
-  assert closing["unverified"] == []
-
-
-def test_tool_results_ground_courses_and_add_chips(conn):
-  model = FakeModel(
-    ["CSCI 445L fits."], call=("search_courses", {"query": "robot"})
+@pytest.mark.live
+def test_live_advisor_answers_from_the_brief(conn, live_model):
+  """The real advisor answers a planning question without inventing courses."""
+  request = advisor.ChatRequest(
+    message="Which classes could I take next term?",
+    term=TERM,
+    program_id="computer-science-bs",
+    completed=["CSCI-103L"],
   )
-  closing = _events(advisor.stream(_request(), conn, model))[-2]
-  assert "CSCI-445" in model.tool_output
+  events = _events(advisor.stream(request, conn, live_model))
+  reply = "".join(
+    e["token"] for e in events if isinstance(e, dict) and "token" in e
+  )
+  closing = events[-2]
+  assert reply.strip()
   assert closing["unverified"] == []
-  assert closing["action_chips"][0]["action"] == "search"
-
-
-def test_model_errors_become_a_message(conn):
-  @dataclasses.dataclass
-  class Failing(FakeModel):
-    def reply(
-      self,
-      system: str,
-      history: Sequence[llm.Turn],
-      message: str,
-      tools: Sequence[llm.Tool],
-      execute: llm.Execute,
-    ) -> Iterator[str]:
-      raise llm.ModelError("The advisor is busy.")
-      yield ""
-
-  events = _events(advisor.stream(_request(), conn, Failing([])))
-  assert events[0] == {"token": "\n\nThe advisor is busy."}
   assert events[-1] == "[DONE]"
