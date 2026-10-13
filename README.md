@@ -59,7 +59,9 @@ npm run dev
 ```
 
 The app is at http://localhost:18801 and the API at http://localhost:18800/docs
-(ports come from `.env`). One Ctrl+C stops both.
+(ports come from `.env`). One Ctrl+C stops both. On Windows, `node --run dev`
+does the same without npm's batch wrapper, which otherwise answers Ctrl+C with a
+stray "Terminate batch job (Y/N)?".
 
 ## Using it
 
