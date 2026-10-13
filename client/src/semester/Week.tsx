@@ -28,7 +28,7 @@ import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/pre
 import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import { RatingPair } from '../ui/Glyphs';
-import { hueFor, textureBackground } from '../ui/encoding';
+import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { Course, ScheduleConfiguration, Section, Weekday } from '../types';
 import styles from './Week.module.css';
 
@@ -328,7 +328,7 @@ export function Week(props: WeekProps): React.JSX.Element {
                     <div
                       className={styles.face}
                       style={{
-                        background: textureBackground(s.type, hue.fill),
+                        background: blockBackground(s.type, hue),
                         borderColor: hue.ink,
                         color: hue.ink,
                       }}
