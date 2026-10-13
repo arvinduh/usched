@@ -111,6 +111,15 @@ def test_search_by_text_ge_and_rating(conn):
   assert [c.code for c in rated] == ["CSCI-104L"]
 
 
+def test_search_expands_abbreviations_to_phrases(conn):
+  assert [c.code for c in catalog_db.search_courses(conn, 20271, "dsa")] == [
+    "CSCI-104L"
+  ]
+  assert [c.code for c in catalog_db.search_courses(conn, 20271, "oop")] == [
+    "CSCI-103L"
+  ]
+
+
 def test_search_pages(conn):
   every = catalog_db.search_courses(conn, 20271, None)
   page = catalog_db.search_courses(conn, 20271, None, limit=3, offset=2)

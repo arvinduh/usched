@@ -15,7 +15,10 @@ import type { Course } from '../types';
 // About two screens of results: enough to scroll into while the next page
 // loads, without rendering rows nobody sees.
 const PAGE_SIZE = 40;
-const DEBOUNCE_MS = 150;
+// A search answers in about 20 ms, so the wait is most of what a student
+// feels. Keys come 100 to 300 ms apart, so this still skips the requests a
+// burst of fast keys would make, without making slow typists wait.
+const DEBOUNCE_MS = 60;
 const NO_COURSES: readonly Course[] = [];
 
 /**
@@ -33,7 +36,7 @@ export interface CatalogSearch {
 }
 
 /**
- * Re-queries `term`'s catalog 150 ms after the text settles and appends
+ * Re-queries `term`'s catalog 60 ms after the text settles and appends
  * further pages on demand. Results land in transitions, so rendering them
  * never blocks typing. Empty text loads nothing: the Library shows saved
  * and suggested courses instead.

@@ -150,12 +150,11 @@
   color: var(--text-muted);
 }
 
-.options {
+.popup {
   position: absolute;
   top: calc(100% + 10px);
   left: -8px;
   right: -8px;
-  list-style: none;
   padding: 6px;
   border-radius: var(--radius-m);
   background: var(--bg);
@@ -164,7 +163,50 @@
   animation: drop 140ms var(--ease);
 }
 
+/* Narrows the list to one level: majors, minors, master's, doctoral. */
+.levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 4px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.level {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  transition: background 100ms ease-out, color 100ms ease-out;
+}
+
+.level:hover {
+  color: var(--text-primary);
+}
+
+.levelOn,
+.levelOn:hover {
+  background: var(--text-primary);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+/* Every match, scrolling within the list rather than the page. */
+.options {
+  composes: scroll from '../ui/Scroll.module.css';
+  list-style: none;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Rows out of view skip layout and paint until scrolled near. */
 .option {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 38px;
   display: flex;
   align-items: center;
   justify-content: space-between;
