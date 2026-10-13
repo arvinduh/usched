@@ -88,6 +88,24 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
   assert {"CSCI-104", "CSCI-420", "CSCI-103"} <= facts.grounded
 
 
+def test_the_brief_says_what_is_on_screen_and_the_other_schedules(conn):
+  student = dataclasses.replace(
+    STUDENT,
+    variants=[brief.Variant("B", ["17367"])],
+    screen=brief.Screen(
+      page="planner",
+      open_course="CSCI-445Lx",
+      proposal=brief.Variant("Option 2", ["30386", "29910"]),
+    ),
+  )
+  text = brief.build(conn, student).text
+  assert "Other schedule B: CHEM-251x (17367)" in text
+  assert "On screen: the planner" in text
+  assert "Open course: CSCI-445Lx" in text
+  assert "proposal Option 2: CSCI-445Lx (30386, 29910), not yet kept" in text
+  assert "CHEM-251" in brief.build(conn, student).grounded
+
+
 def test_a_student_without_a_program_still_gets_a_brief(conn):
   facts = brief.build(conn, dataclasses.replace(STUDENT, program_id=None))
   assert "Program: not chosen" in facts.text

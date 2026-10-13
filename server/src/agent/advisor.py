@@ -43,6 +43,13 @@ class ChatRequest(pydantic.BaseModel):
     default=[], description="Codes of courses already taken."
   )
   ap_credits: list[catalog_models.ApCredit] = []
+  variants: list[brief.Variant] = pydantic.Field(
+    default=[], description="The student's other schedules."
+  )
+  screen: brief.Screen = pydantic.Field(
+    default_factory=brief.Screen,
+    description="What the student is looking at as they ask.",
+  )
 
 
 class ClosingEvent(pydantic.BaseModel):
@@ -62,6 +69,8 @@ Ground every answer in facts:
 - Name only courses that appear in the brief or in a tool result. For any
   other course, call search_courses or get_course_details first; never
   guess a course code, title, time, or instructor.
+- The brief also says what is on screen: "this course" is the open course,
+  and "this one" or "option 2" is the proposal the week shows.
 - If the facts do not answer the question, say so plainly.
 
 Work in steps: up to {llm.TOOL_ROUNDS} rounds of tool calls, then answer.
@@ -147,6 +156,8 @@ def stream(
         shortlisted=request.shortlisted,
         completed=request.completed,
         ap_credits=request.ap_credits,
+        variants=request.variants,
+        screen=request.screen,
       ),
     )
     next_codes = facts.next_codes
