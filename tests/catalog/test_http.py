@@ -1,4 +1,8 @@
-"""Tests for the shared retry policy."""
+"""Tests for the shared retry policy, against a real local HTTP server."""
+
+import threading
+from collections.abc import Iterator
+from http import server as http_server
 
 import httpx
 import pytest
@@ -6,25 +10,63 @@ import pytest
 from server.src.catalog import http
 
 
-def test_rate_limits_wait_as_long_as_the_server_asks(monkeypatch):
-  waits: list[float] = []
-  monkeypatch.setattr(http.time, "sleep", waits.append)
-  replies = iter(
-    [
-      httpx.Response(429, headers={"Retry-After": "7"}),
-      httpx.Response(429),
-      httpx.Response(200, text="ok"),
+class _Server(http_server.ThreadingHTTPServer):
+  """Answers GETs with a scripted sequence of statuses, counting requests."""
+
+  def __init__(self, statuses: list[int]) -> None:
+    self.statuses = statuses
+    self.requests = 0
+    super().__init__(("127.0.0.1", 0), _Handler)
+
+
+class _Handler(http_server.BaseHTTPRequestHandler):
+  server: _Server
+
+  def do_GET(self) -> None:  # noqa: N802 (the stdlib's handler name)
+    status = self.server.statuses[
+      min(self.server.requests, len(self.server.statuses) - 1)
     ]
-  )
-  transport = httpx.MockTransport(lambda _: next(replies))
-  with httpx.Client(transport=transport) as client:
-    assert http.request(client, "GET", "https://x.test").text == "ok"
-  assert waits == [7.0, 2.0]
+    self.server.requests += 1
+    self.send_response(status)
+    if status == 429:
+      self.send_header("Retry-After", "0")
+    self.end_headers()
+    self.wfile.write(b"ok" if status == 200 else b"no")
+
+  def log_message(self, format: str, *args: object) -> None:
+    del format, args
 
 
-def test_client_errors_are_not_retried(monkeypatch):
-  monkeypatch.setattr(http.time, "sleep", pytest.fail)
-  transport = httpx.MockTransport(lambda _: httpx.Response(404))
-  with httpx.Client(transport=transport) as client:
-    with pytest.raises(httpx.HTTPStatusError):
-      http.request(client, "GET", "https://x.test")
+def _serve(statuses: list[int]) -> Iterator[_Server]:
+  server = _Server(statuses)
+  thread = threading.Thread(target=server.serve_forever, daemon=True)
+  thread.start()
+  yield server
+  server.shutdown()
+
+
+@pytest.fixture
+def busy_then_ok() -> Iterator[_Server]:
+  yield from _serve([429, 200])
+
+
+@pytest.fixture
+def missing() -> Iterator[_Server]:
+  yield from _serve([404])
+
+
+def _url(server: _Server) -> str:
+  return f"http://127.0.0.1:{server.server_address[1]}/"
+
+
+def test_rate_limits_are_retried(busy_then_ok):
+  with httpx.Client() as client:
+    response = http.request(client, "GET", _url(busy_then_ok))
+  assert response.text == "ok"
+  assert busy_then_ok.requests == 2
+
+
+def test_client_errors_are_not_retried(missing):
+  with httpx.Client() as client, pytest.raises(httpx.HTTPStatusError):
+    http.request(client, "GET", _url(missing))
+  assert missing.requests == 1

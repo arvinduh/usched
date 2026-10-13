@@ -8,9 +8,13 @@ to execute a tool. Which provider runs is configuration:
   USCHED_LLM_PROVIDER   gemini | ollama; default gemini when GEMINI_API_KEY
                         is set, else ollama
   GEMINI_API_KEY        Google AI Studio key (hosted deployments)
-  GEMINI_MODEL          default gemini-flash-latest
-  OLLAMA_HOST           default http://127.0.0.1:11434 (local development)
-  OLLAMA_MODEL          default qwen3.5:4b
+  GEMINI_MODELS         comma-separated, preferred first; later ones take
+                        over while earlier ones are busy or out of quota
+  OLLAMA_HOST           Ollama's address, default its own 127.0.0.1:11434
+  OLLAMA_MODEL          the model tag to use
+
+Model names are configuration, never code: they change monthly, and the
+advisor says which variable to set when one is missing.
 """
 
 import dataclasses
@@ -69,17 +73,18 @@ class Model(Protocol):
     ...
 
 
-def from_env() -> Model:
-  """Builds the provider the environment selects (see the module doc)."""
+def from_env(env: Mapping[str, str] = os.environ) -> Model:
+  """Builds the provider `env` selects (see the module doc)."""
   from server.src.agent import gemini, ollama
 
-  key = os.getenv("GEMINI_API_KEY", "")
-  provider = os.getenv("USCHED_LLM_PROVIDER") or ("gemini" if key else "ollama")
+  key = env.get("GEMINI_API_KEY", "")
+  provider = env.get("USCHED_LLM_PROVIDER") or ("gemini" if key else "ollama")
   if provider == "gemini":
-    return gemini.Gemini(key, os.getenv("GEMINI_MODEL", "gemini-flash-latest"))
+    models = [m.strip() for m in env.get("GEMINI_MODELS", "").split(",")]
+    return gemini.Gemini(key, [m for m in models if m])
   if provider == "ollama":
     return ollama.Ollama(
-      os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434"),
-      os.getenv("OLLAMA_MODEL", "qwen3.5:4b"),
+      env.get("OLLAMA_HOST", "http://127.0.0.1:11434"),
+      env.get("OLLAMA_MODEL", ""),
     )
   raise ValueError(f"USCHED_LLM_PROVIDER must be gemini or ollama: {provider}")

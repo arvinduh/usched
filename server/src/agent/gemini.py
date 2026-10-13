@@ -2,12 +2,16 @@
 
 Streams `streamGenerateContent` as server-sent events. A reply that calls
 tools is answered by echoing the model's parts back unchanged (they carry
-the thought signatures Gemini requires), adding the tool results, and
-asking again, for a bounded number of rounds; the last round forbids
-tools so the model must answer in words.
+the thought signatures Gemini requires), adding the tool results under the
+calls' ids, and asking again, for a bounded number of rounds; the last
+round forbids tools so the model must answer in words. Models are an
+ordered list: while one is overloaded or out of free-tier quota, a request
+is retried once and then sent to the next, so a busy moment costs a pause
+rather than an error (each model has its own quota).
 """
 
 import json
+import time
 from collections.abc import Iterator, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any
@@ -22,31 +26,40 @@ _API = "https://generativelanguage.googleapis.com/v1beta/models"
 _ROUNDS = 3  # Tool rounds before the model must answer.
 _TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 _CONFIG = {"maxOutputTokens": 2048, "temperature": 0.4}
+_RETRY_AFTER_S = 1.5
+# Overloaded (503) and rate-limited (429) requests are worth another try.
+_TRANSIENT = frozenset(
+  {HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE}
+)
+
+
+class _Transient(llm.ModelError):
+  """A failure another attempt or model may not hit."""
 
 
 class Gemini:
   """A Gemini model reached with an API key.
 
   Attributes:
-    name: The model, e.g. gemini-flash-latest.
+    name: The preferred model, for logs.
   """
 
-  def __init__(
-    self,
-    api_key: str,
-    name: str,
-    transport: httpx.BaseTransport | None = None,
-  ) -> None:
+  def __init__(self, api_key: str, models: Sequence[str]) -> None:
     self._key = api_key
-    self.name = name
-    self._transport = transport
+    self._models = list(models)
+    self.name = ", ".join(self._models) or "Gemini (no model set)"
 
   def unavailable(self) -> str | None:
-    """Explains a missing key; otherwise None (requests surface errors)."""
+    """Explains missing configuration; otherwise None."""
     if not self._key:
       return (
         "The advisor needs a Gemini API key: set GEMINI_API_KEY "
         "(free at aistudio.google.com)."
+      )
+    if not self._models:
+      return (
+        "The advisor needs a model: set GEMINI_MODELS to one or more model "
+        "names, comma-separated (see .env.example)."
       )
     return None
 
@@ -84,42 +97,57 @@ class Gemini:
           ]
         }
       ]
-    with httpx.Client(timeout=_TIMEOUT, transport=self._transport) as client:
+    answered = False
+    with httpx.Client(timeout=_TIMEOUT) as client:
       for round_ in range(_ROUNDS):
         if tools:
           mode = "AUTO" if round_ < _ROUNDS - 1 else "NONE"
           body["toolConfig"] = {"functionCallingConfig": {"mode": mode}}
         parts: list[dict[str, Any]] = []
-        for part in self._stream(client, {**body, "contents": contents}):
+        for part in self._attempts(client, {**body, "contents": contents}):
           parts.append(part)
           if part.get("text") and not part.get("thought"):
+            answered = True
             yield part["text"]
         calls = [p["functionCall"] for p in parts if "functionCall" in p]
         if not calls:
-          return
+          break
         contents.append({"role": "model", "parts": parts})
         contents.append(
           {
             "role": "user",
-            "parts": [
-              {
-                "functionResponse": {
-                  "name": call["name"],
-                  "response": {
-                    "result": execute(call["name"], call.get("args") or {})
-                  },
-                }
-              }
-              for call in calls
-            ],
+            "parts": [_result(call, execute) for call in calls],
           }
         )
+    if not answered:
+      raise llm.ModelError("The advisor came back empty; try asking again.")
 
-  def _stream(
+  def _attempts(
     self, client: httpx.Client, body: Mapping[str, Any]
   ) -> Iterator[dict[str, Any]]:
+    """Streams one request, retrying then falling back while overloaded.
+
+    Overload is reported before any part arrives, so a retry never repeats
+    text already shown.
+    """
+    plan = [self._models[0], *self._models]
+    for attempt, model in enumerate(plan):
+      try:
+        yield from self._stream(client, model, body)
+        return
+      except _Transient:
+        if attempt == len(plan) - 1:
+          raise
+        logging.warning(
+          "Gemini %s is busy; trying %s", model, plan[attempt + 1]
+        )
+        time.sleep(_RETRY_AFTER_S)
+
+  def _stream(
+    self, client: httpx.Client, model: str, body: Mapping[str, Any]
+  ) -> Iterator[dict[str, Any]]:
     """Yields each content part of a streamed response, in order."""
-    url = f"{_API}/{self.name}:streamGenerateContent"
+    url = f"{_API}/{model}:streamGenerateContent"
     try:
       with client.stream(
         "POST",
@@ -130,7 +158,10 @@ class Gemini:
       ) as response:
         if response.status_code != HTTPStatus.OK:
           response.read()
-          raise llm.ModelError(_explain(response))
+          error = (
+            _Transient if response.status_code in _TRANSIENT else llm.ModelError
+          )
+          raise error(_explain(response))
         for line in response.iter_lines():
           if not line.startswith("data:"):
             continue
@@ -142,6 +173,17 @@ class Gemini:
       raise llm.ModelError(f"Couldn't reach Gemini ({e}).") from e
 
 
+def _result(call: Mapping[str, Any], execute: llm.Execute) -> dict[str, Any]:
+  """Runs one function call and answers it under the call's id."""
+  response: dict[str, Any] = {
+    "name": call["name"],
+    "response": {"result": execute(call["name"], call.get("args") or {})},
+  }
+  if "id" in call:
+    response["id"] = call["id"]
+  return {"functionResponse": response}
+
+
 def _explain(response: httpx.Response) -> str:
   """Turns a Gemini error response into a sentence for a student."""
   try:
@@ -149,6 +191,6 @@ def _explain(response: httpx.Response) -> str:
   except (ValueError, KeyError, TypeError):
     detail = response.text[:200]
   logging.warning("Gemini answered %d: %s", response.status_code, detail)
-  if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
-    return "The advisor is busy (free-tier limit). Try again in a minute."
+  if response.status_code in _TRANSIENT:
+    return "The advisor is busy right now. Try again in a minute."
   return f"Gemini couldn't answer ({response.status_code}: {detail})."

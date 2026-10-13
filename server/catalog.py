@@ -3,6 +3,7 @@
     uv run catalog            # fetch what is stale, then build
     uv run catalog fetch      # refresh the raw cache only
     uv run catalog build      # rebuild the database offline from the cache
+    uv run catalog publish    # upload the database for deployments
 
 Each source keeps its own freshness window, so routine runs only refetch
 section listings; RateMyProfessors and the catalogue change slowly.
@@ -27,6 +28,7 @@ from server.src.catalog import (
   classes_api,
   http,
   parse_classes,
+  publish,
   records,
   rmp,
 )
@@ -113,7 +115,7 @@ def main(argv: Sequence[str]) -> None:
   # httpx logs every request at INFO; thousands of them bury the summary.
   std_logging.getLogger("httpx").setLevel(std_logging.WARNING)
   stages = argv[1:] or ["fetch", "build"]
-  unknown = set(stages) - {"fetch", "build"}
+  unknown = set(stages) - {"fetch", "build", "publish"}
   if unknown:
     raise app.UsageError(f"Unknown stage(s): {', '.join(sorted(unknown))}")
   raw = cache.RawCache()
@@ -130,6 +132,13 @@ def main(argv: Sequence[str]) -> None:
       "Verified: "
       + ", ".join(f"{name} {rate}%" for name, rate in built.rates.items())
     )
+  if "publish" in stages:
+    try:
+      url = publish.publish(build.DEFAULT_DB)
+    except publish.PublishError as e:
+      print(e)
+      sys.exit(1)
+    print(f"Published. Deployments build with CATALOG_URL={url}")
   if failures:
     print(f"{failures} fetches failed; the cache kept their previous copies.")
     sys.exit(1)
