@@ -108,9 +108,13 @@ def main(argv: Sequence[str]) -> None:
   if "fetch" in stages:
     fetch(raw)
   if "build" in stages:
-    counts = build.build(raw)
+    built = build.build(raw)
     logging.info("Built %s", build.DEFAULT_DB)
-    print("Built " + ", ".join(f"{n} {t}" for t, n in counts.items()))
+    print("Built " + ", ".join(f"{n} {t}" for t, n in built.counts.items()))
+    print(
+      "Verified: "
+      + ", ".join(f"{name} {rate}%" for name, rate in built.rates.items())
+    )
 
 
 def cli_main() -> None:

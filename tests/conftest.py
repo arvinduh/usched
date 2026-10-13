@@ -58,10 +58,9 @@ RMP_SEARCH = {
 
 
 @pytest.fixture(scope="session")
-def catalog_path(tmp_path_factory) -> pathlib.Path:
-  """Builds the fixture cache over a stale file, which the build replaces."""
-  root = tmp_path_factory.mktemp("raw")
-  raw = cache.RawCache(root)
+def catalog_raw(tmp_path_factory) -> cache.RawCache:
+  """A small raw cache standing in for a fetch."""
+  raw = cache.RawCache(tmp_path_factory.mktemp("raw"))
   listing = (FIXTURES / "listing.json").read_text(encoding="utf-8")
   schools = (FIXTURES / "schools.json").read_text(encoding="utf-8")
   raw.write_json(classes_api.TERMS_KEY, TERMS)
@@ -82,10 +81,15 @@ def catalog_path(tmp_path_factory) -> pathlib.Path:
     (FIXTURES / "courses-page.html").read_text(encoding="utf-8"),
   )
   raw.write_text("catalogue/22/courses/002.html", COURSE_PAGE)
+  return raw
 
-  target = root.parent / "catalog.db"
+
+@pytest.fixture(scope="session")
+def catalog_path(catalog_raw, tmp_path_factory) -> pathlib.Path:
+  """Builds the fixture cache over a stale file, which the build replaces."""
+  target = tmp_path_factory.mktemp("built") / "catalog.db"
   target.write_text("stale database to be replaced")
-  counts = build.build(raw, target)
-  assert counts["offering"] > 0
+  built = build.build(catalog_raw, target)
+  assert built.counts["offering"] > 0
   assert not target.with_name(target.name + ".building").exists()
   return target

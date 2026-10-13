@@ -3,8 +3,8 @@
 Collects every cached payload through the parsers, deduplicates rows by
 primary key, gives every course one canonical spelling (the catalogue's,
 where it defines the course), resolves course references against the
-catalog, and writes a fresh database to a temporary file that atomically
-replaces the old one.
+catalog, and writes a fresh database to a temporary file. Only a file that
+passes verification atomically replaces the old one.
 Builds are offline and deterministic: the same cache gives the same database.
 """
 
@@ -30,6 +30,7 @@ from server.src.catalog import (
   records,
   rmp,
   seeds,
+  verify,
 )
 
 
@@ -516,15 +517,26 @@ def _index_search(conn: sqlite3.Connection) -> None:
   )
 
 
-def build(
-  raw: cache.RawCache, target: pathlib.Path = DEFAULT_DB
-) -> dict[str, int]:
-  """Rebuilds the database at `target` from the cache; returns row counts.
+class VerificationError(Exception):
+  """A built catalog broke an invariant; the live one was kept."""
+
+
+@dataclasses.dataclass(frozen=True)
+class Built:
+  """A successful build: row counts per table and verification rates."""
+
+  counts: dict[str, int]
+  rates: dict[str, float | None]
+
+
+def build(raw: cache.RawCache, target: pathlib.Path = DEFAULT_DB) -> Built:
+  """Rebuilds the database at `target` from the cache.
 
   Raises:
     FileNotFoundError: The cache has no term list (nothing was fetched).
-    sqlite3.IntegrityError: Collected rows violate the schema, e.g. a
-      dangling reference; the existing database is left untouched.
+    sqlite3.IntegrityError: Collected rows violate the schema.
+    VerificationError: The built catalog failed verification.
+    In every failure the existing database is left untouched.
   """
   data = _Collected()
   _collect_classes(raw, data)
@@ -552,11 +564,14 @@ def build(
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     with conn:
       counts = _write(conn, data)
-    dangling = conn.execute("PRAGMA foreign_key_check").fetchall()
-    if dangling:
-      raise sqlite3.IntegrityError(f"Dangling references: {dangling[:5]}")
+    report = verify.verify(conn)
+    if report.problems:
+      raise VerificationError("; ".join(report.problems))
     conn.execute("ANALYZE")
-  finally:
+  except BaseException:
     conn.close()
+    partial.unlink(missing_ok=True)
+    raise
+  conn.close()
   os.replace(partial, target)
-  return counts
+  return Built(counts, report.rates)
