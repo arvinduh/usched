@@ -9,11 +9,12 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { ResetButton } from '../components/ResetButton/ResetButton';
 import { setTheme, useTheme } from '../state/theme';
 import type { Theme } from '../state/theme';
 import type { Term } from '../types';
+import { Select } from '../ui/Select';
 import styles from './TopBar.module.css';
 
 /**
@@ -115,21 +116,13 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
         )}
       </button>
 
-      <label className={styles.termWrap}>
-        <select
-          className={styles.term}
-          value={term}
-          onChange={(e) => onSelectTerm(Number(e.target.value))}
-          aria-label="Term to plan"
-        >
-          {terms.map((t) => (
-            <option key={t.code} value={t.code}>
-              {t.season} {t.year}
-            </option>
-          ))}
-        </select>
-        <ChevronDown size={12} className={styles.termCaret} aria-hidden />
-      </label>
+      <Select
+        value={term}
+        options={terms.map((t) => ({ value: t.code, label: `${t.season} ${t.year}` }))}
+        onChange={onSelectTerm}
+        label="Term to plan"
+        align="end"
+      />
 
       <div className={styles.menuWrap} ref={menu}>
         <button

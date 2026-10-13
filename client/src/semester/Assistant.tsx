@@ -25,6 +25,8 @@ import { CourseLine } from './Course';
 import type { CoursePlan } from './Course';
 import { FilterPanel } from './FilterPanel';
 import { Thread } from './Thread';
+import { Select } from '../ui/Select';
+import type { SelectOption } from '../ui/Select';
 import styles from './Assistant.module.css';
 
 const STARTERS = [
@@ -33,12 +35,12 @@ const STARTERS = [
   'Am I on track to graduate?',
 ] as const;
 
-const SORT_LABELS: Record<SortKey, string> = {
-  relevance: 'Relevance',
-  rating: 'Highest rated',
-  easiest: 'Easiest',
-  code: 'Course code',
-};
+const SORT_OPTIONS: readonly SelectOption<SortKey>[] = [
+  { value: 'relevance', label: 'Relevance' },
+  { value: 'rating', label: 'Highest rated' },
+  { value: 'easiest', label: 'Easiest' },
+  { value: 'code', label: 'Course code' },
+];
 
 const DAY_PART_LABELS: Record<DayPart, string> = {
   morning: 'Mornings',
@@ -264,16 +266,15 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
                     Filter
                     {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
                   </button>
-                  <label className={styles.sort}>
-                    <span className={styles.srOnly}>Sort by</span>
-                    <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-                      {Object.entries(SORT_LABELS).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <span className={styles.sort}>
+                    <Select
+                      value={sort}
+                      options={SORT_OPTIONS}
+                      onChange={setSort}
+                      label="Sort by"
+                      align="end"
+                    />
+                  </span>
                 </div>
                 {panelOpen && (
                   <FilterPanel
