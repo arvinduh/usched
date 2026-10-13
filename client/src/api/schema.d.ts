@@ -369,7 +369,7 @@ export interface components {
              * @description What an assistant turn offered, as it ended.
              * @default []
              */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Search"])[];
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkTaken"] | components["schemas"]["Search"])[];
         };
         /**
          * ClosingEvent
@@ -377,7 +377,7 @@ export interface components {
          */
         ClosingEvent: {
             /** Action Chips */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["Search"])[];
+            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkTaken"] | components["schemas"]["Search"])[];
             /**
              * Unverified
              * @description Courses the reply names that the catalog does not have.
@@ -545,6 +545,21 @@ export interface components {
             code: string;
             /** Title */
             title: string;
+        };
+        /**
+         * MarkTaken
+         * @description Records courses as taken; the client applies it with undo.
+         */
+        MarkTaken: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "mark_taken";
+            /** Label */
+            label: string;
+            /** Course Codes */
+            course_codes: string[];
         };
         /**
          * Meeting

@@ -60,6 +60,36 @@ def test_solve_fits_courses_around_the_week_and_keeps_it(conn):
   assert "Keeps your week: CHEM-251x 17367" in result.content
 
 
+def test_edit_week_swaps_removes_and_previews_the_result(conn):
+  # 29989 is CSCI 104L's group-B lecture; it swaps out lecture 29905.
+  result = tools.edit_week(
+    conn,
+    TERM,
+    ["17367", "29905"],
+    add_sections=["29989"],
+    remove_courses=["CHEM 251x"],
+  )
+  (proposal,) = result.chips
+  assert isinstance(proposal, chips.ProposeSchedule)
+  assert proposal.section_ids == ["29989"]
+  # Group A's lecture comes with a lab and a quiz to pick.
+  partial = tools.edit_week(conn, TERM, [], add_sections=["29905"])
+  assert "CSCI-104L still needs a Lab and a Quiz" in partial.content
+  unchanged = tools.edit_week(conn, TERM, ["17367"], remove_sections=["1"])
+  assert unchanged.content == "That leaves the week unchanged."
+  assert tools.edit_week(conn, TERM, [], add_sections=["0"]).content == (
+    "Not sections this term: 0."
+  )
+
+
+def test_mark_taken_records_only_catalog_courses(conn):
+  result = tools.mark_taken(conn, TERM, ["csci 103l", "FAKE 999"])
+  assert result.chips == [
+    chips.MarkTaken(label="Marked CSCI-103L taken", course_codes=["CSCI-103L"])
+  ]
+  assert result.content == "Marked taken: CSCI-103L. Not USC courses: FAKE 999."
+
+
 def test_execute_reports_unknown_tools_and_bad_arguments(conn):
   assert "Unknown tool" in tools.execute("nope", {}, conn, TERM, []).content
   bad = tools.execute("search_courses", {"q": "x"}, conn, TERM, [])

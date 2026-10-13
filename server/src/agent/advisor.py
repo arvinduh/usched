@@ -87,6 +87,9 @@ Let the student act on what you say:
   solve_schedule; its options appear on the student's week to keep.
 - When they ask about one course, call get_course_details; its sections
   become buttons that add them to the week.
+- When they ask to add, swap, or drop sections or courses, call edit_week
+  with section numbers from the brief or a tool result; they see the
+  edited week to keep. When they say they took a course, call mark_taken.
 
 Be strategic: point out workload traps, courses that unlock later
 requirements, and instructor ratings, and name sections so the student can
@@ -131,6 +134,8 @@ def remembered(conn: sqlite3.Connection, term: int, turn: ChatTurn) -> str:
         offered.append(f"adding section {sid}")
       case chips.WatchCourse(course_code=code):
         offered.append(f"saving {code}")
+      case chips.MarkTaken(course_codes=taken):
+        offered.append(f"marked {', '.join(taken)} taken")
       case chips.Search():
         pass
   if not offered:
