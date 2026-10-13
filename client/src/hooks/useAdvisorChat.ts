@@ -83,7 +83,12 @@ export function useAdvisorChat(
     abort.current = streamChat(
       {
         message: text,
-        history: history.map(({ role, content: c }) => ({ role, content: c })),
+        // Chips ride along so the advisor remembers what each reply offered.
+        history: history.map(({ role, content: c, chips }) => ({
+          role,
+          content: c,
+          action_chips: chips ? [...chips] : [],
+        })),
         term: context.term,
         program_id: context.programId || null,
         section_ids: [...context.sectionIds],
