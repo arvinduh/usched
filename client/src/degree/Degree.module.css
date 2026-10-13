@@ -411,10 +411,11 @@
   height: 8px;
 }
 
+/* Keyboard focus opens it too, but a click's focus does not pin it open. */
 .chipWrap:hover .chipPop,
-.chipWrap:focus-within .chipPop,
+.chipWrap:has(:focus-visible) .chipPop,
 .geWrap:hover .chipPop,
-.geWrap:focus-within .chipPop {
+.geWrap:has(:focus-visible) .chipPop {
   display: flex;
   animation: pop 140ms var(--ease);
 }
