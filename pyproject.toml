@@ -9,7 +9,6 @@ dependencies = [
   "uvicorn[standard]>=0.32.0",
   "pydantic>=2.9.0",
   "httpx>=0.28.0",
-  "playwright>=1.49.0",
   "absl-py>=2.1.0",
 ]
 
@@ -25,6 +24,12 @@ packages = ["server"]
 
 [dependency-groups]
 dev = ["ruff>=0.8.0", "basedpyright>=1.20.0", "pytest>=8.3.0"]
+# Only `npm run catalog` needs a browser (the catalogue's bot firewall), so
+# the deployed server installs without it (uv sync --no-default-groups).
+fetch = ["playwright>=1.49.0"]
+
+[tool.uv]
+default-groups = ["dev", "fetch"]
 
 [tool.ruff]
 line-length = 80

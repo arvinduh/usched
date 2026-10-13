@@ -1,0 +1,15 @@
+# Keep the build context small: dependencies are installed in the image, the
+# catalog is downloaded, and nothing local or secret is copied in.
+**/node_modules
+**/__pycache__
+.venv
+.git
+.claude
+.env
+*.log
+.pytest_cache
+.ruff_cache
+client/dist
+client/.openapi.json
+server/data
+tests

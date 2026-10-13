@@ -1,0 +1,13 @@
+# Render blueprint for the hosted demo (README "Deploying").
+# Render > New > Blueprint > this repo, then paste a Gemini key when asked.
+services:
+  - type: web
+    name: usched
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    branch: main
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
