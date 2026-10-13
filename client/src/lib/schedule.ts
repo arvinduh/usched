@@ -45,8 +45,18 @@ function timed(meeting: Meeting): TimedMeeting | null {
  * Lists a section's meetings that have a fixed time (not TBA).
  */
 export function timedMeetings(section: Section): readonly TimedMeeting[] {
-  return section.meetings.flatMap((m) => timed(m) ?? []);
+  let found = timedCache.get(section);
+  if (found === undefined) {
+    found = section.meetings.flatMap((m) => timed(m) ?? []);
+    timedCache.set(section, found);
+  }
+  return found;
 }
+
+// Sections are immutable API records, and sorting, clash checks, and
+// layout ask for their meetings constantly; each is computed once and
+// dropped with its section.
+const timedCache = new WeakMap<Section, readonly TimedMeeting[]>();
 
 /**
  * Reports whether a section meets at a fixed weekly time.
@@ -192,18 +202,18 @@ const TYPE_ORDER = [
   'Lab',
   'Quiz',
 ];
+const TYPE_RANK = new Map(TYPE_ORDER.map((type, i) => [type, i]));
 
 /**
  * Sorts sections by type, then link code, then start time.
  */
 export function bySectionOrder(a: Section, b: Section): number {
-  const rank = (s: Section): number => {
-    const i = TYPE_ORDER.indexOf(s.type);
-    return i === -1 ? TYPE_ORDER.length : i;
-  };
+  const rank = (s: Section): number => TYPE_RANK.get(s.type) ?? TYPE_ORDER.length;
+  const la = a.link_code ?? '';
+  const lb = b.link_code ?? '';
   return (
     rank(a) - rank(b) ||
-    (a.link_code ?? '').localeCompare(b.link_code ?? '') ||
+    (la < lb ? -1 : la > lb ? 1 : 0) ||
     (startOf(a) ?? Infinity) - (startOf(b) ?? Infinity)
   );
 }
