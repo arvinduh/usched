@@ -4,9 +4,9 @@
  *
  * Applied as a `data-theme` attribute on the root element, which index.css
  * turns into `color-scheme`. Stored apart from the plan because it is a
- * display preference, so "Reset all data" leaves it alone. Importing this
- * module applies the saved choice, so main.tsx imports it before rendering
- * to avoid a flash of the wrong theme.
+ * display preference, so "Reset all data" leaves it alone. An inline
+ * script in index.html applies the saved choice before first paint, so the
+ * loading splash shows it too; this module owns it from then on.
  */
 
 import { STORAGE_KEYS } from '../config';
@@ -15,6 +15,7 @@ import { createExternalStore, useSelector } from './_externalStore';
 /** A theme choice. */
 export type Theme = 'system' | 'light' | 'dark';
 
+// index.html repeats this read; keep the two (keys included) in step.
 function readTheme(): Theme {
   try {
     const saved =
