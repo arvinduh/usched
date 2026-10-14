@@ -22,6 +22,20 @@ def test_search_lists_matches_with_search_chips(conn):
   )
 
 
+def test_search_by_time_shows_a_section_at_that_time(conn):
+  result = _tools.search_courses(conn, TERM, meets_at="20:00")
+  assert "CSCI-104L" in result.content
+  assert "e.g. 29972" in result.content  # Its 7 PM section, not its first.
+  none = _tools.search_courses(conn, TERM, "data", meets_at="23:00")
+  assert none.content == "No courses match 'data' in class at 23:00 this term."
+
+
+def test_a_time_search_step_names_the_time():
+  assert _tools.describe("search_courses", {"meets_at": "20:00"}) == (
+    "Searching courses meeting at 20:00"
+  )
+
+
 def test_details_include_requisites_seats_and_an_enroll_chip(conn):
   result = _tools.get_course_details(conn, TERM, "csci-104l")
   assert "Prerequisites:" in result.content

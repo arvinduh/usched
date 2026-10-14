@@ -38,8 +38,12 @@ _CODES = {
 TOOLS = [
   _llm.Tool(
     "search_courses",
-    "Searches this term's courses by code, title, or topic. Use it for any "
-    "course the student brief does not already list.",
+    "Searches this term's courses by code, title, or topic, and by when a "
+    "section meets. Use it for any course the student brief does not "
+    "already list. Times are filters, never query words: 'an 8pm class' is "
+    "meets_at 20:00; 'something from 6 to 8 pm' is earliest_start_time "
+    "18:00 and latest_end_time 20:00; 'evening classes' is "
+    "earliest_start_time 17:00. Leave query empty to search by time alone.",
     {
       "type": "object",
       "properties": {
@@ -48,8 +52,19 @@ TOOLS = [
           "type": "string",
           "description": "Optional, e.g. GE-A.",
         },
+        "earliest_start_time": {
+          "type": "string",
+          "description": "HH:MM; a section starts at or after it.",
+        },
+        "latest_end_time": {
+          "type": "string",
+          "description": "HH:MM; a section ends by it.",
+        },
+        "meets_at": {
+          "type": "string",
+          "description": "HH:MM; a section is in class at that time.",
+        },
       },
-      "required": ["query"],
     },
   ),
   _llm.Tool(
@@ -221,14 +236,55 @@ def _requisite_text(groups: Sequence[models.RequisiteGroup]) -> str:
 
 
 def search_courses(
-  conn: sqlite3.Connection, term: int, query: str, ge_category: str = ""
+  conn: sqlite3.Connection,
+  term: int,
+  query: str = "",
+  ge_category: str = "",
+  earliest_start_time: str = "",
+  latest_end_time: str = "",
+  meets_at: str = "",
 ) -> ToolResult:
-  """Lists the best few matches with their first section."""
+  """Lists the best few matches, each with a section that fits the times."""
+  starts_from = _minute(earliest_start_time)
+  ends_by = _minute(latest_end_time)
+  during = _minute(meets_at)
   found = store.search_courses(
-    conn, term, query, ge=ge_category or None, limit=5
+    conn,
+    term,
+    query or None,
+    ge=ge_category or None,
+    limit=5,
+    starts_from=starts_from,
+    ends_by=ends_by,
+    meets_at=during,
   )
   if not found:
-    return ToolResult(f"No courses match '{query}' this term.")
+    asked = " ".join(
+      filter(
+        None,
+        [
+          f"'{query}'" if query else "",
+          ge_category,
+          f"starting at or after {earliest_start_time}"
+          if starts_from is not None
+          else "",
+          f"ending by {latest_end_time}" if ends_by is not None else "",
+          f"in class at {meets_at}" if during is not None else "",
+        ],
+      )
+    )
+    return ToolResult(f"No courses match {asked or 'that'} this term.")
+
+  def fits(m: models.Meeting) -> bool:
+    if m.start_minute is None or m.end_minute is None:
+      return False
+    return (
+      (starts_from is None or m.start_minute >= starts_from)
+      and (ends_by is None or m.end_minute <= ends_by)
+      and (during is None or m.start_minute <= during < m.end_minute)
+    )
+
+  timed = (starts_from, ends_by, during) != (None, None, None)
   lines = []
   for c in found:
     lines.append(f"{c.code}: {c.title} ({_units(c.units)} units)")
@@ -236,8 +292,9 @@ def search_courses(
       lines.append(
         f"  Prerequisites: {_requisite_text(c.requisites.prerequisite)}"
       )
-    if c.sections:
-      first = c.sections[0]
+    shown = [s for s in c.sections if not timed or any(map(fits, s.meetings))]
+    if shown:
+      first = shown[0]
       lines.append(f"  e.g. {first.id} {first.type} {when(first)} {who(first)}")
   actions: list[_chips.Chip] = [
     _chips.Search(label=f"Show {c.code}", query=c.code) for c in found[:3]
@@ -629,12 +686,29 @@ def mark_taken(
   return ToolResult(" ".join(filter(None, lines)), actions)
 
 
+def _describe_search(arguments: Mapping[str, Any]) -> str:
+  """ "Searching courses for “GE” meeting at 20:00", say."""
+  times = [
+    f"{label} {arguments[key]}"
+    for key, label in (
+      ("earliest_start_time", "from"),
+      ("latest_end_time", "until"),
+      ("meets_at", "meeting at"),
+    )
+    if arguments.get(key)
+  ]
+  query = arguments.get("query")
+  return " ".join(
+    ["Searching courses", *([f"for “{query}”"] if query else []), *times]
+  )
+
+
 def describe(name: str, arguments: Mapping[str, Any]) -> str:
   """What a tool call is doing, in words a student reads while it runs."""
   listed = ", ".join(arguments.get("course_codes") or [])
   match name:
     case "search_courses":
-      return f"Searching courses for “{arguments.get('query', '')}”"
+      return _describe_search(arguments)
     case "get_course_details":
       return f"Reading {arguments.get('course_code', 'a course')}"
     case "solve_schedule":
