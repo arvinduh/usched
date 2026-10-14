@@ -42,6 +42,52 @@ def test_solve_offers_each_option_as_a_proposal(conn):
   assert absent.content == "Not offered this term: NOPE-1."
 
 
+def test_solve_labels_each_option_with_its_trade_off(conn):
+  result = _tools.solve_schedule(conn, TERM, [], ["CSCI-104L"])
+  best, fewest = result.chips
+  assert isinstance(best, _chips.ProposeSchedule)
+  assert isinstance(fewest, _chips.ProposeSchedule)
+  # Slocum's Mon/Wed lecture brings a lab and a quiz on two more days;
+  # the unrated Tue/Thu lecture is the whole course in two.
+  assert best.name == "Best professors"
+  assert best.tradeoff == "Best professors (avg prof 4.5)"
+  assert fewest.name == "Fewest days"
+  assert fewest.tradeoff == "Fewest days (2 days on campus), profs unrated"
+  assert "Option 2, Fewest days" in result.content
+  # One course with no real alternative gets one unlabeled option.
+  (only,) = _tools.solve_schedule(conn, TERM, ["17367"], ["CSCI-104L"]).chips
+  assert isinstance(only, _chips.ProposeSchedule) and only.tradeoff == ""
+
+
+# One section each of CHEM-108L, CHEM-462L, CSCI-103L, and CSCI-420: four
+# four-unit courses, so CSCI-104L would make 20 units, two past the cap.
+SIXTEEN_UNITS = ["17208", "17521", "30046", "29979"]
+
+
+def test_solve_offers_nothing_past_the_unit_cap_unless_allowed(conn):
+  refused = _tools.solve_schedule(conn, TERM, SIXTEEN_UNITS, ["CSCI-104L"])
+  assert refused.chips == []
+  assert refused.content.startswith(
+    "Overload: 20 units is 2 past the 18-unit flat-tuition maximum"
+  )
+  # Re-picking a course already on the week counts its units once.
+  assert _tools.solve_schedule(conn, TERM, SIXTEEN_UNITS, ["CSCI-420"]).chips
+  allowed = _tools.solve_schedule(
+    conn, TERM, SIXTEEN_UNITS, ["CSCI-104L"], allow_overload=True
+  )
+  assert allowed.chips
+  assert allowed.content.startswith("Overload: 20 units")
+
+
+def test_edit_week_warns_when_it_passes_the_unit_cap(conn):
+  over = _tools.edit_week(conn, TERM, SIXTEEN_UNITS, add_sections=["29989"])
+  assert "Overload: 20 units is 2 past" in over.content
+  within = _tools.edit_week(
+    conn, TERM, SIXTEEN_UNITS[1:], add_sections=["29989"]
+  )
+  assert "Overload" not in within.content
+
+
 def test_solve_applies_filters_and_names_what_blocks_a_week(conn):
   # Only 104L's group-B lecture (29989, Tue/Thu 8:00) ends by noon.
   morning = _tools.solve_schedule(
@@ -141,6 +187,15 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
   ]
   assert "CSCI-104" not in next_line
   assert {"CSCI-104", "CSCI-420", "CSCI-103"} <= facts.grounded
+  assert "Units: 4 of 18 at flat tuition" in facts.text
+  assert "Overload" not in facts.text
+
+
+def test_the_brief_warns_when_the_week_passes_the_unit_cap(conn):
+  heavy = dataclasses.replace(STUDENT, section_ids=[*SIXTEEN_UNITS, "29989"])
+  text = _brief.build(conn, heavy).text
+  assert "Units: 20 of 18 at flat tuition" in text
+  assert "Overload: 20 units is 2 past the 18-unit" in text
 
 
 def test_the_brief_counts_ge_seats_the_student_filled_by_hand(conn):

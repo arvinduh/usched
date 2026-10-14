@@ -501,7 +501,7 @@ export interface components {
             units: number;
             /**
              * Required Units
-             * @description The fewest units that can meet every category.
+             * @description Units earned plus the fewest more that meet every category.
              */
             required_units: number;
         };
@@ -779,6 +779,12 @@ export interface components {
             name: string;
             /** Section Ids */
             section_ids: string[];
+            /**
+             * Tradeoff
+             * @description Why to pick this week over the other options, e.g. 'No class on Fri, avg prof 3.4'; empty when there is no choice.
+             * @default
+             */
+            tradeoff: string;
         };
         /**
          * Rating

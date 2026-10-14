@@ -35,7 +35,10 @@ export const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const;
 /** Extended days of the week including Saturday when weekend classes exist. */
 export const EXTENDED_DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
-/** USC charges overload tuition above this many units. */
+/**
+ * Most units a term takes at flat tuition; each unit past it costs extra.
+ * Mirrors the server's OVERLOAD_UNIT_THRESHOLD.
+ */
 export const OVERLOAD_UNITS = 18;
 
 /** Milliseconds to keep the reset button armed for confirmation. */

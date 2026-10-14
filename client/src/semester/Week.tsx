@@ -1,8 +1,9 @@
 /**
  * The week canvas: the active variant's sections as blocks, plus ghosts of
  * the course being browsed. While the advisor proposes schedules, the week
- * projects one at a time in their place, dashing the sections it would add,
- * until the user flips to another, keeps one, or discards them.
+ * projects one at a time in their place, dashing the sections it would add
+ * and captioning the trade-off it wins, until the user flips to another,
+ * keeps one, or discards them.
  *
  * Owns layout only: fitting the hour range to the content, splitting
  * overlapping blocks into lanes, and texturing blocks by section type. Ghost
@@ -36,6 +37,7 @@ import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/pre
 import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import type { ScheduleConfiguration } from '../state/store';
+import { ContextMenu } from '../ui/ContextMenu';
 import { RatingPair } from '../ui/Glyphs';
 import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { components } from '../api/schema';
@@ -55,7 +57,9 @@ export interface WeekProps {
   readonly onSelectVariant: (configId: string) => void;
   readonly onRenameVariant: (configId: string, name: string) => void;
   readonly onDeleteVariant: (config: ScheduleConfiguration) => void;
-  readonly onDuplicateVariant: () => void;
+  /** Starts an empty variant. */
+  readonly onNewVariant: () => void;
+  readonly onDuplicateVariant: (configId: string) => void;
   readonly onToggleSection: (
     section: components['schemas']['Section'],
     course: components['schemas']['Course'],
@@ -181,6 +185,7 @@ export function Week(props: WeekProps): React.JSX.Element {
   const hours = Array.from({ length: Math.max(1, hi - lo) }, (_, i) => lo + i);
 
   const units = totalUnits(sections, coursesByCode);
+  const overload = units - OVERLOAD_UNITS;
   const tba = sections.filter(isTba);
   const incomplete = scheduledCourseIds.flatMap((id) => {
     const course = coursesByCode.get(id);
@@ -199,7 +204,14 @@ export function Week(props: WeekProps): React.JSX.Element {
       <header className={styles.header}>
         <Variants {...props} proposalName={proposal?.name ?? null} />
         <span className={styles.stats}>
-          <span className={units > OVERLOAD_UNITS ? styles.warn : undefined}>
+          <span
+            className={overload > 0 ? styles.warn : undefined}
+            title={
+              overload > 0
+                ? `${overload} past the ${OVERLOAD_UNITS}-unit flat-tuition maximum; each extra unit costs extra`
+                : undefined
+            }
+          >
             <span className={styles.num}>{units}</span> units
           </span>
           {overlapCount > 0 && (
@@ -232,6 +244,11 @@ export function Week(props: WeekProps): React.JSX.Element {
           )}
         </span>
       </header>
+      {proposal?.tradeoff && (
+        <p className={styles.tradeoff} title={proposal.tradeoff}>
+          {proposal.tradeoff}
+        </p>
+      )}
 
       <div
         className={styles.grid}
@@ -435,10 +452,20 @@ function Variants(
     onSelectVariant,
     onRenameVariant,
     onDeleteVariant,
+    onNewVariant,
     onDuplicateVariant,
   } = props;
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [menu, setMenu] = useState<{
+    readonly x: number;
+    readonly y: number;
+    readonly config: ScheduleConfiguration;
+  } | null>(null);
+  const startRename = (c: ScheduleConfiguration): void => {
+    setDraft(c.name);
+    setEditing(c.id);
+  };
   // A shown proposal takes the selection away from the real variants.
   const activeConfigId = proposalName === null ? props.activeConfigId : null;
 
@@ -477,11 +504,12 @@ function Variants(
               aria-selected={c.id === activeConfigId}
               className={`${styles.variant} ${c.id === activeConfigId ? styles.variantOn : ''}`}
               onClick={() => onSelectVariant(c.id)}
-              onDoubleClick={() => {
-                setDraft(c.name);
-                setEditing(c.id);
+              onDoubleClick={() => startRename(c)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setMenu({ x: e.clientX, y: e.clientY, config: c });
               }}
-              title="Double-click to rename"
+              title="Double-click to rename, right-click for more"
             >
               {c.name}
             </button>
@@ -511,12 +539,34 @@ function Variants(
       <button
         type="button"
         className={styles.duplicate}
-        onClick={onDuplicateVariant}
-        title="Duplicate this week"
-        aria-label="Duplicate this week"
+        onClick={onNewVariant}
+        title="New empty week"
+        aria-label="New empty week"
       >
         <Plus size={13} />
       </button>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: 'Duplicate',
+              onSelect: () => onDuplicateVariant(menu.config.id),
+            },
+            { label: 'Rename', onSelect: () => startRename(menu.config) },
+            ...(configurations.length > 1
+              ? [
+                  {
+                    label: 'Delete',
+                    onSelect: () => onDeleteVariant(menu.config),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
     </div>
   );
 }

@@ -71,12 +71,12 @@ export function createConfig(
 }
 
 /**
- * Forks the active variant into a new active variant with the same sections.
+ * Forks a variant into a new active variant with the same sections.
  */
-export function duplicateActiveConfig(): void {
+export function duplicateConfig(configId: string): void {
   updateTerm((s) => {
-    const active = s.configurations.find((c) => c.id === s.activeConfigId);
-    return appendConfig(s, `config-${Date.now()}`, active?.section_ids ?? []);
+    const source = s.configurations.find((c) => c.id === configId);
+    return appendConfig(s, `config-${Date.now()}`, source?.section_ids ?? []);
   });
 }
 

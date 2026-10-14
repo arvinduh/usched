@@ -11,6 +11,10 @@ meetings never overlap. What a student wants comes in two kinds:
   week from 0 to 1, and earlier goals weigh more, so the first decides and
   later ones break its ties.
 
+`alternatives` offers a few weeks that each win a different trade-off
+(best instructors, a free Friday, a late start), never near-copies of
+one another.
+
 When nothing meets every filter, `blockers` names the filters that, each
 dropped alone, would let a week through. It works on API models only;
 loading courses belongs to catalog_db.
@@ -24,6 +28,7 @@ import itertools
 import statistics
 from collections.abc import Iterable, Sequence
 
+from server import config
 from server.db import models
 
 
@@ -125,7 +130,7 @@ class Schedule:
   sections: tuple[models.Section, ...]
   average_rating: float | None
   average_difficulty: float | None
-  days: int
+  days: frozenset[models.Weekday]
   gap_minutes: int
   first_start: int | None
   last_end: int | None
@@ -268,7 +273,7 @@ def _clamp(x: float) -> float:
 
 @dataclasses.dataclass(frozen=True)
 class _Measures:
-  days: int
+  days: frozenset[models.Weekday]
   gap_minutes: int
   first_start: int | None
   last_end: int | None
@@ -297,7 +302,7 @@ def _measure(sections: Iterable[models.Section]) -> _Measures:
   firsts = [min(a for a, _ in spans) for spans in by_day.values()]
   lasts = [max(b for _, b in spans) for spans in by_day.values()]
   return _Measures(
-    days=len(by_day),
+    days=frozenset(by_day),
     gap_minutes=gaps,
     first_start=min(firsts) if firsts else None,
     last_end=max(lasts) if lasts else None,
@@ -306,10 +311,10 @@ def _measure(sections: Iterable[models.Section]) -> _Measures:
   )
 
 
-def _score(
-  chosen: Sequence[models.Section], week: _Measures, prefs: Preferences
-) -> float:
-  """Scores a week on its goals, each metric scaled to 0..1."""
+def _metrics(
+  chosen: Sequence[models.Section], week: _Measures
+) -> dict[Goal, float]:
+  """Measures a week against every goal, each scaled to 0..1."""
   ratings = _rmp(chosen, "rating")
   difficulty = _rmp(chosen, "difficulty")
   seats = [1 - s.registered / s.capacity for s in chosen if s.capacity > 0]
@@ -319,16 +324,22 @@ def _score(
     / 4,
     # Ten hours of gaps a week is as bad as it gets.
     Goal.COMPACT: 1 - min(week.gap_minutes, 600) / 600,
-    Goal.FEWER_DAYS: 1 - (max(week.days, 1) - 1) / 4,
+    Goal.FEWER_DAYS: 1 - (max(len(week.days), 1) - 1) / 4,
     # Days starting at 8 score 0; at noon or later, 1.
     Goal.LATE_START: _clamp(((week.mean_first or 480) - 480) / 240),
     # Days ending by 2 score 1; at 8 or later, 0.
     Goal.EARLY_END: _clamp((1200 - (week.mean_last or 1200)) / 360),
     Goal.SEATS: statistics.fmean(seats) if seats else 0.5,
   }
-  score = sum(
-    _weight(i) * _clamp(metrics[goal]) for i, goal in enumerate(prefs.goals)
-  )
+  return {goal: _clamp(value) for goal, value in metrics.items()}
+
+
+def _score(
+  chosen: Sequence[models.Section], week: _Measures, prefs: Preferences
+) -> float:
+  """Scores a week on its goals, earlier goals weighing more."""
+  metrics = _metrics(chosen, week)
+  score = sum(_weight(i) * metrics[goal] for i, goal in enumerate(prefs.goals))
   return score + _PREFERRED_BONUS * sum(
     _teaches(s, prefs.preferred) for s in chosen
   )
@@ -394,12 +405,130 @@ def solve(
       if any(overlaps(a, b) for a in bundle for b in chosen):
         continue
       added = [*chosen, *bundle]
-      if max_days is not None and _measure([*added, *around]).days > max_days:
+      if (
+        max_days is not None
+        and len(_measure([*added, *around]).days) > max_days
+      ):
         continue
       walk(i + 1, added)
 
   walk(0, [])
   return [s for _, _, s in sorted(best, reverse=True)]
+
+
+@dataclasses.dataclass(frozen=True)
+class Lens:
+  """A trade-off a week can win on: a goal ranked first, maybe a day off.
+
+  Attributes:
+    goal: The goal ranked first.
+    day_off: A day the week must leave free, if any.
+  """
+
+  goal: Goal
+  day_off: models.Weekday | None = None
+
+
+# Trade-offs offered after the student's own, in order: the best
+# instructors, a free Friday, a late start, fewer days, then no breaks.
+_LENSES = (
+  Lens(Goal.RATING),
+  Lens(Goal.RATING, models.Weekday.FRI),
+  Lens(Goal.LATE_START),
+  Lens(Goal.FEWER_DAYS),
+  Lens(Goal.COMPACT),
+)
+_MOVED = 2  # Courses an alternative must place at other times.
+
+
+@dataclasses.dataclass(frozen=True)
+class Alternative:
+  """A week and the trade-off it wins."""
+
+  lens: Lens
+  schedule: Schedule
+
+
+def _through(prefs: Preferences, lens: Lens) -> Preferences:
+  """The student's preferences with the lens's goal first and day off."""
+  goals = (lens.goal, *(g for g in prefs.goals if g != lens.goal))
+  off = prefs.filters.excluded_days
+  if lens.day_off is not None:
+    off = off | {lens.day_off}
+  filters = dataclasses.replace(prefs.filters, excluded_days=off)
+  return dataclasses.replace(prefs, filters=filters, goals=goals)
+
+
+_Slot = tuple[frozenset[models.Weekday], int | None, int | None]
+
+
+def _times(week: Schedule) -> dict[str, frozenset[_Slot]]:
+  """Each course's meetings: where it sits on the week, not who teaches."""
+  by_course: dict[str, set[_Slot]] = collections.defaultdict(set)
+  for s in week.sections:
+    for m in s.meetings:
+      by_course[s.course_code].add(
+        (frozenset(m.days), m.start_minute, m.end_minute)
+      )
+  return {code: frozenset(times) for code, times in by_course.items()}
+
+
+def _alike(a: Schedule, b: Schedule) -> bool:
+  """Whether two weeks move too few courses to look different."""
+  times_a, times_b = _times(a), _times(b)
+  moved = sum(t != times_b.get(code) for code, t in times_a.items())
+  return moved < min(_MOVED, len(times_a))
+
+
+def _wins(
+  lens: Lens, week: Schedule, other: Schedule, around: Sequence[models.Section]
+) -> bool:
+  """Whether `week` beats `other` on the lens's own trade-off."""
+  if lens.day_off is not None:
+    return lens.day_off in other.days
+
+  def metric(s: Schedule) -> float:
+    return _metrics(s.sections, _measure([*s.sections, *around]))[lens.goal]
+
+  return metric(week) > metric(other)
+
+
+def alternatives(
+  courses: Sequence[models.Course],
+  prefs: Preferences = NO_PREFERENCES,
+  limit: int = 3,
+  around: Sequence[models.Section] = (),
+) -> list[Alternative]:
+  """Finds up to `limit` weeks that each win a different trade-off.
+
+  The first is the best week for the student's own goals. Each further
+  lens puts its goal first (or keeps its day off) within the same
+  filters; its best week is offered only if it moves at least two
+  courses (every course, when fewer are added) away from each week
+  already offered and beats each of them on that lens's own measure. So
+  every option is a real choice, never one section swapped for another.
+  """
+  first = solve(courses, prefs, limit=1, around=around)
+  if not first:
+    return []
+  primary = Lens(prefs.goals[0]) if prefs.goals else _LENSES[0]
+  chosen = [Alternative(primary, first[0])]
+  for lens in _LENSES:
+    if len(chosen) >= limit:
+      break
+    if lens == primary or lens.day_off in prefs.filters.excluded_days:
+      continue
+    found = solve(courses, _through(prefs, lens), limit=1, around=around)
+    # A fixed section can keep the lens's day off busy anyway.
+    if not found or lens.day_off in found[0].days:
+      continue
+    week = found[0]
+    if all(
+      not _alike(week, c.schedule) and _wins(lens, week, c.schedule, around)
+      for c in chosen
+    ):
+      chosen.append(Alternative(lens, week))
+  return chosen
 
 
 def blockers(
@@ -423,6 +552,11 @@ def blockers(
     if solve(courses, loose, limit=1, around=around):
       found.append(_FILTER_NAMES[field.name])
   return found
+
+
+def overload(units: float) -> float:
+  """Units past the flat-tuition maximum, each charged extra; 0 within it."""
+  return max(0.0, units - config.OVERLOAD_UNIT_THRESHOLD)
 
 
 def displaces(section: models.Section, other: models.Section) -> bool:

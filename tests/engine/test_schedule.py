@@ -77,7 +77,7 @@ def _course(code: str, *sections: models.Section) -> models.Course:
       prerequisite=[], corequisite=[], concurrent=[]
     ),
     restrictions=[],
-    sections=list(sections),
+    sections=[s.model_copy(update={"course_code": code}) for s in sections],
   )
 
 
@@ -167,7 +167,7 @@ def test_fewer_days_and_day_limits_count_the_fixed_week():
   )
   fewest = schedule.solve([b], _goals(schedule.Goal.FEWER_DAYS), around=fixed)
   assert [s.id for s in fewest[0].sections] == ["b-mon"]
-  assert fewest[0].days == 1
+  assert fewest[0].days == {MON}
   one_day = _goals(schedule.Goal.RATING, max_days=1)
   assert [
     s.id for s in schedule.solve([b], one_day, around=fixed)[0].sections
@@ -214,3 +214,60 @@ def test_missing_types_follow_the_chosen_link_group():
   course = _course("X-1", lecture, lab, quiz_b)
   assert schedule.missing_types(course, []) == ["Lecture", "Lab", "Quiz"]
   assert schedule.missing_types(course, [lecture]) == ["Lab"]
+
+
+FRI = models.Weekday.FRI
+
+
+def test_alternatives_trade_the_best_ratings_for_a_free_friday():
+  a = _course(
+    "A-1",
+    _section("a-fri", days=(MON, FRI), rating=5.0),
+    _section("a-wed", days=(MON, WED), teacher="Bo Ng", rating=2.0),
+  )
+  b = _course(
+    "B-1",
+    _section("b-fri", days=(FRI,), start=780, end=830, rating=5.0),
+    _section(
+      "b-tue", days=(TUE,), start=780, end=830, teacher="Cy Oh", rating=2.0
+    ),
+  )
+  found = schedule.alternatives([a, b])
+  assert [(o.lens.goal, o.lens.day_off) for o in found] == [
+    (schedule.Goal.RATING, None),
+    (schedule.Goal.RATING, FRI),
+  ]
+  best, free = (o.schedule for o in found)
+  assert {s.id for s in best.sections} == {"a-fri", "b-fri"}
+  assert {s.id for s in free.sections} == {"a-wed", "b-tue"}
+  assert FRI in best.days and FRI not in free.days
+
+
+def test_alternatives_drop_weeks_that_move_one_course_of_two():
+  a = _course("A-1", _section("a", start=540, end=590))
+  b = _course(
+    "B-1",
+    _section("b-mon", start=660, end=710, rating=5.0),
+    _section("b-fri", days=(FRI,), start=780, end=830, teacher="Bo Ng"),
+  )
+  # A late start would move only B, so it is no real alternative.
+  (only,) = schedule.alternatives([a, b])
+  assert {s.id for s in only.schedule.sections} == {"a", "b-mon"}
+
+
+def test_alternatives_ignore_an_instructor_swap_at_the_same_time():
+  a = _course(
+    "A-1",
+    _section("a-best", rating=5.0),
+    _section("a-same", teacher="Bo Ng", rating=4.0),
+    _section("a-late", start=840, end=890, teacher="Cy Oh", rating=1.0),
+  )
+  found = schedule.alternatives([a])
+  assert [o.schedule.sections[0].id for o in found] == ["a-best", "a-late"]
+  assert found[1].lens.goal == schedule.Goal.LATE_START
+
+
+def test_overload_counts_units_past_the_flat_tuition_maximum():
+  assert schedule.overload(18) == 0
+  assert schedule.overload(12.5) == 0
+  assert schedule.overload(21) == 3

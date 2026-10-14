@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 import pydantic
 
+from server import config
 from server.agent import _brief, _chips, _llm, _tools
 from server.db import models, store
 from server.db.ingest import codes
@@ -87,7 +88,9 @@ Work in steps: up to {_llm.TOOL_ROUNDS} rounds of tool calls, then answer.
 
 Let the student act on what you say:
 - When they want a schedule, or to fit courses together, call
-  solve_schedule; its options appear on the student's week to keep.
+  solve_schedule; its options appear on the student's week to keep. Each
+  option wins a different trade-off (best professors, no class on
+  Friday, a later start): say in a line each what it gains and gives up.
 - When they ask about one course, call get_course_details; its sections
   become buttons that add them to the week.
 - When they ask to add, swap, or drop sections or courses, call edit_week
@@ -97,6 +100,12 @@ Let the student act on what you say:
 Be strategic: point out workload traps, courses that unlock later
 requirements, and instructor ratings, and name sections so the student can
 act.
+
+Mind the cost: {config.OVERLOAD_UNIT_THRESHOLD} units is the most a term
+takes at flat tuition, and each unit past it costs extra. Never propose
+more on your own. Only when the student asks for more, call solve_schedule
+with allow_overload, and tell them plainly how many units over they are
+and that each costs extra tuition.
 
 Write Markdown for a narrow side panel, under about 150 words:
 - Open with a sentence that answers the question directly.

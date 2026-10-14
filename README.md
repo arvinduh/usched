@@ -26,8 +26,11 @@ with one input) and your degree, which drops down from the top bar's meter.
   missing components, and D-clearance show up as you go.
 - **The advisor** (optional, on Gemini) answers from a brief of your real
   progress, next courses, and week. Schedules it proposes are built around
-  your week and appear on it right away: flip through the options and keep
-  one. Courses it names that the catalog lacks are flagged.
+  your week and appear on it right away: flip through the options, each
+  winning a different trade-off (best professors, no class on Friday, a
+  later start), and keep one. It stays within 18 units, the flat-tuition
+  maximum, unless you ask for more. Courses it names that the catalog lacks
+  are flagged.
 
 Pick any fetched term from the top bar; each keeps its own schedules. The first
 visit asks for your program.
@@ -72,7 +75,7 @@ stale (listings after 12 hours, ratings after 30 days, programs after 7);
 npm run dev
 ```
 
-The app is at http://localhost:18801 and the API at http://localhost:18800/docs
+The app is at <http://localhost:18801> and the API at <http://localhost:18800/docs>
 (ports come from `.env`). One Ctrl+C stops both and returns a clean prompt. On
 Windows, prefer `node --run dev`: `npm` (and tools installed as `.cmd` shims,
 as mise does by default) answers Ctrl+C with "Terminate batch job (Y/N)?"; type
@@ -83,6 +86,7 @@ as mise does by default) answers Ctrl+C with "Terminate batch job (Y/N)?"; type
 | Key             | Action                                            |
 | :-------------- | :------------------------------------------------ |
 | Any letter      | Start typing a message to the advisor             |
+| `Backspace`     | Edit the input from anywhere                      |
 | `>` / `⌘⇧P`     | Find courses (keeps what you typed)               |
 | `/`             | Run a command: `/took`, `/new`, `/degree`         |
 | `⌘J`            | Focus the input                                   |
@@ -93,8 +97,9 @@ as mise does by default) answers Ctrl+C with "Terminate batch job (Y/N)?"; type
 | `⌘Enter`        | Ask the advisor about a `>` search                |
 | `⌘Z` / `Ctrl+Z` | Undo the last change                              |
 
-Right-click a section to add it to another variant. The settings menu copies your
-section numbers for registration and resets all local data.
+Right-click a section to add it to another variant. `+` starts an empty variant;
+right-click a variant's name to duplicate, rename, or delete it. The settings
+menu copies your section numbers for registration and resets all local data.
 
 ## Commands
 
@@ -105,9 +110,9 @@ section numbers for registration and resets all local data.
 | `npm run catalog`   | Fetch, build, and verify the catalog (`-- publish` too) |
 | `npm run check`     | Lint, type-check, and test both halves                  |
 | `npm run fix`       | Auto-format and auto-fix both halves                    |
-| `npm run start`     | Build and serve production on http://localhost:8000     |
+| `npm run start`     | Build and serve production on <http://localhost:8000>     |
 | `npm run api`       | Regenerate client types after changing API models       |
-| `npm run test:live` | Run the advisor's evals on the real model (uses quota)   |
+| `npm run test:live` | Run the advisor's evals on the real model (uses quota)  |
 
 `check` runs no network calls. `test:live` asks the real Gemini your `.env`
 configures a set of student questions (fit a course, keep Fridays free, drop a
@@ -139,7 +144,7 @@ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`).
    It prints the `CATALOG_URL` the deployment downloads from.
 
 2. **Check production locally** (optional): `npm run start`, then open
-   http://localhost:8000. This is the same server the image runs.
+   <http://localhost:8000>. This is the same server the image runs.
 
 3. **Create the service.** In Render: **New › Blueprint**, pick this repository;
    Render reads `render.yaml` and asks for three values:

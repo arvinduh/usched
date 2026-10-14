@@ -44,7 +44,7 @@ import {
   cycleConfig,
   deleteConfig,
   dropSection,
-  duplicateActiveConfig,
+  duplicateConfig,
   overwriteConfig,
   renameConfig,
   selectConfig,
@@ -685,6 +685,11 @@ function Planner({
           typeIntoBar((text) => text + e.key);
           return;
         }
+        // Backspace outside a field edits the bar the same way.
+        if (e.key === 'Backspace') {
+          typeIntoBar((text) => text.slice(0, -1));
+          return;
+        }
       }
       if (mod && key === 'z' && !isTyping(e.target)) {
         if (undoLast()) {
@@ -865,7 +870,8 @@ function Planner({
               onSelectVariant={handleSelectVariant}
               onRenameVariant={renameConfig}
               onDeleteVariant={handleDeleteVariant}
-              onDuplicateVariant={duplicateActiveConfig}
+              onNewVariant={() => createConfig()}
+              onDuplicateVariant={duplicateConfig}
               onToggleSection={handleToggleSection}
               onRemove={handleRemove}
               onFocusCourse={openCourse}
