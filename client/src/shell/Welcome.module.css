@@ -4,6 +4,28 @@
   gap: 12px;
   width: min(560px, calc(100% - 32px));
   margin: 16vh auto 0;
+  animation: rise-in 360ms var(--ease);
+}
+
+/* Leaving, all but the wordmark lifts away first (Welcome waits out
+   LEAVE_MS); the wordmark then glides into the top bar's. */
+.leaving > :not(.top),
+.leaving .skip {
+  animation: lift-out 180ms var(--ease) forwards;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes lift-out {
+  to {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
 }
 
 .top {
@@ -16,6 +38,7 @@
 .wordmark {
   font-weight: 600;
   color: var(--text-muted);
+  view-transition-name: wordmark;
 }
 
 .question {
