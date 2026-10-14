@@ -151,9 +151,7 @@ def list_ap_exams(
 
 
 @router.post("/ge-audit")
-def audit_ge(
-  conn: Conn, body: models.GeAuditRequest
-) -> list[models.GeProgress]:
+def audit_ge(conn: Conn, body: models.GeAuditRequest) -> models.GeAudit:
   """Shows how completed courses and AP exams fill each GE category."""
   return audits.general_education(
     conn, body.completed, body.ap_credits, body.ge_counted

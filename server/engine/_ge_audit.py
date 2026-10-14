@@ -11,6 +11,7 @@ from the catalog (categories, exams); this module is pure.
 import collections
 from collections.abc import Mapping, Sequence
 
+from server import config
 from server.db import models
 from server.db.ingest import codes
 
@@ -65,6 +66,7 @@ def audit(
     models.GeProgress(
       code=c.code,
       name=c.name,
+      area=c.area,
       required_count=c.required_count,
       courses=[v for k, v in used.get(c.code, ()) if k == "course"],
       exams=[v for k, v in used.get(c.code, ()) if k == "exam"],
@@ -115,12 +117,23 @@ def passed(
   ]
 
 
+def counted_units(progress: Sequence[models.GeProgress]) -> float:
+  """Units of the GE courses the student counted by hand.
+
+  Each counted Core or Global seat is one course of GE_COURSE_UNITS. A
+  seminar seat earns nothing: the seminar is also a Core course.
+  """
+  return config.GE_COURSE_UNITS * sum(
+    p.counted for p in progress if p.area != "seminar"
+  )
+
+
 def earned_units(
   progress: Sequence[models.GeProgress],
   units: Mapping[str, models.Units],
   exams: Sequence[models.ApExam],
 ) -> float:
-  """Units of the distinct courses and exams filling GE seats.
+  """Units of the distinct courses, exams, and hand counts filling GE seats.
 
   Args:
     progress: A GE audit's result.
@@ -130,6 +143,22 @@ def earned_units(
   """
   courses = {codes.identity(c) for p in progress for c in p.courses}
   used_exams = {e for p in progress for e in p.exams}
-  return sum(units[c].min for c in courses if c in units) + sum(
-    e.units for e in exams if e.id in used_exams
+  return (
+    sum(units[c].min for c in courses if c in units)
+    + sum(e.units for e in exams if e.id in used_exams)
+    + counted_units(progress)
   )
+
+
+def required_units(
+  progress: Sequence[models.GeProgress], earned: float
+) -> float:
+  """The fewest GE units that can meet every category, given `earned`.
+
+  One more course fills at most one open seat per area, so the area with
+  the most open seats decides how many courses are left.
+  """
+  open_seats: dict[str, int] = collections.defaultdict(int)
+  for p in progress:
+    open_seats[p.area] += max(0, p.required_count - p.filled)
+  return earned + config.GE_COURSE_UNITS * max(open_seats.values(), default=0)

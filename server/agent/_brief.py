@@ -220,7 +220,7 @@ def _ge_lines(
   )
   open_ge = [
     f"{p.code} {p.name} ({p.filled} of {p.required_count})"
-    for p in ge
+    for p in ge.categories
     if p.filled < p.required_count
   ]
   return [f"Open GE categories: {_listed(open_ge)}"]

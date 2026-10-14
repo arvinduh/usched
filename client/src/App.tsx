@@ -197,9 +197,7 @@ function Planner({
   const auditKey = `${term}|${programId}`;
   const program = loadedProgram?.id === programId ? loadedProgram : null;
   const audit = loadedAudit?.key === auditKey ? loadedAudit.audit : null;
-  const [geProgress, setGeProgress] = useState<readonly components['schemas']['GeProgress'][] | null>(
-    null,
-  );
+  const [geAudit, setGeAudit] = useState<components['schemas']['GeAudit'] | null>(null);
 
   const completed = useMemo(
     () => new Set(completedCourseIds.map(courseKey)),
@@ -284,7 +282,7 @@ function Planner({
   useEffect(() => {
     let stale = false;
     auditGe(completedCourseIds, apCredits, geCounted)
-      .then((g) => !stale && setGeProgress(g))
+      .then((g) => !stale && setGeAudit(g))
       .catch(console.error);
     return () => {
       stale = true;
@@ -783,7 +781,7 @@ function Planner({
             onSelectProgram={selectProgram}
             program={program}
             audit={audit}
-            geProgress={geProgress}
+            geAudit={geAudit}
             apExams={apExams}
             apCredits={apCredits}
             onToggleAp={toggleApCredit}

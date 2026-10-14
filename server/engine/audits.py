@@ -45,15 +45,24 @@ def general_education(
   completed: Sequence[str],
   ap_credits: Sequence[models.ApCredit],
   ge_counted: Mapping[str, int],
-) -> list[models.GeProgress]:
+) -> models.GeAudit:
   """Shows how courses, AP exams, and seats counted by hand fill each GE."""
-  return _ge_audit.audit(
+  exams = store.ap_exams(conn)
+  progress = _ge_audit.audit(
     store.ge_categories(conn),
     store.ge_of(conn, completed),
     completed,
-    store.ap_exams(conn),
+    exams,
     ap_credits,
     ge_counted,
+  )
+  earned = _ge_audit.earned_units(
+    progress, store.units_of(conn, completed), exams
+  )
+  return models.GeAudit(
+    categories=progress,
+    units=earned,
+    required_units=_ge_audit.required_units(progress, earned),
   )
 
 
@@ -66,22 +75,15 @@ def program(
   ge_counted: Mapping[str, int],
 ) -> models.ProgramAudit:
   """Audits a program; prerequisites follow `term`'s listings."""
+  ge = general_education(conn, completed, ap_credits, ge_counted)
   exams = store.ap_exams(conn)
-  ge = _ge_audit.audit(
-    store.ge_categories(conn),
-    store.ge_of(conn, completed),
-    completed,
-    exams,
-    ap_credits,
-    ge_counted,
-  )
-  units = store.units_of(conn, completed)
   return _program_audit.audit(
     audited,
     completed,
-    units,
+    store.units_of(conn, completed),
     store.requisites_of(conn, term, listed_codes(audited)),
-    ge=ge,
-    ge_units=_ge_audit.earned_units(ge, units, exams),
-    exam_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits)),
+    ge=ge.categories,
+    ge_units=ge.units,
+    credit_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits))
+    + _ge_audit.counted_units(ge.categories),
   )

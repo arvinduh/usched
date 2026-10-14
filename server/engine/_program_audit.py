@@ -42,7 +42,7 @@ def audit(
   requisites: Mapping[str, models.Requisites],
   ge: Sequence[models.GeProgress] = (),
   ge_units: float = 0.0,
-  exam_units: float = 0.0,
+  credit_units: float = 0.0,
 ) -> models.ProgramAudit:
   """Audits `program` for a student.
 
@@ -56,7 +56,8 @@ def audit(
     ge: The student's GE audit, which decides GE requirements: done when
       every category is met.
     ge_units: Units filling GE seats, credited to GE requirements.
-    exam_units: Units from passed AP exams, which count toward the total.
+    credit_units: Units from passed AP exams and GE courses counted by
+      hand, which count toward the total.
   """
   shown = {codes.identity(c): c for c in completed}
   claimed: set[str] = set()
@@ -162,7 +163,7 @@ def audit(
               if _key(ref) not in done
             )
           )
-  total = exam_units + sum(
+  total = credit_units + sum(
     units[k].min if k in units else slot_units.get(k, 0.0) for k in shown
   )
   return models.ProgramAudit(
