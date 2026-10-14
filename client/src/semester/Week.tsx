@@ -185,6 +185,7 @@ export function Week(props: WeekProps): React.JSX.Element {
   const hours = Array.from({ length: Math.max(1, hi - lo) }, (_, i) => lo + i);
 
   const units = totalUnits(sections, coursesByCode);
+  const overload = units - OVERLOAD_UNITS;
   const tba = sections.filter(isTba);
   const incomplete = scheduledCourseIds.flatMap((id) => {
     const course = coursesByCode.get(id);
@@ -203,7 +204,14 @@ export function Week(props: WeekProps): React.JSX.Element {
       <header className={styles.header}>
         <Variants {...props} proposalName={proposal?.name ?? null} />
         <span className={styles.stats}>
-          <span className={units > OVERLOAD_UNITS ? styles.warn : undefined}>
+          <span
+            className={overload > 0 ? styles.warn : undefined}
+            title={
+              overload > 0
+                ? `${overload} past the ${OVERLOAD_UNITS}-unit flat-tuition maximum; each extra unit costs extra`
+                : undefined
+            }
+          >
             <span className={styles.num}>{units}</span> units
           </span>
           {overlapCount > 0 && (
