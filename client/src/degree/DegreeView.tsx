@@ -9,7 +9,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Check, Lock, Search } from 'lucide-react';
-import { courseKey, displayCode } from './_degree';
+import { courseKey, displayCode, levelOf } from './_degree';
 import type { components } from '../api/schema';
 import { DegreePicker } from './DegreePicker';
 import { placePopover } from './_popover';
@@ -79,6 +79,9 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
     onToggleTaken: props.onToggleTaken,
   };
 
+  // GE is undergraduate policy; master's and doctoral students owe none.
+  const level = program ? levelOf(program) : null;
+  const isGraduate = level === 'master' || level === 'doctoral';
   const total = program?.total_units ?? 0;
   const done = audit?.units ?? 0;
   const share = (n: number): string =>
@@ -128,7 +131,7 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
         </>
       )}
 
-      {props.geProgress && (
+      {props.geProgress && !isGraduate && (
         <GeStrip
           progress={props.geProgress}
           apExams={props.apExams}

@@ -5,11 +5,16 @@ so the API routes and the advisor's tools audit a student identically.
 It reads through store and never writes.
 """
 
+import re
 import sqlite3
 from collections.abc import Mapping, Sequence
 
 from server.db import models, store
 from server.engine import _ge_audit, _program_audit
+
+
+# Master's (MS, MBA, LLM) and doctoral (PhD, DPT, MD, JD) degree types.
+_GRADUATE = re.compile(r"^(?:M|LLM|D)|D$")
 
 
 def listed_codes(program: models.Program) -> list[str]:
@@ -20,6 +25,19 @@ def listed_codes(program: models.Program) -> list[str]:
     for slot in r.slots
     for c in slot
   ]
+
+
+def needs_general_education(program: models.ProgramSummary | None) -> bool:
+  """Whether a student in `program` owes USC's GE requirement.
+
+  GE is an undergraduate requirement: master's and doctoral degrees (MS,
+  MBA, LLM, PhD, MD, JD, DPT) owe none. No program, a bachelor's, or a
+  minor keeps it.
+  """
+  if program is None or program.kind != "degree":
+    return True
+  degree = program.degree_type or ""
+  return degree.startswith("B") or _GRADUATE.search(degree) is None
 
 
 def general_education(
