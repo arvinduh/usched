@@ -3,20 +3,85 @@
 Each completed course fills the first requirement slot that lists it, in
 catalogue order, so no course counts twice. A requirement with a unit
 count is met by units earned in it and its nested requirements; one
-without needs every slot filled; one with only prose rules is left for a
+without needs every slot filled, or as many as its heading or notes pick
+("Choose three of the following"); one with only prose rules is left for a
 person to judge. Prerequisites decide which of the program's remaining
 courses are locked. This module is pure; catalog_db supplies the data.
 """
 
 import collections
+import dataclasses
+import re
 from collections.abc import Mapping, Sequence
 
 from server.db import models
 from server.db.ingest import codes
 
 
+_NUMBERS = {
+  w: i
+  for i, w in enumerate(
+    "one two three four five six seven eight nine ten eleven twelve".split(),
+    start=1,
+  )
+}
+# "Choose one of the following:", "Select three courses from", "Take any two
+# of", "Choose one:". "One course from each of" picks per group, not overall.
+_PICK = re.compile(
+  r"\b(?:choose|select|take|complete)\s+(?:at\s+least\s+|any\s+)?"
+  rf"(\d+|{'|'.join(_NUMBERS)})\b"
+  r"(?:\s+(?!of\b|from\b)[\w-]+){0,2}\s*(?:(?:of|from)\b(?!\s+each)|:)",
+  re.IGNORECASE,
+)
+
+
 def _key(ref: models.CourseRef) -> str:
   return codes.identity(ref.resolved or ref.code)
+
+
+def picks(req: models.Requirement) -> int:
+  """How many of a requirement's slots it needs filled.
+
+  Every slot, unless its heading or notes name one count to pick; two
+  different counts are ambiguous, so every slot stays required.
+  """
+  counts = {
+    int(n) if n.isdigit() else _NUMBERS[n.lower()]
+    for n in _PICK.findall(f"{req.title}\n{req.notes}")
+  }
+  if len(counts) != 1:
+    return len(req.slots)
+  return min(counts.pop(), len(req.slots))
+
+
+def _fill(
+  program: models.Program, shown: Mapping[str, str]
+) -> dict[int, dict[int, str]]:
+  """Maps each requirement to its filled slots and the identity filling each.
+
+  A requirement that picks fewer than all its slots, with no unit count,
+  stops claiming once it has its pick, leaving extra courses for later
+  requirements.
+  """
+  claimed: set[str] = set()
+  filled: dict[int, dict[int, str]] = collections.defaultdict(dict)
+  for req in program.requirements:
+    need = None if req.units is not None else picks(req)
+    for i, slot in enumerate(req.slots):
+      if need is not None and len(filled[req.position]) >= need:
+        break
+      key = next(
+        (
+          _key(c.course)
+          for c in slot
+          if _key(c.course) in shown and _key(c.course) not in claimed
+        ),
+        None,
+      )
+      if key is not None:
+        claimed.add(key)
+        filled[req.position][i] = key
+  return filled
 
 
 def unmet_prerequisites(
@@ -59,27 +124,14 @@ def audit(
     exam_units: Units from passed AP exams, which count toward the total.
   """
   shown = {codes.identity(c): c for c in completed}
-  claimed: set[str] = set()
   own: dict[int, list[str]] = collections.defaultdict(list)
   own_units: dict[int, float] = collections.defaultdict(float)
-  filled: dict[int, int] = collections.defaultdict(int)
   slot_units: dict[str, float] = {}
+  fills = _fill(program, shown)
   for req in program.requirements:
-    for slot in req.slots:
-      hit = next(
-        (
-          c
-          for c in slot
-          if _key(c.course) in shown and _key(c.course) not in claimed
-        ),
-        None,
-      )
-      if hit is None:
-        continue
-      key = _key(hit.course)
-      claimed.add(key)
+    for i, key in fills[req.position].items():
       own[req.position].append(shown[key])
-      filled[req.position] += 1
+      hit = next(c for c in req.slots[i] if _key(c.course) == key)
       if key in units:
         slot_units[key] = units[key].min
       elif hit.units is not None:
@@ -118,7 +170,7 @@ def audit(
     if req.units is not None:
       own_ok = earned >= req.units.min
     elif req.slots:
-      own_ok = filled[req.position] == len(req.slots)
+      own_ok = len(fills[req.position]) >= picks(req)
     elif judged:
       own_ok = True
     else:
@@ -170,3 +222,66 @@ def audit(
     requirements=[progress[r.position] for r in program.requirements],
     locked=locked,
   )
+
+
+@dataclasses.dataclass(frozen=True)
+class Open:
+  """What a requirement still needs from its own slots.
+
+  Attributes:
+    requirement: The requirement.
+    slots: Its slots no completed course fills, in catalogue order.
+    count: How many of `slots` it still needs, or None when units decide.
+    units: Units it still needs when units decide; 0 otherwise.
+  """
+
+  requirement: models.Requirement
+  slots: list[list[models.RequirementChoice]]
+  count: int | None
+  units: float
+
+
+def left_to_take(
+  program: models.Program,
+  completed: Sequence[str],
+  audit: models.ProgramAudit,
+) -> list[Open]:
+  """Lists what each unfinished requirement still needs from its slots.
+
+  A slot filled by a completed course is gone, alternatives included, and a
+  requirement that picks N of its slots needs only what is short of N. A
+  requirement with a unit count that lists more than it needs is decided
+  by units. GE requirements, prose-only ones, and those whose own slots are
+  enough (only nested requirements remain) are left out.
+  """
+  fills = _fill(program, {codes.identity(c): c for c in completed})
+  progress = {p.position: p for p in audit.requirements}
+  left: list[Open] = []
+  for req in program.requirements:
+    status = progress[req.position].status
+    if req.is_general_education or status in (
+      models.RequirementStatus.DONE,
+      models.RequirementStatus.MANUAL,
+    ):
+      continue
+    filled = fills[req.position]
+    slots = [s for i, s in enumerate(req.slots) if i not in filled]
+    pick = picks(req)
+    if not slots:
+      continue
+    if req.units is None or pick < len(req.slots):
+      if (count := pick - len(filled)) > 0:
+        left.append(Open(req, slots, count, 0.0))
+      continue
+    short = req.units.min - progress[req.position].units
+    if short <= 0:
+      continue
+    listed = sum(
+      min((c.units.min for c in s if c.units is not None), default=0.0)
+      for s in slots
+    )
+    if listed <= short:
+      left.append(Open(req, slots, len(slots), 0.0))
+    else:
+      left.append(Open(req, slots, None, short))
+  return left
