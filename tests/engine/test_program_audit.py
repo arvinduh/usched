@@ -239,3 +239,26 @@ def test_left_to_take_lets_units_decide_when_more_is_listed():
   assert left[1] == [[["A-1"], ["A-2", "A-3"]], 2, 0.0]
   # Parents with no slots of their own and prose-only requirements are out.
   assert set(left) == {1, 2}
+
+
+def test_waived_courses_fill_slots_without_adding_units():
+  audit = _program_audit.audit(
+    PROGRAM, ["A-3"], {}, {}, credit_units=4, waived=["A-1"]
+  )
+  assert _statuses(audit)[1] == DONE
+  assert audit.requirements[1].courses == ["A-1", "A-3"]
+  assert audit.units == 8  # The exam's 4 and A-3's 4; A-1 adds none.
+
+
+def test_waived_courses_meet_prerequisites():
+  needs_a1 = models.Requisites(
+    prerequisite=[
+      models.RequisiteGroup(required_count=1, options=[[_ref("A-1")]])
+    ],
+    corequisite=[],
+    concurrent=[],
+  )
+  audit = _program_audit.audit(
+    PROGRAM, [], {}, {"E-1": needs_a1}, waived=["A-1"]
+  )
+  assert audit.locked == {}

@@ -1,9 +1,11 @@
 /**
  * The student's degree, as the column beside the week shows it at rest.
  *
- * Composes the program picker, the requirement tree, the GE strip, and
- * credits (AP exams; courses taken are typed into the column's input). Unit totals live in the top
- * bar's meter, so they are not repeated here. All data arrives as props;
+ * Composes the program picker, the requirement tree, and the GE strip. AP
+ * exams appear beside what they satisfy: as an alternative to the courses
+ * they waive and in the popover of the GE categories they fill, so an exam
+ * that touches neither is not offered. Unit totals live in the top bar's
+ * meter, so they are not repeated here. All data arrives as props;
  * opening courses and plan edits go back through callbacks.
  */
 
@@ -68,6 +70,22 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
     [hovered, locked],
   );
 
+  const { apExams, apCredits } = props;
+  const examsFor = useMemo(() => {
+    const byCourse = new Map<string, components['schemas']['ApExam'][]>();
+    for (const exam of apExams) {
+      for (const course of exam.waives) {
+        const key = courseKey(course.resolved ?? course.code);
+        byCourse.set(key, [...(byCourse.get(key) ?? []), exam]);
+      }
+    }
+    return byCourse;
+  }, [apExams]);
+  const earned = useMemo(
+    () => new Set(apCredits.map((c) => c.exam_id)),
+    [apCredits],
+  );
+
   const ctx: ChipContext = {
     locked,
     completed,
@@ -77,6 +95,9 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
     onHover: setHovered,
     onOpen: props.onOpenCourse,
     onToggleTaken: props.onToggleTaken,
+    examsFor,
+    earned,
+    onToggleAp: props.onToggleAp,
   };
 
   // GE is undergraduate policy; master's and doctoral students owe none.
@@ -127,6 +148,10 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
             <h2 className={styles.heading}>Requirements</h2>
             <Legend />
             <RequirementTree program={program} audit={audit} ctx={ctx} />
+            <p className={styles.creditsHint}>
+              Taken a course? Click it above to mark it, or type “/took CSCI
+              103L, MATH 125” into the planner.
+            </p>
           </section>
         </>
       )}
@@ -134,17 +159,13 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
       {props.geAudit && !isGraduate && (
         <GeStrip
           audit={props.geAudit}
-          apExams={props.apExams}
+          apExams={apExams}
+          earned={earned}
+          onToggleAp={props.onToggleAp}
           onBrowse={props.onBrowseGe}
           onCount={props.onCountGe}
         />
       )}
-
-      <Credits
-        exams={props.apExams}
-        credits={props.apCredits}
-        onToggleAp={props.onToggleAp}
-      />
     </div>
   );
 });
@@ -171,16 +192,20 @@ function Legend(): React.JSX.Element {
 /**
  * Renders one cell per GE category. A click counts one seat taken
  * elsewhere until the category is full, then clears the count; the
- * popover finds courses for it.
+ * popover lists the AP exams that fill it and finds courses for it.
  */
 function GeStrip({
   audit,
   apExams,
+  earned,
+  onToggleAp,
   onBrowse,
   onCount,
 }: {
   readonly audit: components['schemas']['GeAudit'];
   readonly apExams: readonly components['schemas']['ApExam'][];
+  readonly earned: ReadonlySet<string>;
+  readonly onToggleAp: (examId: string) => void;
   readonly onBrowse: (letter: string) => void;
   readonly onCount: (code: string, isFull: boolean) => void;
 }): React.JSX.Element {
@@ -235,6 +260,11 @@ function GeStrip({
                     : `Needs ${cat.required_count} course${cat.required_count === 1 ? '' : 's'}`}
                 </span>
                 {hint && <span className={styles.popHint}>{hint}</span>}
+                <ExamToggles
+                  exams={apExams.filter((e) => e.ge.includes(cat.code))}
+                  earned={earned}
+                  onToggle={onToggleAp}
+                />
                 <span className={styles.popActions}>
                   <button
                     type="button"
@@ -254,49 +284,38 @@ function GeStrip({
   );
 }
 
-function Credits({
+/**
+ * The AP exams that fill a GE category, as toggles for passing each.
+ */
+function ExamToggles({
   exams,
-  credits,
-  onToggleAp,
+  earned,
+  onToggle,
 }: {
   readonly exams: readonly components['schemas']['ApExam'][];
-  readonly credits: readonly components['schemas']['ApCredit'][];
-  readonly onToggleAp: (examId: string) => void;
-}): React.JSX.Element {
-  const earned = new Set(credits.map((c) => c.exam_id));
+  readonly earned: ReadonlySet<string>;
+  readonly onToggle: (examId: string) => void;
+}): React.JSX.Element | null {
+  if (exams.length === 0) {
+    return null;
+  }
   return (
-    <section>
-      <h2 className={styles.heading}>Credits</h2>
-      <div className={styles.chips}>
-        {exams.map((exam) => {
-          const benefits = [
-            exam.ge.length > 0 && `Fulfills ${exam.ge.join(', ')}`,
-            exam.waives.length > 0 &&
-              `Waives ${exam.waives.map((w) => displayCode(w.code)).join(', ')}`,
-            `${exam.units} units with a ${exam.min_score}+`,
-          ]
-            .filter(Boolean)
-            .join(' · ');
-          return (
-            <button
-              key={exam.id}
-              type="button"
-              className={`${styles.chip} ${styles.sans} ${
-                earned.has(exam.id) ? styles.done : styles.open
-              }`}
-              aria-pressed={earned.has(exam.id)}
-              title={benefits}
-              onClick={() => onToggleAp(exam.id)}
-            >
-              {exam.name}
-            </button>
-          );
-        })}
-      </div>
-      <p className={styles.creditsHint}>
-        Taken a course? Click it above to mark it, or type “/took CSCI 103L,
-        MATH 125” into the planner.
-      </p>
-    </section>
+    <span className={styles.popPrereqs}>
+      <span className={styles.popMeta}>Or with</span>
+      {exams.map((exam) => (
+        <button
+          key={exam.id}
+          type="button"
+          className={`${styles.miniChip} ${
+            earned.has(exam.id) ? styles.done : styles.open
+          }`}
+          aria-pressed={earned.has(exam.id)}
+          title={`${exam.units} units with a ${exam.min_score}+`}
+          onClick={() => onToggle(exam.id)}
+        >
+          {exam.name}
+        </button>
+      ))}
+    </span>
   );
 }

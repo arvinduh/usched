@@ -43,6 +43,14 @@ def needs_general_education(program: models.ProgramSummary | None) -> bool:
 left_to_take = _program_audit.left_to_take
 
 
+def waived(
+  conn: sqlite3.Connection, ap_credits: Sequence[models.ApCredit]
+) -> list[str]:
+  """Course codes the student's passed AP exams waive."""
+  passed = _ge_audit.passed(store.ap_exams(conn), ap_credits)
+  return [w.resolved or w.code for e in passed for w in e.waives]
+
+
 def general_education(
   conn: sqlite3.Connection,
   completed: Sequence[str],
@@ -89,4 +97,5 @@ def program(
     ge_units=ge.units,
     credit_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits))
     + _ge_audit.counted_units(ge.categories),
+    waived=waived(conn, ap_credits),
   )

@@ -255,10 +255,6 @@
   margin-bottom: -18px;
 }
 
-.sans {
-  font-family: inherit;
-}
-
 .headingRow {
   display: flex;
   justify-content: space-between;
