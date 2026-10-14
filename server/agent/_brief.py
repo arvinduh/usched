@@ -133,7 +133,8 @@ def _program_lines(
   ]
   lines.append(f"Unmet requirements: {_listed(unmet)}")
 
-  left = audits.left_to_take(program, student.completed, audit)
+  credited = [*student.completed, *audits.waived(conn, student.ap_credits)]
+  left = audits.left_to_take(program, credited, audit)
   lines.append(
     "Left to take (only these count; a filled slot's alternatives do not):"
   )

@@ -261,10 +261,8 @@ def test_the_brief_lists_what_is_left_without_filled_alternatives(conn):
     STUDENT, completed=["CSCI-103L", "MATH-126g", "BISC-121Lg"]
   )
   lines = _brief.build(conn, student).text.splitlines()
-  assert (
-    "- Mathematics: MATH-125g; MATH-225 or MATH-235; MATH-226g or MATH-229"
-    in lines
-  )
+  # The student's AP Calculus BC waives MATH-125g, so it is not left.
+  assert "- Mathematics: MATH-225 or MATH-235; MATH-226g or MATH-229" in lines
   # Taking BISC-121Lg settles Life Sciences, so its alternatives are gone.
   assert not any(line.startswith("- Life Sciences") for line in lines)
   assert not any("MATH-129" in line for line in lines)
