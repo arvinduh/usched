@@ -22,6 +22,9 @@ def listed_codes(program: models.Program) -> list[str]:
   ]
 
 
+left_to_take = _program_audit.left_to_take
+
+
 def general_education(
   conn: sqlite3.Connection,
   completed: Sequence[str],
