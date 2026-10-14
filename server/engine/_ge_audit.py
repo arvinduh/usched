@@ -133,10 +133,3 @@ def earned_units(
   return sum(units[c].min for c in courses if c in units) + sum(
     e.units for e in exams if e.id in used_exams
   )
-
-
-__all__ = [
-  "audit",
-  "earned_units",
-  "passed",
-]

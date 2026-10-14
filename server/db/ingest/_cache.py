@@ -74,9 +74,3 @@ class RawCache:
     return sorted(
       p.relative_to(self.root).as_posix() for p in base.glob(pattern)
     )
-
-
-__all__ = [
-  "DEFAULT_ROOT",
-  "RawCache",
-]

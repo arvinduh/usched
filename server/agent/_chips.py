@@ -56,13 +56,3 @@ Chip = Annotated[
   ProposeSchedule | EnrollSection | WatchCourse | MarkTaken | Search,
   pydantic.Field(discriminator="action"),
 ]
-
-
-__all__ = [
-  "Chip",
-  "EnrollSection",
-  "MarkTaken",
-  "ProposeSchedule",
-  "Search",
-  "WatchCourse",
-]

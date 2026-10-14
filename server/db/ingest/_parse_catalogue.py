@@ -393,20 +393,3 @@ def program_ids(links: Sequence[ProgramLink]) -> dict[int, str]:
     taken.add(slug)
     ids[link.poid] = slug
   return ids
-
-
-__all__ = [
-  "Block",
-  "ProgramLink",
-  "ProgramPage",
-  "ge_category_names",
-  "listed_code",
-  "parse_catalogue",
-  "parse_ge_lists",
-  "parse_index",
-  "parse_program",
-  "program_identity",
-  "program_ids",
-  "read_blocks",
-  "slugify",
-]

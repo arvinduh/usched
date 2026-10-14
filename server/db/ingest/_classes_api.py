@@ -107,14 +107,3 @@ def fetch_term(
         logging.warning("Failed to fetch %s: %s", target, error)
         report.failed.append(target)
   return report
-
-
-__all__ = [
-  "BASE_URL",
-  "Report",
-  "TERMS_KEY",
-  "fetch_term",
-  "fetch_terms",
-  "listing_key",
-  "schools_key",
-]

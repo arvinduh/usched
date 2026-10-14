@@ -85,6 +85,12 @@ export function useAdvisorChat(
   }, [onChips]);
   // Aborts the reply in flight; `clear` uses it to stop a stream.
   const abort = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return () => {
+      abort.current?.();
+      abort.current = null;
+    };
+  }, []);
 
   const send = useCallback((text: string, context: AdvisorContext): void => {
     abort.current?.();

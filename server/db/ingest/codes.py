@@ -50,10 +50,3 @@ def mentions(text: str) -> dict[str, str]:
     written = f"{match.group(1)} {match.group(2)}"
     found.setdefault(identity(written), written)
   return found
-
-
-__all__ = [
-  "course_key",
-  "identity",
-  "mentions",
-]

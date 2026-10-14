@@ -101,11 +101,6 @@ class _Client(staticfiles.StaticFiles):
 if _CLIENT.is_dir():
   app.mount("/", _Client(directory=_CLIENT, html=True))
 
-__all__ = [
-  "app",
-  "health_check",
-  "lifespan",
-]
 
 if __name__ == "__main__":
   # Development server (`npm run dev`). A short graceful shutdown keeps

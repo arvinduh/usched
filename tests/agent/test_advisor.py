@@ -173,13 +173,23 @@ def test_a_student_without_a_program_still_gets_a_brief(conn):
   assert "Can take next" not in facts.text
 
 
-def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(conn):
-  grounded = {"CSCI-104", "MATH-225"}
-  reply = "Take CSCI 104L, then MATH-225g. CSCI 999 also looks fun."
-  assert advisor.unverified(reply, grounded, conn) == ["CSCI 999"]
-  assert advisor.unverified("No courses here.", grounded, conn) == []
-  # Never named by a source, but real: the catalog knows it.
-  assert advisor.unverified("CSCI 445L is a fine elective.", set(), conn) == []
+@pytest.mark.parametrize(
+  ("reply", "grounded", "expected"),
+  [
+    (
+      "Take CSCI 104L, then MATH-225g. CSCI 999 also looks fun.",
+      {"CSCI-104", "MATH-225"},
+      ["CSCI 999"],
+    ),
+    ("No courses here.", {"CSCI-104", "MATH-225"}, []),
+    # Never named by a source, but real: the catalog knows it.
+    ("CSCI 445L is a fine elective.", set(), []),
+  ],
+)
+def test_the_reply_check_flags_only_courses_no_source_or_catalog_backs(
+  conn, reply: str, grounded: set[str], expected: list[str]
+):
+  assert advisor.unverified(reply, grounded, conn) == expected
 
 
 def test_history_remembers_what_each_reply_offered(conn):
@@ -202,10 +212,21 @@ def test_history_remembers_what_each_reply_offered(conn):
   assert advisor.remembered(conn, TERM, plain) == "hi"
 
 
-def test_chips_come_only_from_what_the_model_did():
-  search = _chips.Search(label="Show CSCI-104L", query="CSCI-104L")
-  assert advisor.closing_chips([search, search]) == [search]
-  assert advisor.closing_chips([]) == []
+@pytest.mark.parametrize(
+  ("chips", "expected"),
+  [
+    (
+      [
+        _chips.Search(label="Show CSCI-104L", query="CSCI-104L"),
+        _chips.Search(label="Show CSCI-104L", query="CSCI-104L"),
+      ],
+      [_chips.Search(label="Show CSCI-104L", query="CSCI-104L")],
+    ),
+    ([], []),
+  ],
+)
+def test_chips_come_only_from_what_the_model_did(chips, expected):
+  assert advisor.closing_chips(chips) == expected
 
 
 def _events(stream: Iterator[str]) -> list[Any]:

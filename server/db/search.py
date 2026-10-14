@@ -63,9 +63,3 @@ def parse(text: str) -> Match | None:
     f"{code.group(1).upper()}-{code.group(2).upper()}%" if code else None
   )
   return Match(fts=" AND ".join(groups), code_prefix=code_prefix)
-
-
-__all__ = [
-  "Match",
-  "parse",
-]

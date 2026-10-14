@@ -67,10 +67,3 @@ def program(
     ge_units=_ge_audit.earned_units(ge, units, exams),
     exam_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits)),
   )
-
-
-__all__ = [
-  "general_education",
-  "listed_codes",
-  "program",
-]

@@ -72,12 +72,3 @@ def ap_exams() -> ApSeed:
       models.ApExamWaiverRow(exam["id"], code) for code in exam["waives"]
     )
   return seed
-
-
-__all__ = [
-  "ApSeed",
-  "GeRule",
-  "ap_exams",
-  "bachelor_minimum_units",
-  "ge_rules",
-]

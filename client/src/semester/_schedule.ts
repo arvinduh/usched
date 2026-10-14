@@ -30,7 +30,13 @@ export interface Overlap {
 
 function timed(meeting: components['schemas']['Meeting']): TimedMeeting | null {
   const { days, start_minute: start, end_minute: end } = meeting;
-  return days.length > 0 && start !== null && end !== null && end > start
+  return Array.isArray(days) &&
+    days.length > 0 &&
+    typeof start === 'number' &&
+    typeof end === 'number' &&
+    !Number.isNaN(start) &&
+    !Number.isNaN(end) &&
+    end > start
     ? { days, start, end }
     : null;
 }

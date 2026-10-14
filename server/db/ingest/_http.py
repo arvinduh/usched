@@ -81,9 +81,3 @@ def request(
       )
     time.sleep(_wait_s(response, attempt))
   raise AssertionError("unreachable: the final attempt returns or raises")
-
-
-__all__ = [
-  "client",
-  "request",
-]

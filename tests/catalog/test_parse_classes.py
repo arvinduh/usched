@@ -4,9 +4,10 @@ import collections
 import json
 import pathlib
 
+import httpx
 import pytest
 
-from server.db.ingest import _parse_classes
+from server.db.ingest import _cache, _classes_api, _parse_classes
 
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
@@ -139,3 +140,23 @@ def test_sequence_letters_join_the_code_before_the_suffix():
   (code,) = {c.code for c in parsed.courses}
   assert code.endswith("AL")
   assert [g.usc_ge_code for g in parsed.usc_ge_codes] == ["35"]
+
+
+def test_fetch_terms_filters_active(tmp_path: pathlib.Path):
+  cache = _cache.RawCache(tmp_path)
+  terms_payload = [
+    {"termCode": 20271, "year": 2027, "season": "Spring", "status": "Active"},
+    {"termCode": 20263, "year": 2026, "season": "Fall", "status": "Active"},
+    {"termCode": 20253, "year": 2025, "season": "Fall", "status": "Inactive"},
+  ]
+
+  def handler(request: httpx.Request) -> httpx.Response:
+    assert request.url.path.endswith("/Terms/All")
+    return httpx.Response(200, json=terms_payload)
+
+  transport = httpx.MockTransport(handler)
+  with httpx.Client(transport=transport) as client:
+    active_terms = _classes_api.fetch_terms(client, cache)
+
+  assert active_terms == [20271, 20263]
+  assert cache.read_json(_classes_api.TERMS_KEY) == terms_payload

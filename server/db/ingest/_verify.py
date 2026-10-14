@@ -103,9 +103,3 @@ def verify(conn: sqlite3.Connection) -> Report:
     (rate,) = conn.execute(query).fetchone()
     rates[name] = None if rate is None else round(rate, 1)
   return Report(problems, rates)
-
-
-__all__ = [
-  "Report",
-  "verify",
-]

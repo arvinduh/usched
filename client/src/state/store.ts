@@ -67,6 +67,92 @@ const DEFAULT_STATE: PlanState = {
   welcomed: false,
 };
 
+function _isStringArray(arr: unknown): arr is readonly string[] {
+  return Array.isArray(arr) && arr.every((item) => typeof item === 'string');
+}
+
+function _isValidConfiguration(c: unknown): c is ScheduleConfiguration {
+  if (typeof c !== 'object' || c === null || Array.isArray(c)) {
+    return false;
+  }
+  const obj = c as Record<string, unknown>;
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.name === 'string' &&
+    _isStringArray(obj.section_ids)
+  );
+}
+
+function _isValidTermPlan(tp: unknown): tp is TermPlan {
+  if (typeof tp !== 'object' || tp === null || Array.isArray(tp)) {
+    return false;
+  }
+  const obj = tp as Record<string, unknown>;
+  return (
+    typeof obj.activeConfigId === 'string' &&
+    _isStringArray(obj.watchedCourseIds) &&
+    Array.isArray(obj.configurations) &&
+    obj.configurations.every(_isValidConfiguration)
+  );
+}
+
+function _isValidPlanState(candidate: unknown): candidate is PlanState {
+  if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+    return false;
+  }
+  const obj = candidate as Record<string, unknown>;
+
+  if (obj.term !== null && typeof obj.term !== 'number') {
+    return false;
+  }
+
+  if (typeof obj.terms !== 'object' || obj.terms === null || Array.isArray(obj.terms)) {
+    return false;
+  }
+  for (const [key, val] of Object.entries(obj.terms)) {
+    if (Number.isNaN(Number(key)) || !_isValidTermPlan(val)) {
+      return false;
+    }
+  }
+
+  if (!_isStringArray(obj.completedCourseIds)) {
+    return false;
+  }
+
+  if (
+    !Array.isArray(obj.apCredits) ||
+    !obj.apCredits.every(
+      (c) =>
+        typeof c === 'object' &&
+        c !== null &&
+        !Array.isArray(c) &&
+        typeof (c as Record<string, unknown>).exam_id === 'string' &&
+        typeof (c as Record<string, unknown>).score === 'number',
+    )
+  ) {
+    return false;
+  }
+
+  if (typeof obj.geCounted !== 'object' || obj.geCounted === null || Array.isArray(obj.geCounted)) {
+    return false;
+  }
+  for (const [k, v] of Object.entries(obj.geCounted)) {
+    if (typeof k !== 'string' || typeof v !== 'number') {
+      return false;
+    }
+  }
+
+  if (typeof obj.programId !== 'string') {
+    return false;
+  }
+
+  if (typeof obj.welcomed !== 'boolean') {
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Loads persisted state, falling back to defaults when storage is
  * unavailable, empty, or corrupt.
@@ -79,10 +165,15 @@ function readStorage(): PlanState {
     if (raw === null) {
       return DEFAULT_STATE;
     }
-    const parsed = JSON.parse(raw) as Partial<PlanState>;
-    return typeof parsed === 'object' && parsed !== null
-      ? { ...DEFAULT_STATE, ...parsed }
-      : DEFAULT_STATE;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return DEFAULT_STATE;
+    }
+    const candidate = { ...DEFAULT_STATE, ...parsed };
+    if (!_isValidPlanState(candidate)) {
+      return DEFAULT_STATE;
+    }
+    return candidate;
   } catch {
     return DEFAULT_STATE;
   }

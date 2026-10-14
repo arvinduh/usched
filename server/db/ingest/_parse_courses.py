@@ -162,11 +162,3 @@ def parse_page(page: str, catalogue_id: int) -> CoursePage:
       )
     )
   return out
-
-
-__all__ = [
-  "CoursePage",
-  "course_index_navoid",
-  "page_count",
-  "parse_page",
-]

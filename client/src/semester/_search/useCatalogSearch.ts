@@ -33,6 +33,13 @@ export interface CatalogSearch {
   readonly loadMore: () => void;
 }
 
+function _isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === 'AbortError') ||
+    (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError')
+  );
+}
+
 /**
  * Re-queries `term`'s catalog 60 ms after the text settles and appends
  * further pages on demand. Results land in transitions, so rendering them
@@ -57,14 +64,18 @@ export function useCatalogSearch(term: number): CatalogSearch {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const fetchPage = useCallback(
-    (offset: number) =>
-      searchCourses(term, {
-        q: keywords || undefined,
-        ge: ge || undefined,
-        minRating: minRmp > 0 ? minRmp : undefined,
-        limit: PAGE_SIZE,
-        offset,
-      }),
+    (offset: number, signal?: AbortSignal) =>
+      searchCourses(
+        term,
+        {
+          q: keywords || undefined,
+          ge: ge || undefined,
+          minRating: minRmp > 0 ? minRmp : undefined,
+          limit: PAGE_SIZE,
+          offset,
+        },
+        signal,
+      ),
     [term, keywords, ge, minRmp],
   );
   // The query whose results are on screen; late pages of older queries are
@@ -74,15 +85,18 @@ export function useCatalogSearch(term: number): CatalogSearch {
     activeFetch.current = fetchPage;
   }, [fetchPage]);
 
+  const loadMoreAbort = useRef<AbortController | null>(null);
+
   useEffect(() => {
+    loadMoreAbort.current?.abort();
     if (isEmpty) {
       return;
     }
-    let stale = false;
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchPage(0)
+      fetchPage(0, controller.signal)
         .then((items) => {
-          if (stale) {
+          if (controller.signal.aborted) {
             return;
           }
           // Rendering a page of results yields to typing, so a keystroke
@@ -94,22 +108,36 @@ export function useCatalogSearch(term: number): CatalogSearch {
             setHasMore(items.length >= PAGE_SIZE);
           });
         })
-        .catch(console.error);
+        .catch((err: unknown) => {
+          if (_isAbortError(err)) {
+            return;
+          }
+          console.error(err);
+        });
     }, DEBOUNCE_MS);
     return () => {
-      stale = true;
       clearTimeout(timer);
+      controller.abort();
     };
   }, [fetchPage, isEmpty, queryKey]);
+
+  useEffect(() => {
+    return () => {
+      loadMoreAbort.current?.abort();
+    };
+  }, []);
 
   const loadMore = useCallback((): void => {
     if (isLoadingMore || !hasMore) {
       return;
     }
+    loadMoreAbort.current?.abort();
+    const controller = new AbortController();
+    loadMoreAbort.current = controller;
     setIsLoadingMore(true);
-    fetchPage(nextOffset)
+    fetchPage(nextOffset, controller.signal)
       .then((items) => {
-        if (activeFetch.current !== fetchPage) {
+        if (controller.signal.aborted || activeFetch.current !== fetchPage) {
           return;
         }
         startTransition(() => {
@@ -121,8 +149,15 @@ export function useCatalogSearch(term: number): CatalogSearch {
           setHasMore(items.length >= PAGE_SIZE);
         });
       })
-      .catch(console.error)
-      .finally(() => setIsLoadingMore(false));
+      .catch((err: unknown) => {
+        if (_isAbortError(err)) {
+          return;
+        }
+        console.error(err);
+      })
+      .finally(() => {
+        setIsLoadingMore(false);
+      });
   }, [isLoadingMore, hasMore, fetchPage, nextOffset]);
 
   // Empty text shows no results without waiting for the stale page to clear.

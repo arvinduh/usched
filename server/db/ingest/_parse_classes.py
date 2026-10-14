@@ -324,15 +324,3 @@ def _text(value: Any) -> str | None:
     return None
   text = str(value).strip()
   return text or None
-
-
-__all__ = [
-  "DAY_BITS",
-  "Listing",
-  "course_code",
-  "instructor_key",
-  "parse_instructor",
-  "parse_listing",
-  "parse_schools",
-  "parse_terms",
-]

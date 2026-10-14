@@ -138,10 +138,17 @@ def overlaps(a: models.Section, b: models.Section) -> bool:
 
 
 def _meetings_overlap(x: models.Meeting, y: models.Meeting) -> bool:
-  if None in (x.start_minute, x.end_minute, y.start_minute, y.end_minute):
+  if (
+    x.start_minute is None
+    or x.end_minute is None
+    or y.start_minute is None
+    or y.end_minute is None
+  ):
     return False
-  assert x.start_minute is not None and x.end_minute is not None
-  assert y.start_minute is not None and y.end_minute is not None
+  if not x.days or not y.days:
+    return False
+  if x.end_minute <= x.start_minute or y.end_minute <= y.start_minute:
+    return False
   return (
     not set(x.days).isdisjoint(y.days)
     and x.start_minute < y.end_minute

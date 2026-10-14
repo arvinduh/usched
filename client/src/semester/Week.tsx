@@ -201,13 +201,13 @@ export function Week(props: WeekProps): React.JSX.Element {
   const ghostBlocks = useMemo(() => blocksOf(ghosts), [ghosts]);
   const everything = [...blocks, ...ghostBlocks];
   const lo = Math.min(DEFAULT_START_HOUR, ...everything.map((b) => Math.floor(b.start / 60)));
-  const hi = Math.max(DEFAULT_END_HOUR, ...everything.map((b) => Math.ceil(b.end / 60)));
-  const span = (hi - lo) * 60;
+  const hi = Math.max(lo + 1, DEFAULT_END_HOUR, ...everything.map((b) => Math.ceil(b.end / 60)));
+  const span = Math.max(60, (hi - lo) * 60);
   const pct = (minute: number): string => `${((minute - lo * 60) / span) * 100}%`;
   const days: readonly components['schemas']['Weekday'][] = everything.some((b) => b.days.includes('Sat'))
     ? EXTENDED_DAYS_OF_WEEK
     : DAYS_OF_WEEK;
-  const hours = Array.from({ length: hi - lo }, (_, i) => lo + i);
+  const hours = Array.from({ length: Math.max(1, hi - lo) }, (_, i) => lo + i);
 
   const units = totalUnits(sections, coursesByCode);
   const tba = sections.filter((s) => !isTimed(s));

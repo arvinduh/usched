@@ -170,9 +170,3 @@ def audit(
     requirements=[progress[r.position] for r in program.requirements],
     locked=locked,
   )
-
-
-__all__ = [
-  "audit",
-  "unmet_prerequisites",
-]

@@ -182,14 +182,3 @@ def fetch_courses(
       failed = [key for key in pool.map(fetch, pending) if key is not None]
   fetched = len(pending) - len(failed) + fetched_first
   return fetched, pages - fetched - len(failed), failed
-
-
-__all__ = [
-  "BASE_URL",
-  "courses_key",
-  "fetch_courses",
-  "fetch_index",
-  "fetch_programs",
-  "index_key",
-  "program_key",
-]

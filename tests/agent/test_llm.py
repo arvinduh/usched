@@ -33,11 +33,17 @@ def test_a_gemini_key_selects_gemini_with_the_configured_models():
   assert model.unavailable() is None
 
 
-def test_missing_configuration_says_what_to_set():
-  assert "GEMINI_API_KEY" in (_llm.from_env({}).unavailable() or "")
-  assert "GEMINI_MODELS" in (
-    _llm.from_env({"GEMINI_API_KEY": "k"}).unavailable() or ""
-  )
+@pytest.mark.parametrize(
+  ("env", "missing_key"),
+  [
+    ({}, "GEMINI_API_KEY"),
+    ({"GEMINI_API_KEY": "k"}, "GEMINI_MODELS"),
+  ],
+)
+def test_missing_configuration_says_what_to_set(
+  env: dict[str, str], missing_key: str
+):
+  assert missing_key in (_llm.from_env(env).unavailable() or "")
 
 
 def _text(events: Iterable[_llm.Event]) -> str:

@@ -62,10 +62,3 @@ def publish(db: pathlib.Path) -> str:
   _gh("release", "upload", RELEASE, str(db), "--clobber")
   repo = _gh("repo", "view", "--json", "url", "--jq", ".url").stdout.strip()
   return f"{repo}/releases/download/{RELEASE}/{db.name}"
-
-
-__all__ = [
-  "RELEASE",
-  "PublishError",
-  "publish",
-]

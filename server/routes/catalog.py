@@ -146,20 +146,3 @@ def audit_program(
   return audits.program(
     conn, term, program, body.completed, body.ap_credits, body.ge_counted
   )
-
-
-__all__: list[str] = [
-  "Conn",
-  "audit_ge",
-  "audit_program",
-  "get_course",
-  "get_program",
-  "get_sections",
-  "list_ap_exams",
-  "list_ge_categories",
-  "list_programs",
-  "list_terms",
-  "lookup_courses",
-  "router",
-  "search_courses",
-]

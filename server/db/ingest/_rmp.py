@@ -140,12 +140,3 @@ def _rating(value: Any, num_ratings: int) -> float | None:
   if value is None or num_ratings == 0:
     return None
   return float(value)
-
-
-__all__ = [
-  "GRAPHQL_URL",
-  "USC_SCHOOL_ID",
-  "fetch_searches",
-  "parse_profile",
-  "search_key",
-]

@@ -101,9 +101,3 @@ async def chat_stream(
       "X-Accel-Buffering": "no",
     },
   )
-
-
-__all__: list[str] = [
-  "chat_stream",
-  "router",
-]

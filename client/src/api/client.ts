@@ -9,19 +9,20 @@
 import type { components } from './schema';
 import { API_BASE_URL } from '../config';
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`);
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, { signal });
   if (!res.ok) {
     throw new Error(`GET ${path} failed: ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) {
     throw new Error(`POST ${path} failed: ${res.status}`);
@@ -47,6 +48,7 @@ export interface CourseQuery {
 export function searchCourses(
   term: number,
   query: CourseQuery,
+  signal?: AbortSignal,
 ): Promise<readonly components['schemas']['Course'][]> {
   const params = new URLSearchParams();
   if (query.q) {
@@ -65,7 +67,7 @@ export function searchCourses(
     params.set('offset', String(query.offset));
   }
   const suffix = params.size ? `?${params}` : '';
-  return get(`/terms/${term}/courses${suffix}`);
+  return get(`/terms/${term}/courses${suffix}`, signal);
 }
 
 /** Loads the given courses as offered in a term, skipping the rest. */
@@ -200,42 +202,54 @@ export function streamChat(
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) {
-          return;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split('\n\n');
-        buffer = events.pop() ?? '';
-        for (const event of events) {
-          const data = event.replace(/^data: ?/, '');
-          if (data === '[DONE]') {
+      try {
+        for (;;) {
+          if (controller.signal.aborted) {
+            await reader.cancel();
             return;
           }
-          const parsed = JSON.parse(data) as
-            | { readonly token: string }
-            | { readonly step: string }
-            | { readonly thought: string }
-            | components['schemas']['ClosingEvent'];
-          if ('token' in parsed) {
-            onToken(parsed.token);
-          } else if ('step' in parsed) {
-            onStep(parsed.step);
-          } else if ('thought' in parsed) {
-            onThought(parsed.thought);
-          } else {
-            onClose(parsed);
+          const { done, value } = await reader.read();
+          if (done) {
+            return;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop() ?? '';
+          for (const event of events) {
+            const data = event.replace(/^data: ?/, '');
+            if (data === '[DONE]') {
+              return;
+            }
+            const parsed = JSON.parse(data) as
+              | { readonly token: string }
+              | { readonly step: string }
+              | { readonly thought: string }
+              | components['schemas']['ClosingEvent'];
+            if ('token' in parsed) {
+              onToken(parsed.token);
+            } else if ('step' in parsed) {
+              onStep(parsed.step);
+            } else if ('thought' in parsed) {
+              onThought(parsed.thought);
+            } else {
+              onClose(parsed);
+            }
           }
         }
+      } finally {
+        reader.releaseLock();
       }
     } catch (err: unknown) {
-      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+      if (!(err instanceof DOMException && err.name === 'AbortError') && !controller.signal.aborted) {
         onToken('\n(The advisor connection closed.)');
       }
     } finally {
       finish();
     }
   })();
-  return () => controller.abort();
+  return () => {
+    if (!controller.signal.aborted) {
+      controller.abort();
+    }
+  };
 }

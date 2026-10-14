@@ -14,7 +14,5 @@ def main() -> None:
   json.dump(app.openapi(), sys.stdout, indent=1)
 
 
-__all__: list[str] = ["main"]
-
 if __name__ == "__main__":
   main()

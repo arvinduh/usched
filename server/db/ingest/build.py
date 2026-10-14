@@ -576,12 +576,3 @@ def build(raw: _cache.RawCache, target: pathlib.Path = DEFAULT_DB) -> Built:
   conn.close()
   os.replace(partial, target)
   return Built(counts, report.rates)
-
-
-__all__ = [
-  "DEFAULT_DB",
-  "SCHEMA_PATH",
-  "Built",
-  "VerificationError",
-  "build",
-]
