@@ -15,6 +15,7 @@ import sqlite3
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+from server import config
 from server.agent import _chips, _llm
 from server.db import models, store
 from server.db.ingest import codes
@@ -158,6 +159,13 @@ TOOLS = [
         "min_rating": {
           "type": "number",
           "description": "Lowest acceptable RateMyProfessors rating, 1-5.",
+        },
+        "allow_overload": {
+          "type": "boolean",
+          "description": "Allow a week past "
+          f"{config.OVERLOAD_UNIT_THRESHOLD} units, the flat-tuition "
+          "maximum. Only when the student asked for more and accepts that "
+          "each extra unit costs extra tuition.",
         },
       },
       "required": ["course_codes"],
@@ -320,6 +328,26 @@ def _span(minutes: int | None) -> str:
   return _clock(minutes) if minutes is not None else "TBA"
 
 
+def term_units(conn: sqlite3.Connection, course_codes: Sequence[str]) -> float:
+  """Units of the distinct courses, a variable-unit course at its least.
+
+  Counts as the client's week header does, so both name one total.
+  """
+  return sum(u.min for u in store.units_of(conn, course_codes).values())
+
+
+def overload_warning(units: float) -> str:
+  """Says plainly what a term past the flat-tuition maximum costs, or ""."""
+  over = schedule.overload(units)
+  if over == 0:
+    return ""
+  cap = config.OVERLOAD_UNIT_THRESHOLD
+  return (
+    f"Overload: {units:g} units is {over:g} past the {cap}-unit flat-tuition "
+    f"maximum, and each unit past {cap} costs extra tuition."
+  )
+
+
 # What a week that ranks each goal first is best at, as a student reads it.
 _GOAL_TITLES: Mapping[schedule.Goal, str] = {
   schedule.Goal.RATING: "Best professors",
@@ -426,6 +454,7 @@ def solve_schedule(
   preferred_instructors: Sequence[str] = (),
   excluded_instructors: Sequence[str] = (),
   min_rating: float | None = None,
+  allow_overload: bool = False,
 ) -> ToolResult:
   """Finds up to three ways to add courses to the week; offers each.
 
@@ -433,7 +462,9 @@ def solve_schedule(
 
   Sections already on the week (`week`, by number) stay fixed unless
   their course is listed, so each proposal is the whole resulting week.
-  When no week meets every filter, says which filters block it.
+  When no week meets every filter, says which filters block it. A week
+  past the flat-tuition unit maximum is refused unless `allow_overload`,
+  and then offered with the overload warning.
   """
   courses = store.courses(conn, term, list(course_codes))
   found_codes = {codes.identity(c.code) for c in courses}
@@ -448,6 +479,16 @@ def solve_schedule(
     for s in store.sections(conn, term, list(week))
     if codes.identity(s.course_code) not in found_codes
   ]
+  units = term_units(
+    conn, [*{s.course_code for s in kept}, *(c.code for c in courses)]
+  )
+  warning = overload_warning(units)
+  if warning and not allow_overload:
+    return ToolResult(
+      f"{warning} Offer no week past {config.OVERLOAD_UNIT_THRESHOLD} units: "
+      "suggest a course to drop, and call again with allow_overload only "
+      "once the student says they accept the extra tuition."
+    )
   prefs = schedule.Preferences(
     filters=schedule.Filters(
       excluded_days=frozenset(
@@ -467,23 +508,35 @@ def solve_schedule(
   )
   options = schedule.alternatives(courses, prefs, around=kept)
   if not options:
-    listed = ", ".join(c.code for c in courses)
-    if blocking := schedule.blockers(courses, prefs, around=kept):
-      return ToolResult(
-        f"No week adds {listed} and meets every filter. Dropping "
-        f"{' or '.join(blocking)} would allow one; ask which to give up."
-      )
-    if prefs.filters != schedule.Filters():
-      return ToolResult(
-        f"No week adds {listed} and meets these filters together, and no "
-        "single filter is to blame: suggest relaxing several, or dropping a "
-        "course."
-      )
-    return ToolResult(
-      f"No conflict-free week adds all of {listed}; suggest dropping one, "
-      "or listing a course already on the week to re-pick it."
+    return ToolResult(_why_none(courses, prefs, kept))
+  offered = _offer(options, kept)
+  if warning:
+    offered.content = f"{warning} Say so plainly.\n{offered.content}"
+  return offered
+
+
+def _why_none(
+  courses: Sequence[models.Course],
+  prefs: schedule.Preferences,
+  kept: Sequence[models.Section],
+) -> str:
+  """Why no week adds the courses, and what to suggest instead."""
+  listed = ", ".join(c.code for c in courses)
+  if blocking := schedule.blockers(courses, prefs, around=kept):
+    return (
+      f"No week adds {listed} and meets every filter. Dropping "
+      f"{' or '.join(blocking)} would allow one; ask which to give up."
     )
-  return _offer(options, kept)
+  if prefs.filters != schedule.Filters():
+    return (
+      f"No week adds {listed} and meets these filters together, and no "
+      "single filter is to blame: suggest relaxing several, or dropping a "
+      "course."
+    )
+  return (
+    f"No conflict-free week adds all of {listed}; suggest dropping one, "
+    "or listing a course already on the week to re-pick it."
+  )
 
 
 def edit_week(
@@ -530,11 +583,15 @@ def edit_week(
   ]
   if clashes:
     lines.append(f"Conflicts: {'; '.join(clashes)}")
-  courses = list(dict.fromkeys(s.course_code for s in result))
-  for course in store.courses(conn, term, courses):
+  courses = store.courses(
+    conn, term, list(dict.fromkeys(s.course_code for s in result))
+  )
+  for course in courses:
     chosen = [s for s in result if s.course_code == course.code]
     if missing := schedule.missing_types(course, chosen):
       lines.append(f"{course.code} still needs a {' and a '.join(missing)}")
+  if warning := overload_warning(sum(c.units.min for c in courses)):
+    lines.append(f"{warning} Say so plainly before they keep it.")
   return ToolResult(
     "\n".join(lines),
     [

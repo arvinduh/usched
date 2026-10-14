@@ -28,6 +28,7 @@ import itertools
 import statistics
 from collections.abc import Iterable, Sequence
 
+from server import config
 from server.db import models
 
 
@@ -551,6 +552,11 @@ def blockers(
     if solve(courses, loose, limit=1, around=around):
       found.append(_FILTER_NAMES[field.name])
   return found
+
+
+def overload(units: float) -> float:
+  """Units past the flat-tuition maximum, each charged extra; 0 within it."""
+  return max(0.0, units - config.OVERLOAD_UNIT_THRESHOLD)
 
 
 def displaces(section: models.Section, other: models.Section) -> bool:

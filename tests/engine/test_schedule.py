@@ -265,3 +265,9 @@ def test_alternatives_ignore_an_instructor_swap_at_the_same_time():
   found = schedule.alternatives([a])
   assert [o.schedule.sections[0].id for o in found] == ["a-best", "a-late"]
   assert found[1].lens.goal == schedule.Goal.LATE_START
+
+
+def test_overload_counts_units_past_the_flat_tuition_maximum():
+  assert schedule.overload(18) == 0
+  assert schedule.overload(12.5) == 0
+  assert schedule.overload(21) == 3
