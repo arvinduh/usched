@@ -83,6 +83,7 @@ as mise does by default) answers Ctrl+C with "Terminate batch job (Y/N)?"; type
 | Key             | Action                                            |
 | :-------------- | :------------------------------------------------ |
 | Any letter      | Start typing a message to the advisor             |
+| `Backspace`     | Edit the input from anywhere                      |
 | `>` / `⌘⇧P`     | Find courses (keeps what you typed)               |
 | `/`             | Run a command: `/took`, `/new`, `/degree`         |
 | `⌘J`            | Focus the input                                   |
@@ -93,8 +94,9 @@ as mise does by default) answers Ctrl+C with "Terminate batch job (Y/N)?"; type
 | `⌘Enter`        | Ask the advisor about a `>` search                |
 | `⌘Z` / `Ctrl+Z` | Undo the last change                              |
 
-Right-click a section to add it to another variant. The settings menu copies your
-section numbers for registration and resets all local data.
+Right-click a section to add it to another variant. `+` starts an empty variant;
+right-click a variant's name to duplicate, rename, or delete it. The settings
+menu copies your section numbers for registration and resets all local data.
 
 ## Commands
 
