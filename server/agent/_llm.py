@@ -104,18 +104,29 @@ def run(turn: ModelTurn, execute: Execute) -> Iterator[Event]:
 
   Each turn may call tools, whose results feed the next; after
   `TOOL_ROUNDS` rounds, one more turn forbids tools, so a reply always
-  ends in words.
+  ends in words. A turn that comes back empty is retried once without
+  tools.
   """
   rounds: list[Round] = []
-  for n in range(TOOL_ROUNDS + 1):
+  n = 0
+  retried = False
+  while n <= TOOL_ROUNDS:
     step: Step | None = None
-    for event in turn(rounds, n < TOOL_ROUNDS):
+    spoke = False
+    for event in turn(rounds, n < TOOL_ROUNDS and not retried):
       if isinstance(event, Step):
         step = event
       else:
+        spoke = spoke or isinstance(event, str)
         yield event
     if step is None or not step.calls:
-      return
+      # A turn with neither words nor calls (its budget spent on thought,
+      # say) gets one more try, tools forbidden, before giving up.
+      if spoke or retried:
+        return
+      retried = True
+      continue
+    n += 1
     results: list[str] = []
     for call in step.calls:
       yield Acting(call)
@@ -314,6 +325,9 @@ class Gemini:
             for part in (candidate.get("content") or {}).get("parts") or []:
               started = True
               yield part
+            finish = candidate.get("finishReason")
+            if finish not in (None, "STOP"):
+              logging.warning("Gemini %s stopped early: %s", model, finish)
     except httpx.TransportError as e:
       logging.warning("Gemini %s failed: %s", model, e)
       if not started:

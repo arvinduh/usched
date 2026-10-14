@@ -50,7 +50,9 @@ RAW_CACHE_DIR: Path = DATA_DIR / "raw"
 GEMINI_API_URL: str = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_TIMEOUT_SECONDS: float = 45.0
 GEMINI_CONNECT_TIMEOUT_SECONDS: float = 10.0
-GEMINI_MAX_OUTPUT_TOKENS: int = 2048
+# Thinking spends from the same budget as the answer, so a tight cap can
+# end a turn after its reasoning with no words at all.
+GEMINI_MAX_OUTPUT_TOKENS: int = 8192
 GEMINI_TEMPERATURE: float = 0.4
 GEMINI_RETRY_DELAY_SECONDS: float = 1.5
 MAX_TOOL_ROUNDS: int = 2

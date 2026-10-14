@@ -111,6 +111,31 @@ def test_search_by_text_ge_and_rating(conn):
   assert [c.code for c in rated] == ["CSCI-104L"]
 
 
+def test_search_by_meeting_time(conn):
+  def codes(
+    starts_from: int | None = None,
+    ends_by: int | None = None,
+    meets_at: int | None = None,
+  ) -> list[str]:
+    found = store.search_courses(
+      conn,
+      20271,
+      None,
+      starts_from=starts_from,
+      ends_by=ends_by,
+      meets_at=meets_at,
+    )
+    return [c.code for c in found]
+
+  assert codes(starts_from=19 * 60) == ["CSCI-103L", "CSCI-104L"]
+  # In class at 8 PM: a 5-9 PM lab counts, though it starts earlier.
+  assert codes(meets_at=20 * 60) == ["CHEM-462L", "CSCI-103L", "CSCI-104L"]
+  assert codes(starts_from=8 * 60, ends_by=9 * 60 + 30) == [
+    "CSCI-104L",
+    "CSCI-445Lx",
+  ]
+
+
 def test_search_expands_abbreviations_to_phrases(conn):
   assert [c.code for c in store.search_courses(conn, 20271, "dsa")] == [
     "CSCI-104L"

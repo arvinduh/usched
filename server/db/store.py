@@ -143,10 +143,16 @@ def search_courses(
   min_rating: float | None = None,
   limit: int = 100,
   offset: int = 0,
+  starts_from: int | None = None,
+  ends_by: int | None = None,
+  meets_at: int | None = None,
 ) -> list[models.Course]:
-  """Finds a term's courses by text, GE category, and instructor rating.
+  """Finds a term's courses by text, GE category, rating, and meeting time.
 
   Text matches rank by exact course-code prefix, then BM25 relevance.
+  The time filters, in minutes after midnight, keep a course when one of
+  its meetings starts at or after `starts_from`, ends by `ends_by`, and
+  is in session at `meets_at`, all at once.
   """
   where = ["o.term_code = ?"]
   params: list[Any] = [term]
@@ -182,6 +188,24 @@ def search_courses(
             AND r.rating >= ?)"""
     )
     params.append(min_rating)
+  times = [
+    (cond, value)
+    for cond, value in (
+      ("m.start_minute >= ?", starts_from),
+      ("m.end_minute <= ?", ends_by),
+      ("m.start_minute <= ?", meets_at),
+      ("m.end_minute > ?", meets_at),
+    )
+    if value is not None
+  ]
+  if times:
+    where.append(
+      f"""EXISTS (SELECT 1 FROM section s
+          JOIN meeting m ON m.term_code = s.term_code AND m.section_id = s.id
+          WHERE s.term_code = o.term_code AND s.course_code = o.course_code
+            AND {" AND ".join(cond for cond, _ in times)})"""
+    )
+    params += [value for _, value in times]
   sql = f"""SELECT o.course_code FROM offering o {join}
       WHERE {" AND ".join(where)}
       ORDER BY {", ".join(order)} LIMIT ? OFFSET ?"""
