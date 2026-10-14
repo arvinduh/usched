@@ -1,14 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-booting>
   <head>
     <meta charset="utf-8">
     <link rel="icon" type="image/svg+xml" href="/school.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>usched | USC Course Planner</title>
+    <!-- Linked here, not imported, so the splash is styled before any
+         script loads. -->
+    <link rel="stylesheet" href="/src/index.css">
+    <link rel="stylesheet" href="/src/shell/splash.css">
   </head>
   <body>
+    <div class="splash" role="status">
+      <div class="splash-mark">
+        <div class="splash-week" aria-hidden="true">
+          <span class="splash-day"></span>
+          <span class="splash-day"></span>
+          <span class="splash-day"></span>
+          <span class="splash-day"></span>
+          <span class="splash-day"></span>
+          <div class="splash-blocks">
+            <span class="splash-block"></span>
+            <span class="splash-block"></span>
+            <span class="splash-block"></span>
+            <span class="splash-block"></span>
+            <span class="splash-block"></span>
+            <span class="splash-block"></span>
+            <span class="splash-block"></span>
+          </div>
+        </div>
+        <span class="splash-wordmark">usched</span>
+      </div>
+      <p class="splash-wait">Waking up the course catalog…</p>
+    </div>
     <div id="app-root" class="app-root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

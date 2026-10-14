@@ -8,7 +8,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/inter';
-import './index.css';
 // Applies the saved theme before first paint.
 import './state/theme';
 import { App } from './App';

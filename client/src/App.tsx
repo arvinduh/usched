@@ -36,6 +36,7 @@ import type { CoursePlan } from './semester/Course';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
 import { Welcome } from './shell/Welcome';
+import { useRevealApp } from './shell/_splash';
 import {
   addSection,
   countGeSeat,
@@ -144,7 +145,9 @@ export function App(): React.JSX.Element {
     }
   }, [term, stored]);
 
-  if (failed || terms?.length === 0) {
+  const noCatalog = failed || terms?.length === 0;
+  useRevealApp(noCatalog);
+  if (noCatalog) {
     return (
       <p className={styles.notice}>
         No course catalog yet. Build it with <code>npm run catalog</code>, then
@@ -252,14 +255,19 @@ function Planner({
   }, [projectProposals]);
   const chat = useAdvisorChat(actOnReply);
 
+  // The splash holds until the first screen can be used: the welcome
+  // screen needs the programs to search.
+  const [programsSettled, setProgramsSettled] = useState(false);
   useEffect(() => {
     getApExams().then(setApExams).catch(console.error);
     getPrograms()
       .then((all) =>
         setPrograms(all.filter((p) => p.kind === 'degree' || p.kind === 'minor')),
       )
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setProgramsSettled(true));
   }, []);
+  useRevealApp(Boolean(programId) || welcomed || programsSettled);
 
   useEffect(() => {
     if (programId) {
