@@ -11,14 +11,20 @@
  * Applies `update`, animated as a view transition when supported.
  *
  * The update must change the DOM synchronously: wrap React state changes
- * in `flushSync`.
+ * in `flushSync`. A `type` lets CSS name elements for this transition only,
+ * through `:active-view-transition-type(<type>)`; browsers without types
+ * still run the transition, just without those names.
  */
-export function morph(update: () => void): void {
+export function morph(update: () => void, type?: string): void {
   if (!('startViewTransition' in document)) {
     update();
     return;
   }
+  const transition = document.startViewTransition(update);
+  if (type && 'types' in transition) {
+    transition.types.add(type);
+  }
   // A skipped animation (hidden tab, rapid toggling) rejects `ready`; the
   // update itself still applies, so the rejection is noise.
-  document.startViewTransition(update).ready.catch(() => {});
+  transition.ready.catch(() => {});
 }

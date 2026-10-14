@@ -122,6 +122,32 @@ button {
   animation-timing-function: var(--ease);
 }
 
+/* Week blocks sliding to their new times as proposals flip. */
+::view-transition-group(*.week-block) {
+  animation-duration: 360ms;
+  animation-timing-function: var(--ease);
+}
+
+/* A block resizing mid-slide is clipped, not stretched, so its text
+   keeps its size; the old face fades early, so two time labels never
+   read on top of each other. */
+::view-transition-image-pair(*.week-block) {
+  overflow: clip;
+  border-radius: 0 4px 4px 0;
+}
+
+::view-transition-old(*.week-block),
+::view-transition-new(*.week-block) {
+  width: 100%;
+  height: 100%;
+  object-fit: none;
+  object-position: left top;
+}
+
+::view-transition-old(*.week-block) {
+  animation-duration: 160ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
