@@ -74,7 +74,17 @@ You need:
    - `https://<name>.onrender.com/api/health` answers `{"status": "ok"}`.
    - The advisor answers one question.
 
-## Keep it awake
+## Health and monitoring
+
+| Path          | Use                                                  |
+| :------------ | :--------------------------------------------------- |
+| `/healthz`    | Render's health check; a fixed response, no lookups. |
+| `/api/health` | For uptime monitors.                                 |
+
+On startup, the logs name the catalog's terms and say whether the advisor
+model is ready, or why not.
+
+### Keep it awake
 
 Free services sleep after 15 idle minutes and take about a minute to wake;
 the loading screen says "Waking up the course catalog…" meanwhile. Before a
@@ -84,7 +94,8 @@ hours a month cover one service running all month.
 
 ## Update
 
-- **Code:** merge to `main`. Render deploys once CI passes.
+- **Code:** merge to `main`. Render deploys once the `check` workflow passes
+  on that commit. A failed build leaves the previous deploy running.
 - **Course data:** each new term, or whenever listings should refresh, rerun
   step 2, then select **Manual Deploy > Deploy latest commit** on Render.
 
@@ -97,6 +108,10 @@ for a minute.
 
 Google may use free-tier prompts to improve its models. Prompts carry course
 codes and plans, never names.
+
+`/api/chat` has no per-client rate limit or message-length cap. On a free-tier
+key the worst case is an exhausted quota; add a limit before ever using a key
+with billing enabled.
 
 ## Troubleshoot
 
@@ -115,7 +130,43 @@ codes and plans, never names.
 1. Delete the service on Render, and the UptimeRobot monitor if you made one.
 2. Optional: remove the published database with `gh release delete catalog`.
 
-## Run the image elsewhere
+## Reference
+
+### The image
+
+The `Dockerfile` has two stages:
+
+1. **`client`** installs the npm workspace and runs `npm run build -w client`.
+   The client bundles `server/seeds/abbreviations.json`, so that file is copied
+   into this stage too.
+2. **Runtime** installs only runtime Python dependencies
+   (`uv sync --no-default-groups`: no dev tools, no Playwright), copies
+   `server/` and the built client, then downloads the catalog from
+   `CATALOG_URL` into `server/data/catalog.db`. The build stops if
+   `CATALOG_URL` is unset.
+
+The server listens on `$PORT` (Render sets it; 8000 otherwise) with one
+Uvicorn worker. Hashed client assets are cached for a year and `index.html` is
+revalidated on every load, so a deploy reaches visitors on their next visit.
+
+### Configuration
+
+| Variable         | Required | Read at    | Purpose                                                                |
+| :--------------- | :------- | :--------- | :--------------------------------------------------------------------- |
+| `CATALOG_URL`    | Yes      | Build time | Where the image downloads `catalog.db`.                                |
+| `GEMINI_API_KEY` | No       | Runtime    | Enables the advisor; without it everything else works.                 |
+| `GEMINI_MODELS`  | No       | Runtime    | Ordered model list; later models take over when earlier ones are busy. |
+
+### Continuous integration
+
+`.github/workflows/check.yml` runs on every pull request and every push to
+`main`:
+
+- **`check`** runs `npm ci` (which runs `uv sync`), then `npm run check`.
+- **`image`** builds the client stage with `docker build --target client .`.
+  The full image needs the published catalog, so only Render builds it.
+
+### Run the image elsewhere
 
 The image is a plain Docker image and runs on any host that sets `PORT`:
 
