@@ -328,7 +328,7 @@ def _span(minutes: int | None) -> str:
   return _clock(minutes) if minutes is not None else "TBA"
 
 
-def term_units(conn: sqlite3.Connection, course_codes: Sequence[str]) -> float:
+def _term_units(conn: sqlite3.Connection, course_codes: Sequence[str]) -> float:
   """Units of the distinct courses, a variable-unit course at its least.
 
   Counts as the client's week header does, so both name one total.
@@ -479,7 +479,7 @@ def solve_schedule(
     for s in store.sections(conn, term, list(week))
     if codes.identity(s.course_code) not in found_codes
   ]
-  units = term_units(
+  units = _term_units(
     conn, [*{s.course_code for s in kept}, *(c.code for c in courses)]
   )
   warning = overload_warning(units)
