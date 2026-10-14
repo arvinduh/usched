@@ -119,13 +119,18 @@ _MAX_CHIPS = 4
 
 
 def closing_chips(from_tools: Sequence[_chips.Chip]) -> list[_chips.Chip]:
-  """Up to four chips, all from what the model did; the last of a label wins.
+  """The chips from what the model did; the last of a label wins.
 
   A reply that used no tools ends with none: a chip is a follow-up to
-  something the advisor actually looked up or built, never filler.
+  something the advisor actually looked up or built, never filler. Only
+  follow-up buttons are capped at four: proposed schedules (one button
+  for all of them) and recorded courses always survive, however many
+  searches came first.
   """
-  unique = {c.label: c for c in reversed(from_tools)}
-  return list(reversed(unique.values()))[:_MAX_CHIPS]
+  unique = list(reversed({c.label: c for c in reversed(from_tools)}.values()))
+  kept = (_chips.ProposeSchedule, _chips.MarkTaken)
+  buttons = [c for c in unique if not isinstance(c, kept)][:_MAX_CHIPS]
+  return [c for c in unique if isinstance(c, kept) or c in buttons]
 
 
 def remembered(conn: sqlite3.Connection, term: int, turn: ChatTurn) -> str:
