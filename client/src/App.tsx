@@ -862,6 +862,7 @@ function Planner({
                 countGeSeat(code, isFull),
               )
             }
+            onContinue={() => go("planner")}
           />
         </main>
       ) : (

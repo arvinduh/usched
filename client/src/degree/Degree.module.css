@@ -592,3 +592,47 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+
+.continue {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: var(--z-popover);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: light-dark(#fff, #171716);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: var(--shadow-pop);
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  cursor: pointer;
+  transition:
+    transform 160ms var(--ease),
+    box-shadow 160ms var(--ease),
+    filter 160ms var(--ease);
+}
+
+.continue:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 12px 28px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.6)),
+    0 4px 10px light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+}
+
+.continue:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.continueArrow {
+  transition: transform 160ms var(--ease);
+}
+
+.continue:hover .continueArrow {
+  transform: translateX(3px);
+}

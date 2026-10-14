@@ -9,7 +9,7 @@
  * opening courses and plan edits go back through callbacks.
  */
 
-import { Check, Lock, Search } from "lucide-react";
+import { ArrowRight, Check, Lock, Search } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import type { components } from "../api/schema";
 import { courseKey, displayCode, levelOf } from "./_degree";
@@ -44,6 +44,8 @@ export interface DegreeViewProps {
   readonly onBrowseGe: (letter: string) => void;
   /** Counts one more seat of a GE category by hand, or clears a full one. */
   readonly onCountGe: (code: string, isFull: boolean) => void;
+  /** Returns to the planner. */
+  readonly onContinue: () => void;
 }
 
 /**
@@ -173,6 +175,16 @@ export const DegreeView = React.memo(function DegreeView(
           onCount={props.onCountGe}
         />
       )}
+
+      <button
+        type="button"
+        className={styles.continue}
+        onClick={props.onContinue}
+        aria-label="Continue to schedule"
+      >
+        <span>Continue to schedule</span>
+        <ArrowRight size={14} className={styles.continueArrow} />
+      </button>
     </div>
   );
 });
