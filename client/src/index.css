@@ -35,6 +35,7 @@
   --z-popover: 20;
   --z-modal: 50;
   --z-toast: 100;
+  --z-splash: 200;
 
   /* Course hues: ink for text and edges, fill for block backgrounds. */
   --hue-0-ink: light-dark(#0f6e56, #9fe1cb);

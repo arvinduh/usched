@@ -36,6 +36,7 @@ import type { CoursePlan } from './semester/Course';
 import { Week } from './semester/Week';
 import { TopBar } from './shell/TopBar';
 import { Welcome } from './shell/Welcome';
+import { useRevealApp } from './shell/_splash';
 import {
   addSection,
   countGeSeat,
@@ -62,6 +63,7 @@ import { reset, useStore, useTermPlan } from './state/store';
 import type { ScheduleConfiguration } from './state/store';
 import { showToast, undoLast } from './state/toast';
 import { usePlanCourses } from './state/usePlanCourses';
+import { morph } from './ui/_morph';
 import { ToastHost } from './ui/Toast';
 import type { components } from './api/schema';
 import styles from './App.module.css';
@@ -143,7 +145,9 @@ export function App(): React.JSX.Element {
     }
   }, [term, stored]);
 
-  if (failed || terms?.length === 0) {
+  const noCatalog = failed || terms?.length === 0;
+  useRevealApp(noCatalog);
+  if (noCatalog) {
     return (
       <p className={styles.notice}>
         No course catalog yet. Build it with <code>npm run catalog</code>, then
@@ -251,14 +255,19 @@ function Planner({
   }, [projectProposals]);
   const chat = useAdvisorChat(actOnReply);
 
+  // The splash holds until the first screen can be used: the welcome
+  // screen needs the programs to search.
+  const [programsSettled, setProgramsSettled] = useState(false);
   useEffect(() => {
     getApExams().then(setApExams).catch(console.error);
     getPrograms()
       .then((all) =>
         setPrograms(all.filter((p) => p.kind === 'degree' || p.kind === 'minor')),
       )
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setProgramsSettled(true));
   }, []);
+  useRevealApp(Boolean(programId) || welcomed || programsSettled);
 
   useEffect(() => {
     if (programId) {
@@ -352,15 +361,7 @@ function Planner({
     currentSpace.current = space;
   }, [space]);
   const switchTo = useCallback((next: Space): void => {
-    if ('startViewTransition' in document) {
-      // A skipped animation (hidden tab, rapid toggling) rejects `ready`;
-      // the state update itself still applies, so the rejection is noise.
-      document
-        .startViewTransition(() => flushSync(() => setSpace(next)))
-        .ready.catch(() => {});
-    } else {
-      setSpace(next);
-    }
+    morph(() => flushSync(() => setSpace(next)));
   }, []);
   // Leaving the degree, the page first lifts back toward the meter (it
   // dropped from there), then the bar morphs home and the planner rises.

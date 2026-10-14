@@ -1,0 +1,177 @@
+/*
+ * The loading splash in index.html: a week that fills with course blocks
+ * while the app loads. Linked from index.html beside index.css, so it is
+ * styled before any script runs. Only opacity and transform animate, and
+ * the whole splash leaves the page once the app is ready (shell/_splash).
+ */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-splash);
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  view-transition-name: splash;
+}
+
+/* Waits a beat before showing, so a fast load never flashes it. */
+.splash-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: splash-in 420ms var(--ease) 160ms both;
+}
+
+/* Five days, each a faint track that blocks slot onto. */
+.splash-week {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 14px);
+  gap: 6px;
+  height: 64px;
+}
+
+.splash-day {
+  border-radius: 4px;
+  background: var(--hairline);
+}
+
+.splash-blocks {
+  position: absolute;
+  inset: 0;
+}
+
+.splash-block {
+  position: absolute;
+  width: 14px;
+  border-radius: 4px;
+  animation: splash-slot 2400ms var(--ease) infinite both;
+}
+
+/* A plausible week: two Mon/Wed courses, a Tue/Thu one, a Friday lab. */
+.splash-block:nth-child(1) {
+  left: 0;
+  top: 6px;
+  height: 18px;
+  background: var(--hue-0-ink);
+}
+
+.splash-block:nth-child(2) {
+  left: 40px;
+  top: 6px;
+  height: 18px;
+  background: var(--hue-0-ink);
+  animation-delay: 90ms;
+}
+
+.splash-block:nth-child(3) {
+  left: 20px;
+  top: 18px;
+  height: 24px;
+  background: var(--hue-1-ink);
+  animation-delay: 180ms;
+}
+
+.splash-block:nth-child(4) {
+  left: 60px;
+  top: 18px;
+  height: 24px;
+  background: var(--hue-1-ink);
+  animation-delay: 270ms;
+}
+
+.splash-block:nth-child(5) {
+  left: 0;
+  top: 36px;
+  height: 16px;
+  background: var(--hue-3-ink);
+  animation-delay: 360ms;
+}
+
+.splash-block:nth-child(6) {
+  left: 40px;
+  top: 36px;
+  height: 16px;
+  background: var(--hue-3-ink);
+  animation-delay: 450ms;
+}
+
+.splash-block:nth-child(7) {
+  left: 80px;
+  top: 28px;
+  height: 30px;
+  background: var(--accent);
+  animation-delay: 540ms;
+}
+
+.splash-wordmark {
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  view-transition-name: wordmark;
+}
+
+/* A cold server can take a while to wake; say so only once it has. */
+.splash-wait {
+  position: absolute;
+  bottom: 18vh;
+  color: var(--text-muted);
+  animation: splash-in 600ms var(--ease) 4s both;
+}
+
+/* The app mounts under the splash; its entrances wait to play on reveal. */
+:root[data-booting] .app-root * {
+  animation-play-state: paused;
+}
+
+/* The splash zooms gently away as the wordmark glides to its place. */
+::view-transition-old(splash) {
+  animation: splash-out 360ms var(--ease) both;
+}
+
+::view-transition-group(wordmark) {
+  animation-duration: 480ms;
+  animation-timing-function: var(--ease);
+}
+
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes splash-slot {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.9);
+  }
+
+  14%,
+  72% {
+    opacity: 1;
+    transform: none;
+  }
+
+  86%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
+/* Reduced motion keeps the week filled and still. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-block {
+    animation: none;
+  }
+}
