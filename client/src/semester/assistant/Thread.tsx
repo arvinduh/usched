@@ -7,23 +7,28 @@
  * belong to the caller.
  */
 
-import React, { useEffect, useRef } from 'react';
-import { CalendarDays, Check } from 'lucide-react';
-import { setFocus } from '../../state/preview';
-import type { components } from '../../api/schema';
-import type { ChatMessage } from './_useAdvisorChat';
-import { Reply } from './Reply';
-import type { CourseState } from './Reply';
-import styles from './Thread.module.css';
+import { CalendarDays, Check } from "lucide-react";
+import type React from "react";
+import { useEffect, useRef } from "react";
+import type { components } from "../../api/schema";
+import { setFocus } from "../../state/preview";
+import type { ChatMessage } from "./_useAdvisorChat";
+import type { CourseState } from "./Reply";
+import { Reply } from "./Reply";
+import styles from "./Thread.module.css";
 
 /**
  * Properties for the conversation.
  */
 export interface ThreadProps {
   readonly messages: readonly ChatMessage[];
-  readonly onChip: (chip: components['schemas']['ClosingEvent']['action_chips'][number]) => void;
+  readonly onChip: (
+    chip: components["schemas"]["ClosingEvent"]["action_chips"][number],
+  ) => void;
   /** Projects a reply's proposed schedules onto the week again. */
-  readonly onProject: (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]) => void;
+  readonly onProject: (
+    chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][],
+  ) => void;
   /** Opens a course mentioned in a reply, given as "DEPT-123X". */
   readonly onOpenCourse: (courseId: string) => void;
   readonly onNewChat: () => void;
@@ -36,11 +41,19 @@ export interface ThreadProps {
  * Renders the transcript, keeping the newest message in view.
  */
 export function Thread(props: ThreadProps): React.JSX.Element {
-  const { messages, onChip, onProject, onOpenCourse, onNewChat, stateOf, busy } = props;
+  const {
+    messages,
+    onChip,
+    onProject,
+    onOpenCourse,
+    onNewChat,
+    stateOf,
+    busy,
+  } = props;
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    end.current?.scrollIntoView({ block: 'end' });
+    end.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
   return (
@@ -49,7 +62,7 @@ export function Thread(props: ThreadProps): React.JSX.Element {
         New chat
       </button>
       {messages.map((m, i) =>
-        m.role === 'user' ? (
+        m.role === "user" ? (
           <p key={i} className={styles.user}>
             {m.content}
           </p>
@@ -58,7 +71,7 @@ export function Thread(props: ThreadProps): React.JSX.Element {
             {(m.steps?.length || m.thinking) && (
               <Work
                 steps={m.steps ?? []}
-                thinking={m.thinking ?? ''}
+                thinking={m.thinking ?? ""}
                 live={busy && i === messages.length - 1}
                 reply={(text) => (
                   <Reply
@@ -84,12 +97,15 @@ export function Thread(props: ThreadProps): React.JSX.Element {
                 <span />
               </span>
             )}
-            {m.chips && <Chips chips={m.chips} onChip={onChip} onProject={onProject} />}
+            {m.chips && (
+              <Chips chips={m.chips} onChip={onChip} onProject={onProject} />
+            )}
             {m.unverified && m.unverified.length > 0 && (
               <p className={styles.unverified}>
-                {m.unverified.join(', ')}{' '}
-                {m.unverified.length === 1 ? "isn't" : "aren't"} in USC's catalog;
-                the advisor may have {m.unverified.length === 1 ? 'it' : 'them'} wrong.
+                {m.unverified.join(", ")}{" "}
+                {m.unverified.length === 1 ? "isn't" : "aren't"} in USC's
+                catalog; the advisor may have{" "}
+                {m.unverified.length === 1 ? "it" : "them"} wrong.
               </p>
             )}
           </div>
@@ -109,14 +125,18 @@ function Chips({
   onChip,
   onProject,
 }: {
-  readonly chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][];
-  readonly onChip: (chip: components['schemas']['ClosingEvent']['action_chips'][number]) => void;
-  readonly onProject: (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]) => void;
+  readonly chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][];
+  readonly onChip: (
+    chip: components["schemas"]["ClosingEvent"]["action_chips"][number],
+  ) => void;
+  readonly onProject: (
+    chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][],
+  ) => void;
 }): React.JSX.Element | null {
-  const schedules = chips.filter((c) => c.action === 'propose_schedule').length;
+  const schedules = chips.filter((c) => c.action === "propose_schedule").length;
   // Recorded courses were applied when the reply ended; the toast offered undo.
   const others = chips.filter(
-    (c) => c.action !== 'propose_schedule' && c.action !== 'mark_taken',
+    (c) => c.action !== "propose_schedule" && c.action !== "mark_taken",
   );
   if (schedules === 0 && others.length === 0) {
     return null;
@@ -124,13 +144,18 @@ function Chips({
   return (
     <div className={styles.chips}>
       {schedules > 0 && (
-        <button type="button" className={styles.chip} onClick={() => onProject(chips)}>
+        <button
+          type="button"
+          className={styles.chip}
+          onClick={() => onProject(chips)}
+        >
           <CalendarDays size={12} />
-          {schedules === 1 ? 'Schedule' : `${schedules} schedules`} on your week
+          {schedules === 1 ? "Schedule" : `${schedules} schedules`} on your week
         </button>
       )}
       {others.map((chip, i) => {
-        const sectionId = chip.action === 'enroll_section' ? chip.section_id : null;
+        const sectionId =
+          chip.action === "enroll_section" ? chip.section_id : null;
         return (
           <button
             key={i}
@@ -164,13 +189,15 @@ function Work({
   /** Renders the reasoning the way replies render. */
   readonly reply: (text: string) => React.ReactNode;
 }): React.JSX.Element {
-  const counted = steps.length === 1 ? '1 step' : `${steps.length} steps`;
+  const counted = steps.length === 1 ? "1 step" : `${steps.length} steps`;
   const summary = live
-    ? `${steps.at(-1) ?? 'Thinking'}…`
-    : [thinking && 'Thought', steps.length > 0 && counted].filter(Boolean).join(' · ');
+    ? `${steps.at(-1) ?? "Thinking"}…`
+    : [thinking && "Thought", steps.length > 0 && counted]
+        .filter(Boolean)
+        .join(" · ");
   return (
     <details className={styles.work}>
-      <summary className={`${styles.workSummary} ${live ? styles.live : ''}`}>
+      <summary className={`${styles.workSummary} ${live ? styles.live : ""}`}>
         {summary}
       </summary>
       {steps.length > 0 && (

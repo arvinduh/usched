@@ -7,27 +7,31 @@
  * this module stays independent of the app shell's view state.
  */
 
-import { enrollSection, recordCompleted, toggleWatch } from '../../state/actions';
-import { setProposals } from '../../state/preview';
-import type { Proposal } from '../../state/preview';
-import { showToast } from '../../state/toast';
-import type { components } from '../../api/schema';
+import type { components } from "../../api/schema";
+import {
+  enrollSection,
+  recordCompleted,
+  toggleWatch,
+} from "../../state/actions";
+import type { Proposal } from "../../state/preview";
+import { setProposals } from "../../state/preview";
+import { showToast } from "../../state/toast";
 
 /**
  * The schedules among `chips`, in the order the advisor ranked them.
  */
 export function proposalsOf(
-  chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][],
+  chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][],
 ): readonly Proposal[] {
   return chips.flatMap((c) => {
-    if (c.action !== 'propose_schedule') {
+    if (c.action !== "propose_schedule") {
       return [];
     }
     const sectionIds = (c.section_ids ?? [])
-      .map((id) => (typeof id === 'string' ? id.trim() : ''))
+      .map((id) => (typeof id === "string" ? id.trim() : ""))
       .filter((id) => id.length > 0);
     return sectionIds.length > 0
-      ? [{ name: c.name || 'Proposal', sectionIds, tradeoff: c.tradeoff }]
+      ? [{ name: c.name || "Proposal", sectionIds, tradeoff: c.tradeoff }]
       : [];
   });
 }
@@ -44,61 +48,67 @@ export interface ChipEffects {
  * Applies one chip; the union's `action` narrows each case's fields.
  */
 export function applyActionChip(
-  chip: components['schemas']['ClosingEvent']['action_chips'][number],
+  chip: components["schemas"]["ClosingEvent"]["action_chips"][number],
   effects: ChipEffects,
 ): void {
-  if (!chip || typeof chip !== 'object' || !('action' in chip)) {
-    showToast('Invalid action chip.');
+  if (!chip || typeof chip !== "object" || !("action" in chip)) {
+    showToast("Invalid action chip.");
     return;
   }
   switch (chip.action) {
-    case 'propose_schedule': {
+    case "propose_schedule": {
       const validSectionIds = (chip.section_ids ?? [])
-        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
         .filter((id) => id.length > 0);
       if (validSectionIds.length === 0) {
-        showToast('Cannot propose schedule: no valid section IDs provided.');
+        showToast("Cannot propose schedule: no valid section IDs provided.");
         return;
       }
       setProposals([
-        { name: chip.name || 'Proposal', sectionIds: validSectionIds, tradeoff: chip.tradeoff },
+        {
+          name: chip.name || "Proposal",
+          sectionIds: validSectionIds,
+          tradeoff: chip.tradeoff,
+        },
       ]);
       return;
     }
-    case 'enroll_section': {
-      const sectionId = typeof chip.section_id === 'string' ? chip.section_id.trim() : '';
+    case "enroll_section": {
+      const sectionId =
+        typeof chip.section_id === "string" ? chip.section_id.trim() : "";
       if (!sectionId) {
-        showToast('Cannot enroll: section ID is missing or invalid.');
+        showToast("Cannot enroll: section ID is missing or invalid.");
         return;
       }
       // usePlanCourses hydrates the section once it is in the plan.
       enrollSection(sectionId);
       return;
     }
-    case 'watch_course': {
-      const courseCode = typeof chip.course_code === 'string' ? chip.course_code.trim() : '';
+    case "watch_course": {
+      const courseCode =
+        typeof chip.course_code === "string" ? chip.course_code.trim() : "";
       if (!courseCode) {
-        showToast('Cannot watch course: course code is missing or invalid.');
+        showToast("Cannot watch course: course code is missing or invalid.");
         return;
       }
       toggleWatch(courseCode);
       return;
     }
-    case 'mark_taken': {
+    case "mark_taken": {
       const validCodes = (chip.course_codes ?? [])
-        .map((code) => (typeof code === 'string' ? code.trim() : ''))
+        .map((code) => (typeof code === "string" ? code.trim() : ""))
         .filter((code) => code.length > 0);
       if (validCodes.length === 0) {
-        showToast('Cannot mark taken: no course codes provided.');
+        showToast("Cannot mark taken: no course codes provided.");
         return;
       }
       recordCompleted(validCodes);
       return;
     }
-    case 'search': {
-      const query = typeof chip.query === 'string' ? chip.query.trim() : '';
+    case "search": {
+      const query = typeof chip.query === "string" ? chip.query.trim() : "";
       if (!query) {
-        showToast('Cannot search: query is empty.');
+        showToast("Cannot search: query is empty.");
         return;
       }
       effects.search(query);

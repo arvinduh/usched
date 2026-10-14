@@ -17,7 +17,7 @@
 }
 
 .trigger:hover,
-.trigger[aria-expanded='true'] {
+.trigger[aria-expanded="true"] {
   color: var(--text-primary);
 }
 
@@ -25,7 +25,7 @@
   transition: transform 160ms var(--ease);
 }
 
-.trigger[aria-expanded='true'] .caret {
+.trigger[aria-expanded="true"] .caret {
   transform: rotate(180deg);
 }
 

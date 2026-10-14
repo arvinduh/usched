@@ -8,7 +8,7 @@
 /* Registered so it can transition; not inherited, so only the scroller's
    own style updates while it fades, never its subtree. */
 @property --thumb {
-  syntax: '<color>';
+  syntax: "<color>";
   inherits: false;
   initial-value: transparent;
 }

@@ -12,8 +12,10 @@
  * User-authored data lives in `state/store`.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import styles from "./App.module.css";
 import {
   auditGe,
   auditProgram,
@@ -23,20 +25,24 @@ import {
   getPrograms,
   getTerms,
   lookupCourses,
-} from './api/client';
-import { applyActionChip, proposalsOf } from './semester/assistant/_applyActionChip';
-import { useAdvisorChat } from './semester/assistant/_useAdvisorChat';
-import { useCatalogSearch } from './semester/_search/useCatalogSearch';
-import { DegreeView } from './degree/DegreeView';
-import { courseKey, displayCode } from './degree/_degree';
-import { isTimed, totalUnits } from './semester/_schedule';
-import { Assistant } from './semester/assistant/Assistant';
-import { CourseCard } from './semester/Course';
-import type { CoursePlan } from './semester/Course';
-import { Week } from './semester/Week';
-import { TopBar } from './shell/TopBar';
-import { Welcome } from './shell/Welcome';
-import { useRevealApp } from './shell/_splash';
+} from "./api/client";
+import type { components } from "./api/schema";
+import { courseKey, displayCode } from "./degree/_degree";
+import { DegreeView } from "./degree/DegreeView";
+import { isTimed, totalUnits } from "./semester/_schedule";
+import { useCatalogSearch } from "./semester/_search/useCatalogSearch";
+import {
+  applyActionChip,
+  proposalsOf,
+} from "./semester/assistant/_applyActionChip";
+import { useAdvisorChat } from "./semester/assistant/_useAdvisorChat";
+import { Assistant } from "./semester/assistant/Assistant";
+import type { CoursePlan } from "./semester/Course";
+import { CourseCard } from "./semester/Course";
+import { Week } from "./semester/Week";
+import { useRevealApp } from "./shell/_splash";
+import { TopBar } from "./shell/TopBar";
+import { Welcome } from "./shell/Welcome";
 import {
   addSection,
   countGeSeat,
@@ -46,27 +52,30 @@ import {
   dropSection,
   duplicateConfig,
   overwriteConfig,
+  recordCompleted,
   renameConfig,
   selectConfig,
   selectProgram,
   selectTerm,
   skipWelcome,
-  recordCompleted,
   toggleApCredit,
   toggleCompleted,
   toggleSection,
   toggleWatch,
-} from './state/actions';
-import { setExpanded, setProposals, shownProposal, usePreview } from './state/preview';
-import type { Proposal } from './state/preview';
-import { reset, useStore, useTermPlan } from './state/store';
-import type { ScheduleConfiguration } from './state/store';
-import { showToast, undoLast } from './state/toast';
-import { usePlanCourses } from './state/usePlanCourses';
-import { morph } from './ui/_morph';
-import { ToastHost } from './ui/Toast';
-import type { components } from './api/schema';
-import styles from './App.module.css';
+} from "./state/actions";
+import type { Proposal } from "./state/preview";
+import {
+  setExpanded,
+  setProposals,
+  shownProposal,
+  usePreview,
+} from "./state/preview";
+import type { ScheduleConfiguration } from "./state/store";
+import { reset, useStore, useTermPlan } from "./state/store";
+import { showToast, undoLast } from "./state/toast";
+import { usePlanCourses } from "./state/usePlanCourses";
+import { morph } from "./ui/_morph";
+import { ToastHost } from "./ui/Toast";
 
 /** Text that names a course rather than a topic, e.g. "CSCI-104L". */
 const COURSE_CODE = /^[A-Za-z]{2,5}[- ]?\d{3}[A-Za-z]{0,4}$/;
@@ -77,7 +86,7 @@ const LIFT_MS = 160;
 /** Courses the column suggests as next up. */
 const NEXT_UP = 5;
 
-type Space = 'planner' | 'degree';
+type Space = "planner" | "degree";
 
 /** The course whose card is open, as this term offers it. */
 interface Opened {
@@ -85,10 +94,10 @@ interface Opened {
   /** A title from whoever opened it, for courses this term lacks. */
   readonly title: string | null;
   /** Null when this term does not offer the course. */
-  readonly course: components['schemas']['Course'] | null;
+  readonly course: components["schemas"]["Course"] | null;
 }
 
-const PANE_KEY = 'usched:pane';
+const PANE_KEY = "usched:pane";
 const PANE_DEFAULT = 420;
 
 /** Keeps the assistant pane between usable and overbearing widths. */
@@ -109,7 +118,7 @@ function savePaneWidth(px: number): void {
   try {
     localStorage.setItem(PANE_KEY, String(px));
   } catch (err) {
-    console.error('Failed to save pane width', err);
+    console.error("Failed to save pane width", err);
   }
 }
 
@@ -117,9 +126,9 @@ function isTyping(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLElement &&
     (target.isContentEditable ||
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.tagName === 'SELECT')
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT")
   );
 }
 
@@ -127,7 +136,9 @@ function isTyping(target: EventTarget | null): boolean {
  * Loads the plannable terms and renders the planner for the chosen one.
  */
 export function App(): React.JSX.Element {
-  const [terms, setTerms] = useState<readonly components['schemas']['Term'][] | null>(null);
+  const [terms, setTerms] = useState<
+    readonly components["schemas"]["Term"][] | null
+  >(null);
   const [failed, setFailed] = useState(false);
   const stored = useStore((s) => s.term);
 
@@ -169,16 +180,16 @@ function Planner({
   terms,
 }: {
   readonly term: number;
-  readonly terms: readonly components['schemas']['Term'][];
+  readonly terms: readonly components["schemas"]["Term"][];
 }): React.JSX.Element {
   const searchInput = useRef<HTMLInputElement>(null);
   const semester = useRef<HTMLElement>(null);
   const [paneWidth, setPaneWidth] = useState(readPaneWidth);
-  const [space, setSpace] = useState<Space>('planner');
+  const [space, setSpace] = useState<Space>("planner");
   const [opened, setOpened] = useState<Opened | null>(null);
   const proposal = usePreview(shownProposal);
   // The latest open request, so a slow lookup never replaces a newer card.
-  const opening = useRef('');
+  const opening = useRef("");
 
   const configurations = useTermPlan((p) => p.configurations);
   const activeConfigId = useTermPlan((p) => p.activeConfigId);
@@ -189,19 +200,27 @@ function Planner({
   const programId = useStore((s) => s.programId);
   const welcomed = useStore((s) => s.welcomed);
 
-  const [programs, setPrograms] = useState<readonly components['schemas']['ProgramSummary'][]>([]);
-  const [apExams, setApExams] = useState<readonly components['schemas']['ApExam'][]>([]);
+  const [programs, setPrograms] = useState<
+    readonly components["schemas"]["ProgramSummary"][]
+  >([]);
+  const [apExams, setApExams] = useState<
+    readonly components["schemas"]["ApExam"][]
+  >([]);
   // Fetched results remember what they answer, so a stale one is never
   // shown for a newly chosen program or term.
-  const [loadedProgram, setLoadedProgram] = useState<components['schemas']['Program'] | null>(null);
+  const [loadedProgram, setLoadedProgram] = useState<
+    components["schemas"]["Program"] | null
+  >(null);
   const [loadedAudit, setLoadedAudit] = useState<{
     readonly key: string;
-    readonly audit: components['schemas']['ProgramAudit'];
+    readonly audit: components["schemas"]["ProgramAudit"];
   } | null>(null);
   const auditKey = `${term}|${programId}`;
   const program = loadedProgram?.id === programId ? loadedProgram : null;
   const audit = loadedAudit?.key === auditKey ? loadedAudit.audit : null;
-  const [geAudit, setGeAudit] = useState<components['schemas']['GeAudit'] | null>(null);
+  const [geAudit, setGeAudit] = useState<
+    components["schemas"]["GeAudit"] | null
+  >(null);
 
   const completed = useMemo(
     () => new Set(completedCourseIds.map(courseKey)),
@@ -217,10 +236,12 @@ function Planner({
     }
     const locked = new Set(Object.keys(audit?.locked ?? {}).map(courseKey));
     const codes = program.requirements.flatMap((r) =>
-      r.slots.flat().flatMap((c) => (c.title ? [c.course.resolved ?? ''] : [])),
+      r.slots.flat().flatMap((c) => (c.title ? [c.course.resolved ?? ""] : [])),
     );
     return [...new Set(codes)]
-      .filter((c) => c && !completed.has(courseKey(c)) && !locked.has(courseKey(c)))
+      .filter(
+        (c) => c && !completed.has(courseKey(c)) && !locked.has(courseKey(c)),
+      )
       .slice(0, NEXT_UP + 4);
   }, [program, audit, completed]);
 
@@ -235,24 +256,30 @@ function Planner({
   // A finished reply acts at once: proposals land on the week, and courses
   // the student said they took are recorded, with undo.
   const projectProposals = useCallback(
-    (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]): void => {
+    (
+      chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][],
+    ): void => {
       const proposals = proposalsOf(chips);
       if (proposals.length > 0) {
-        goRef.current('planner');
+        goRef.current("planner");
         setProposals(proposals);
       }
     },
     [],
   );
   const actOnReply = useCallback(
-    (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]): void => {
+    (
+      chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][],
+    ): void => {
       projectProposals(chips);
       for (const chip of chips) {
-        if (chip.action === 'mark_taken') {
-        showToast(chip.label, recordCompleted(chip.course_codes));
+        if (chip.action === "mark_taken") {
+          showToast(chip.label, recordCompleted(chip.course_codes));
+        }
       }
-    }
-  }, [projectProposals]);
+    },
+    [projectProposals],
+  );
   const chat = useAdvisorChat(actOnReply);
 
   // The splash holds until the first screen can be used: the welcome
@@ -262,7 +289,9 @@ function Planner({
     getApExams().then(setApExams).catch(console.error);
     getPrograms()
       .then((all) =>
-        setPrograms(all.filter((p) => p.kind === 'degree' || p.kind === 'minor')),
+        setPrograms(
+          all.filter((p) => p.kind === "degree" || p.kind === "minor"),
+        ),
       )
       .catch(console.error)
       .finally(() => setProgramsSettled(true));
@@ -306,7 +335,7 @@ function Planner({
     () =>
       activeSectionIds
         .map((id) => sectionsById.get(id))
-        .filter((s): s is components['schemas']['Section'] => s !== undefined),
+        .filter((s): s is components["schemas"]["Section"] => s !== undefined),
     [activeSectionIds, sectionsById],
   );
   const scheduledCourseIds = useMemo(
@@ -325,12 +354,15 @@ function Planner({
     [scheduledCourseIds],
   );
   const watched = useMemo(() => new Set(watchedCourseIds), [watchedCourseIds]);
-  const activeIds = useMemo(() => new Set(activeSectionIds), [activeSectionIds]);
+  const activeIds = useMemo(
+    () => new Set(activeSectionIds),
+    [activeSectionIds],
+  );
   const savedCourses = useMemo(
     () =>
       watchedCourseIds
         .map((code) => coursesByCode.get(code))
-        .filter((c): c is components['schemas']['Course'] => c !== undefined),
+        .filter((c): c is components["schemas"]["Course"] => c !== undefined),
     [watchedCourseIds, coursesByCode],
   );
 
@@ -339,7 +371,7 @@ function Planner({
       nextUpIds
         .filter((id) => !planned.has(courseKey(id)))
         .map((code) => coursesByCode.get(code))
-        .filter((c): c is components['schemas']['Course'] => c !== undefined)
+        .filter((c): c is components["schemas"]["Course"] => c !== undefined)
         .slice(0, NEXT_UP),
     [nextUpIds, planned, coursesByCode],
   );
@@ -347,10 +379,16 @@ function Planner({
   const plannedUnits = totalUnits(activeSections, coursesByCode);
   const degreeUnits =
     audit && program?.total_units
-      ? { completed: audit.units, planned: plannedUnits, total: program.total_units }
+      ? {
+          completed: audit.units,
+          planned: plannedUnits,
+          total: program.total_units,
+        }
       : null;
   const termInfo = terms.find((t) => t.code === term);
-  const termName = termInfo ? `${termInfo.season} ${termInfo.year}` : String(term);
+  const termName = termInfo
+    ? `${termInfo.season} ${termInfo.year}`
+    : String(term);
 
   // Morph between places where the browser supports view transitions; the
   // meter and the Degree page's bar share a name, so one becomes the other.
@@ -373,8 +411,8 @@ function Planner({
         return;
       }
       if (
-        next === 'planner' &&
-        !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        next === "planner" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ) {
         leaving.current = true;
         setLeavingDegree(true);
@@ -398,21 +436,21 @@ function Planner({
   // page lifts out first) lands once the planner has rendered.
   const focusOnArrival = useRef(false);
   useEffect(() => {
-    if (space === 'planner' && focusOnArrival.current) {
+    if (space === "planner" && focusOnArrival.current) {
       focusOnArrival.current = false;
       searchInput.current?.focus();
     }
   }, [space]);
   const focusInput = useCallback((): void => {
-    if (currentSpace.current === 'planner') {
+    if (currentSpace.current === "planner") {
       searchInput.current?.focus();
     } else {
       focusOnArrival.current = true;
-      go('planner');
+      go("planner");
     }
   }, [go]);
 
-  const openCourse = (course: components['schemas']['Course']): void => {
+  const openCourse = (course: components["schemas"]["Course"]): void => {
     opening.current = course.code;
     remember(course);
     setExpanded(course);
@@ -434,7 +472,7 @@ function Planner({
   };
 
   const closeCourse = useCallback((): void => {
-    opening.current = '';
+    opening.current = "";
     setOpened(null);
     setExpanded(null);
   }, []);
@@ -444,10 +482,12 @@ function Planner({
   // the week shows the open card's sections, if any.
   const expanded = usePreview((p) => p.expanded);
   const resting = opened?.course ?? null;
-  const pickBlock = (course: components['schemas']['Course']): void => {
+  const pickBlock = (course: components["schemas"]["Course"]): void => {
     if (expanded?.code === course.code) {
       setExpanded(resting);
-    } else if (course.sections.some((s) => isTimed(s) && !activeIds.has(s.id))) {
+    } else if (
+      course.sections.some((s) => isTimed(s) && !activeIds.has(s.id))
+    ) {
       setExpanded(course);
     } else {
       showToast(`${displayCode(course.code)} has no other sections this term`);
@@ -460,7 +500,11 @@ function Planner({
   };
   // A picked course that leaves the week takes its ghosts with it.
   useEffect(() => {
-    if (expanded && expanded !== resting && !scheduledCourseIds.includes(expanded.code)) {
+    if (
+      expanded &&
+      expanded !== resting &&
+      !scheduledCourseIds.includes(expanded.code)
+    ) {
       setExpanded(resting);
     }
   }, [expanded, resting, scheduledCourseIds]);
@@ -468,14 +512,14 @@ function Planner({
   // From the Degree page, a course opens in the planner, where its
   // sections can land on the week.
   const openFromDegree = (code: string, title: string | null): void => {
-    go('planner');
+    go("planner");
     openCode(code, title);
   };
 
   const handleHome = (): void => {
-    go('planner');
+    go("planner");
     closeCourse();
-    setSearchText('');
+    setSearchText("");
   };
 
   const handleSelectTerm = (next: number): void => {
@@ -485,16 +529,16 @@ function Planner({
   };
 
   const handleToggleSection = (
-    section: components['schemas']['Section'],
-    course: components['schemas']['Course'],
+    section: components["schemas"]["Section"],
+    course: components["schemas"]["Course"],
   ): void => {
     remember(course);
     toggleSection(section, course.sections);
   };
 
   const handleAddToVariant = (
-    section: components['schemas']['Section'],
-    course: components['schemas']['Course'],
+    section: components["schemas"]["Section"],
+    course: components["schemas"]["Course"],
     configId: string | null,
   ): void => {
     remember(course);
@@ -529,7 +573,7 @@ function Planner({
     selectConfig(configId);
   };
 
-  const handleRemove = (section: components['schemas']['Section']): void => {
+  const handleRemove = (section: components["schemas"]["Section"]): void => {
     const undo = dropSection(section.id);
     showToast(
       `Removed ${displayCode(section.course_code)} ${section.type.toLowerCase()}`,
@@ -544,25 +588,26 @@ function Planner({
   const handleToggleCompleted = (courseId: string): void => {
     const wasDone = completed.has(courseKey(courseId));
     showToast(
-      `${wasDone ? 'Unmarked' : 'Marked'} ${displayCode(courseId)}${wasDone ? '' : ' taken'}`,
+      `${wasDone ? "Unmarked" : "Marked"} ${displayCode(courseId)}${wasDone ? "" : " taken"}`,
       toggleCompleted(courseId),
     );
   };
 
   // The catalog decides what is a course; anything else is named back.
   const handleTaken = (codes: readonly string[]): void => {
-    setSearchText('');
+    setSearchText("");
     lookupCourses(codes)
       .then((known) => {
         const found = new Set(known.map((c) => courseKey(c.code)));
         const unknown = codes.filter((c) => !found.has(c)).map(displayCode);
-        const missing = unknown.length > 0 ? `; not USC courses: ${unknown.join(', ')}` : '';
+        const missing =
+          unknown.length > 0 ? `; not USC courses: ${unknown.join(", ")}` : "";
         if (known.length === 0) {
-          showToast(`Not USC courses: ${unknown.join(', ')}`);
+          showToast(`Not USC courses: ${unknown.join(", ")}`);
           return;
         }
         showToast(
-          `Marked ${known.length} course${known.length === 1 ? '' : 's'} taken${missing}`,
+          `Marked ${known.length} course${known.length === 1 ? "" : "s"} taken${missing}`,
           recordCompleted(known.map((c) => c.code)),
         );
       })
@@ -579,9 +624,9 @@ function Planner({
         section_ids: [...proposal.sectionIds],
       },
     };
-    go('planner');
+    go("planner");
     closeCourse();
-    setSearchText('');
+    setSearchText("");
     chat.send(text, {
       term,
       sectionIds: activeSectionIds,
@@ -598,23 +643,25 @@ function Planner({
   };
 
   const handleChip = (
-    chip: components['schemas']['ClosingEvent']['action_chips'][number],
+    chip: components["schemas"]["ClosingEvent"]["action_chips"][number],
   ): void => {
     applyActionChip(chip, {
       search: (query) =>
-        COURSE_CODE.test(query.trim()) ? openCode(query.trim()) : setSearchText(`>${query}`),
+        COURSE_CODE.test(query.trim())
+          ? openCode(query.trim())
+          : setSearchText(`>${query}`),
     });
   };
 
   const handleCopySections = (): void => {
     const ids = activeConfig.section_ids;
     navigator.clipboard
-      .writeText(ids.join(', '))
+      .writeText(ids.join(", "))
       .then(() =>
         showToast(
           ids.length > 0
-            ? `Copied ${ids.length} section number${ids.length === 1 ? '' : 's'}`
-            : 'This week has no sections yet',
+            ? `Copied ${ids.length} section number${ids.length === 1 ? "" : "s"}`
+            : "This week has no sections yet",
         ),
       )
       .catch(console.error);
@@ -625,8 +672,8 @@ function Planner({
     chat.clear();
     setProposals([]);
     closeCourse();
-    search.setText('');
-    showToast('All data erased');
+    search.setText("");
+    showToast("All data erased");
   };
 
   const isCardOpen = opened !== null;
@@ -634,14 +681,14 @@ function Planner({
   // a block's picked sections, the card, then the search text.
   const isPicking = expanded !== resting;
   const peel = useCallback((): void => {
-    if (currentSpace.current === 'degree') {
-      go('planner');
+    if (currentSpace.current === "degree") {
+      go("planner");
     } else if (isPicking) {
       setExpanded(resting);
     } else if (isCardOpen) {
       closeCourse();
     } else {
-      setSearchText('');
+      setSearchText("");
     }
   }, [go, isPicking, resting, isCardOpen, closeCourse, setSearchText]);
 
@@ -654,7 +701,7 @@ function Planner({
       // needs a click first.
       const typeIntoBar = (edit: (text: string) => string): void => {
         // In the planner without a bar, the first-run welcome is showing.
-        if (!searchInput.current && currentSpace.current === 'planner') {
+        if (!searchInput.current && currentSpace.current === "planner") {
           return;
         }
         e.preventDefault();
@@ -664,18 +711,18 @@ function Planner({
       // ">" (or Ctrl/Cmd+Shift+P) and "/" switch the bar's mode, keeping
       // whatever words it already holds.
       const withMode = (prefix: string) => (text: string) =>
-        prefix + text.replace(/^[>/]/, '');
-      if (mod && e.shiftKey && key === 'p') {
-        typeIntoBar(withMode('>'));
+        prefix + text.replace(/^[>/]/, "");
+      if (mod && e.shiftKey && key === "p") {
+        typeIntoBar(withMode(">"));
         return;
       }
-      if (mod && key === 'j') {
+      if (mod && key === "j") {
         e.preventDefault();
         focusInput();
         return;
       }
       if (!mod && !e.altKey && !typing) {
-        if (e.key === '>' || e.key === '/') {
+        if (e.key === ">" || e.key === "/") {
           typeIntoBar(withMode(e.key));
           return;
         }
@@ -686,12 +733,12 @@ function Planner({
           return;
         }
         // Backspace outside a field edits the bar the same way.
-        if (e.key === 'Backspace') {
+        if (e.key === "Backspace") {
           typeIntoBar((text) => text.slice(0, -1));
           return;
         }
       }
-      if (mod && key === 'z' && !isTyping(e.target)) {
+      if (mod && key === "z" && !isTyping(e.target)) {
         if (undoLast()) {
           e.preventDefault();
         }
@@ -701,19 +748,19 @@ function Planner({
         return;
       }
       switch (e.key) {
-        case '[':
+        case "[":
           cycleConfig(-1);
           return;
-        case ']':
+        case "]":
           cycleConfig(1);
           return;
-        case 'Escape':
+        case "Escape":
           peel();
           return;
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [peel, focusInput, setSearchText]);
 
   // Drag the pane edge to resize. Moves write the CSS variable directly so
@@ -729,16 +776,16 @@ function Planner({
     let width = paneWidth;
     const move = (ev: PointerEvent): void => {
       width = clampPaneWidth(ev.clientX - left);
-      grid.style.setProperty('--pane', `${width}px`);
+      grid.style.setProperty("--pane", `${width}px`);
     };
     const up = (): void => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
       setPaneWidth(width);
       savePaneWidth(width);
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   if (!programId && !welcomed) {
@@ -748,7 +795,7 @@ function Planner({
         programs={programs}
         onChoose={(id) => {
           selectProgram(id);
-          setSpace('degree');
+          setSpace("degree");
         }}
         onSkip={skipWelcome}
       />
@@ -771,15 +818,17 @@ function Planner({
         terms={terms}
         term={term}
         onSelectTerm={handleSelectTerm}
-        isDegreeOpen={space === 'degree'}
-        onToggleDegree={() => go(space === 'degree' ? 'planner' : 'degree')}
+        isDegreeOpen={space === "degree"}
+        onToggleDegree={() => go(space === "degree" ? "planner" : "degree")}
         onHome={handleHome}
         onCopySections={handleCopySections}
         onReset={handleReset}
       />
 
-      {space === 'degree' ? (
-        <main className={`${styles.degree} ${leavingDegree ? styles.lifting : ''}`}>
+      {space === "degree" ? (
+        <main
+          className={`${styles.degree} ${leavingDegree ? styles.lifting : ""}`}
+        >
           <DegreeView
             term={term}
             programs={programs}
@@ -797,13 +846,19 @@ function Planner({
             onOpenCourse={openFromDegree}
             onToggleTaken={handleToggleCompleted}
             onBrowseGe={(letter) => {
-              go('planner');
+              go("planner");
               // GESM has no letter; its courses share the code prefix.
-              setSearchText(letter.length === 1 ? `>ge ${letter.toLowerCase()} ` : `>${letter} `);
+              setSearchText(
+                letter.length === 1
+                  ? `>ge ${letter.toLowerCase()} `
+                  : `>${letter} `,
+              );
             }}
             onCountGe={(code, isFull) =>
               showToast(
-                isFull ? `Cleared your ${code} count` : `Counted one ${code} course`,
+                isFull
+                  ? `Cleared your ${code} count`
+                  : `Counted one ${code} course`,
                 countGeSeat(code, isFull),
               )
             }
@@ -813,7 +868,7 @@ function Planner({
         <main
           ref={semester}
           className={styles.semester}
-          style={{ '--pane': `${paneWidth}px` } as React.CSSProperties}
+          style={{ "--pane": `${paneWidth}px` } as React.CSSProperties}
         >
           <aside className={styles.left}>
             <Assistant
@@ -826,7 +881,7 @@ function Planner({
               onChip={handleChip}
               onProject={projectProposals}
               onNewChat={chat.clear}
-              onOpenDegree={() => go('degree')}
+              onOpenDegree={() => go("degree")}
               onEscape={peel}
               onOpenCourse={openCourse}
               onOpenCode={openCode}

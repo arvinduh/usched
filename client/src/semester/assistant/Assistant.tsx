@@ -13,41 +13,47 @@
  * caller.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, ListFilter, X } from 'lucide-react';
-import type { CatalogSearch } from '../_search/useCatalogSearch';
-import { courseKey } from '../../degree/_degree';
-import { NO_FILTER, activeFilterCount, courseMatches, sortCourses } from '../_search/_filter';
-import type { DayPart, SectionFilter, SortKey } from '../_search/_filter';
-import type { components } from '../../api/schema';
-import type { ChatMessage } from './_useAdvisorChat';
-import { Composer } from './Composer';
-import type { CommandName } from './Composer';
-import { CourseLine } from '../Course';
-import type { CoursePlan } from '../Course';
-import { FilterPanel } from '../FilterPanel';
-import { Thread } from './Thread';
-import { Select } from '../../ui/Select';
-import type { SelectOption } from '../../ui/Select';
-import styles from './Assistant.module.css';
+import { ArrowUp, ListFilter, X } from "lucide-react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import type { components } from "../../api/schema";
+import { courseKey } from "../../degree/_degree";
+import type { SelectOption } from "../../ui/Select";
+import { Select } from "../../ui/Select";
+import type { DayPart, SectionFilter, SortKey } from "../_search/_filter";
+import {
+  activeFilterCount,
+  courseMatches,
+  NO_FILTER,
+  sortCourses,
+} from "../_search/_filter";
+import type { CatalogSearch } from "../_search/useCatalogSearch";
+import type { CoursePlan } from "../Course";
+import { CourseLine } from "../Course";
+import { FilterPanel } from "../FilterPanel";
+import type { ChatMessage } from "./_useAdvisorChat";
+import styles from "./Assistant.module.css";
+import type { CommandName } from "./Composer";
+import { Composer } from "./Composer";
+import { Thread } from "./Thread";
 
 const STARTERS = [
-  'What should I take next semester?',
-  'Find an easy GE that fits my week',
-  'Am I on track to graduate?',
+  "What should I take next semester?",
+  "Find an easy GE that fits my week",
+  "Am I on track to graduate?",
 ] as const;
 
 const SORT_OPTIONS: readonly SelectOption<SortKey>[] = [
-  { value: 'relevance', label: 'Relevance' },
-  { value: 'rating', label: 'Highest rated' },
-  { value: 'easiest', label: 'Easiest' },
-  { value: 'code', label: 'Course code' },
+  { value: "relevance", label: "Relevance" },
+  { value: "rating", label: "Highest rated" },
+  { value: "easiest", label: "Easiest" },
+  { value: "code", label: "Course code" },
 ];
 
 const DAY_PART_LABELS: Record<DayPart, string> = {
-  morning: 'Mornings',
-  afternoon: 'Afternoons',
-  evening: 'Evenings',
+  morning: "Mornings",
+  afternoon: "Afternoons",
+  evening: "Evenings",
 };
 
 interface FilterChip {
@@ -77,10 +83,16 @@ function filterChips(f: SectionFilter): readonly FilterChip[] {
     });
   }
   if (f.openSeatsOnly) {
-    chips.push({ label: 'Open seats', clear: (g) => ({ ...g, openSeatsOnly: false }) });
+    chips.push({
+      label: "Open seats",
+      clear: (g) => ({ ...g, openSeatsOnly: false }),
+    });
   }
   if (f.fitsWeekOnly) {
-    chips.push({ label: 'Fits my week', clear: (g) => ({ ...g, fitsWeekOnly: false }) });
+    chips.push({
+      label: "Fits my week",
+      clear: (g) => ({ ...g, fitsWeekOnly: false }),
+    });
   }
   return chips;
 }
@@ -94,7 +106,9 @@ function Layer({
   covered,
   children,
   ...rest
-}: { readonly covered: boolean } & React.ComponentProps<'div'>): React.JSX.Element {
+}: {
+  readonly covered: boolean;
+} & React.ComponentProps<"div">): React.JSX.Element {
   return (
     <div className={styles.layer} {...rest}>
       <div className={styles.layerBody} data-covered={covered}>
@@ -115,21 +129,25 @@ export interface AssistantProps {
   readonly onAsk: (text: string) => void;
   /** Records courses as taken, given as identities. */
   readonly onTaken: (codes: readonly string[]) => void;
-  readonly onChip: (chip: components['schemas']['ClosingEvent']['action_chips'][number]) => void;
-  readonly onProject: (chips: readonly components['schemas']['ClosingEvent']['action_chips'][number][]) => void;
+  readonly onChip: (
+    chip: components["schemas"]["ClosingEvent"]["action_chips"][number],
+  ) => void;
+  readonly onProject: (
+    chips: readonly components["schemas"]["ClosingEvent"]["action_chips"][number][],
+  ) => void;
   readonly onNewChat: () => void;
   readonly onOpenDegree: () => void;
   /** Closes the topmost layer: the card, else the search text. */
   readonly onEscape: () => void;
-  readonly onOpenCourse: (course: components['schemas']['Course']) => void;
+  readonly onOpenCourse: (course: components["schemas"]["Course"]) => void;
   /** Opens a course named by code, as advisor replies name them. */
   readonly onOpenCode: (code: string) => void;
   /** Degree courses the student can take next, best first. */
-  readonly nextUp: readonly components['schemas']['Course'][];
+  readonly nextUp: readonly components["schemas"]["Course"][];
   /** The open course's card, or null. */
   readonly card: React.ReactNode;
-  readonly savedCourses: readonly components['schemas']['Course'][];
-  readonly activeSections: readonly components['schemas']['Section'][];
+  readonly savedCourses: readonly components["schemas"]["Course"][];
+  readonly activeSections: readonly components["schemas"]["Section"][];
   readonly plan: CoursePlan;
 }
 
@@ -139,22 +157,35 @@ export interface AssistantProps {
 export function Assistant(props: AssistantProps): React.JSX.Element {
   const { search, messages, card } = props;
   const [filter, setFilter] = useState<SectionFilter>(NO_FILTER);
-  const [sort, setSort] = useState<SortKey>('relevance');
+  const [sort, setSort] = useState<SortKey>("relevance");
   const [panelOpen, setPanelOpen] = useState(false);
-  const { text, setText, bar, parsed, courses, isSearching, hasMore, loadMore } = search;
-  const query = bar.kind === 'courses' ? bar.query : '';
-  const searching = query !== '';
+  const {
+    text,
+    setText,
+    bar,
+    parsed,
+    courses,
+    isSearching,
+    hasMore,
+    loadMore,
+  } = search;
+  const query = bar.kind === "courses" ? bar.query : "";
+  const searching = query !== "";
   const plannedKeys = new Set(props.plan.scheduledCourseIds.map(courseKey));
-  const stateOf = (id: string): 'taken' | 'planned' | null => {
+  const stateOf = (id: string): "taken" | "planned" | null => {
     const key = courseKey(id);
-    return props.plan.completed.has(key) ? 'taken' : plannedKeys.has(key) ? 'planned' : null;
+    return props.plan.completed.has(key)
+      ? "taken"
+      : plannedKeys.has(key)
+        ? "planned"
+        : null;
   };
   const filterCount = activeFilterCount(filter) + parsed.tokens.length;
   const results = sortCourses(
     courses.filter((c) => courseMatches(c, filter, props.activeSections)),
     sort,
   );
-  const line = (course: components['schemas']['Course']): React.JSX.Element => (
+  const line = (course: components["schemas"]["Course"]): React.JSX.Element => (
     <CourseLine
       key={course.code}
       course={course}
@@ -182,15 +213,19 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
   // Arrow keys walk the results; Right opens the course under focus.
   const onResultsKey = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     const target = e.target as HTMLElement;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       const items = [
-        ...(resultsLayer.current?.querySelectorAll<HTMLElement>('[data-nav]') ?? []),
+        ...(resultsLayer.current?.querySelectorAll<HTMLElement>("[data-nav]") ??
+          []),
       ];
-      const next = items[items.indexOf(target) + (e.key === 'ArrowDown' ? 1 : -1)];
+      const next =
+        items[items.indexOf(target) + (e.key === "ArrowDown" ? 1 : -1)];
       e.preventDefault();
-      (next ?? (e.key === 'ArrowDown' ? props.inputRef.current : undefined))?.focus();
-      next?.scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'ArrowRight' && target.dataset.nav === 'course') {
+      (
+        next ?? (e.key === "ArrowDown" ? props.inputRef.current : undefined)
+      )?.focus();
+      next?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "ArrowRight" && target.dataset.nav === "course") {
       e.preventDefault();
       target.click();
     }
@@ -225,7 +260,12 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
           ) : (
             <div className={styles.starters}>
               {STARTERS.map((s) => (
-                <button key={s} type="button" className={styles.starter} onClick={() => props.onAsk(s)}>
+                <button
+                  key={s}
+                  type="button"
+                  className={styles.starter}
+                  onClick={() => props.onAsk(s)}
+                >
                   {s}
                 </button>
               ))}
@@ -234,7 +274,11 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
         </Layer>
 
         {searching && (
-          <Layer covered={card !== null} ref={resultsLayer} onKeyDown={onResultsKey}>
+          <Layer
+            covered={card !== null}
+            ref={resultsLayer}
+            onKeyDown={onResultsKey}
+          >
             <div className={styles.resultsHead}>
               <div className={styles.chips}>
                 {parsed.tokens.map((token) => (
@@ -242,7 +286,7 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
                     key={token.raw}
                     type="button"
                     className={`${styles.chip} ${styles.chipOn}`}
-                    onClick={() => setText(text.replace(token.raw, '').trim())}
+                    onClick={() => setText(text.replace(token.raw, "").trim())}
                   >
                     {token.label}
                     <X size={11} />
@@ -261,13 +305,15 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
                 ))}
                 <button
                   type="button"
-                  className={`${styles.chip} ${panelOpen ? styles.chipActive : ''}`}
+                  className={`${styles.chip} ${panelOpen ? styles.chipActive : ""}`}
                   aria-expanded={panelOpen}
                   onClick={() => setPanelOpen((v) => !v)}
                 >
                   <ListFilter size={12} />
                   Filter
-                  {filterCount > 0 && <span className={styles.badge}>{filterCount}</span>}
+                  {filterCount > 0 && (
+                    <span className={styles.badge}>{filterCount}</span>
+                  )}
                 </button>
                 <span className={styles.sort}>
                   <Select
@@ -301,7 +347,9 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
             {results.map(line)}
             {results.length === 0 && !hasMore && !isSearching && (
               <p className={styles.empty}>
-                {courses.length > 0 ? 'Nothing matches these filters.' : 'No matching courses.'}
+                {courses.length > 0
+                  ? "Nothing matches these filters."
+                  : "No matching courses."}
               </p>
             )}
             <div ref={sentinel} className={styles.sentinel} />
@@ -316,18 +364,20 @@ export function Assistant(props: AssistantProps): React.JSX.Element {
         setText={setText}
         bar={bar}
         top={results[0] ?? null}
-        suggestions={bar.kind === 'took' ? courses : []}
+        suggestions={bar.kind === "took" ? courses : []}
         busy={props.busy}
         inputRef={props.inputRef}
         onOpen={props.onOpenCourse}
         onAsk={props.onAsk}
         onTaken={props.onTaken}
         onCommand={(name: CommandName) =>
-          name === 'new' ? props.onNewChat() : props.onOpenDegree()
+          name === "new" ? props.onNewChat() : props.onOpenDegree()
         }
         onEscape={props.onEscape}
         onArrowUp={() =>
-          resultsLayer.current?.querySelector<HTMLElement>('[data-nav]')?.focus()
+          resultsLayer.current
+            ?.querySelector<HTMLElement>("[data-nav]")
+            ?.focus()
         }
       />
     </div>

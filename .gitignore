@@ -34,6 +34,7 @@ scratch/
 *.log
 
 .claude/
+.gemini/
 
 # Catalog pipeline: raw fetch cache and the built database
 server/data/raw/

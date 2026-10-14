@@ -46,11 +46,11 @@ export function hueFor(
  */
 function pattern(sectionType: string, color: string): string | null {
   switch (sectionType) {
-    case 'Lab':
+    case "Lab":
       return `repeating-linear-gradient(45deg, ${color} 0 1.5px, transparent 1.5px 4px)`;
-    case 'Quiz':
+    case "Quiz":
       return `radial-gradient(${color} 0.9px, transparent 1.2px) 0 0 / 4px 4px`;
-    case 'Discussion':
+    case "Discussion":
       return `repeating-linear-gradient(0deg, ${color} 0 1px, transparent 1px 4px)`;
     default:
       return null;
@@ -71,6 +71,9 @@ export function textureBackground(sectionType: string, color: string): string {
  * never reads as a ghost.
  */
 export function blockBackground(sectionType: string, hue: Hue): string {
-  const texture = pattern(sectionType, `color-mix(in srgb, ${hue.ink} 22%, transparent)`);
+  const texture = pattern(
+    sectionType,
+    `color-mix(in srgb, ${hue.ink} 22%, transparent)`,
+  );
   return texture ? `${texture}, ${hue.fill}` : hue.fill;
 }

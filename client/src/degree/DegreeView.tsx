@@ -9,15 +9,15 @@
  * opening courses and plan edits go back through callbacks.
  */
 
-import React, { useMemo, useState } from 'react';
-import { Check, Lock, Search } from 'lucide-react';
-import { courseKey, displayCode, levelOf } from './_degree';
-import type { components } from '../api/schema';
-import { DegreePicker } from './DegreePicker';
-import { placePopover } from './_popover';
-import { RequirementTree } from './Requirement';
-import type { ChipContext } from './Requirement';
-import styles from './Degree.module.css';
+import { Check, Lock, Search } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import type { components } from "../api/schema";
+import { courseKey, displayCode, levelOf } from "./_degree";
+import { placePopover } from "./_popover";
+import styles from "./Degree.module.css";
+import { DegreePicker } from "./DegreePicker";
+import type { ChipContext } from "./Requirement";
+import { RequirementTree } from "./Requirement";
 
 /**
  * Properties for the Degree space.
@@ -25,14 +25,14 @@ import styles from './Degree.module.css';
 export interface DegreeViewProps {
   /** The planning term, for links and prerequisite checks. */
   readonly term: number;
-  readonly programs: readonly components['schemas']['ProgramSummary'][];
+  readonly programs: readonly components["schemas"]["ProgramSummary"][];
   readonly programId: string;
   readonly onSelectProgram: (programId: string) => void;
-  readonly program: components['schemas']['Program'] | null;
-  readonly audit: components['schemas']['ProgramAudit'] | null;
-  readonly geAudit: components['schemas']['GeAudit'] | null;
-  readonly apExams: readonly components['schemas']['ApExam'][];
-  readonly apCredits: readonly components['schemas']['ApCredit'][];
+  readonly program: components["schemas"]["Program"] | null;
+  readonly audit: components["schemas"]["ProgramAudit"] | null;
+  readonly geAudit: components["schemas"]["GeAudit"] | null;
+  readonly apExams: readonly components["schemas"]["ApExam"][];
+  readonly apCredits: readonly components["schemas"]["ApCredit"][];
   readonly onToggleAp: (examId: string) => void;
   /** Completed courses keyed by `courseKey`. */
   readonly completed: ReadonlySet<string>;
@@ -49,7 +49,9 @@ export interface DegreeViewProps {
 /**
  * Renders the Degree space.
  */
-export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps): React.JSX.Element {
+export const DegreeView = React.memo(function DegreeView(
+  props: DegreeViewProps,
+): React.JSX.Element {
   const { program, audit, completed, planned, plannedUnits } = props;
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -72,7 +74,7 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
 
   const { apExams, apCredits } = props;
   const examsFor = useMemo(() => {
-    const byCourse = new Map<string, components['schemas']['ApExam'][]>();
+    const byCourse = new Map<string, components["schemas"]["ApExam"][]>();
     for (const exam of apExams) {
       for (const course of exam.waives) {
         const key = courseKey(course.resolved ?? course.code);
@@ -102,11 +104,11 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
 
   // GE is undergraduate policy; master's and doctoral students owe none.
   const level = program ? levelOf(program) : null;
-  const isGraduate = level === 'master' || level === 'doctoral';
+  const isGraduate = level === "master" || level === "doctoral";
   const total = program?.total_units ?? 0;
   const done = audit?.units ?? 0;
   const share = (n: number): string =>
-    total > 0 ? `${Math.min(100, (n / total) * 100)}%` : '0%';
+    total > 0 ? `${Math.min(100, (n / total) * 100)}%` : "0%";
   const remaining = Math.max(0, total - done - plannedUnits);
 
   return (
@@ -126,7 +128,10 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
                 <span className={styles.muted}> / {total}</span>
               </p>
               <div className={styles.heroBar}>
-                <span className={styles.heroDone} style={{ width: share(done) }} />
+                <span
+                  className={styles.heroDone}
+                  style={{ width: share(done) }}
+                />
                 <span
                   className={styles.heroPlanned}
                   style={{ width: share(plannedUnits) }}
@@ -135,8 +140,10 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
               <p className={styles.heroLine}>
                 {plannedUnits > 0 && (
                   <>
-                    <span className={styles.plus}>+{plannedUnits} this term</span>
-                    {' · '}
+                    <span className={styles.plus}>
+                      +{plannedUnits} this term
+                    </span>
+                    {" · "}
                   </>
                 )}
                 {remaining} to go
@@ -202,15 +209,16 @@ function GeStrip({
   onBrowse,
   onCount,
 }: {
-  readonly audit: components['schemas']['GeAudit'];
-  readonly apExams: readonly components['schemas']['ApExam'][];
+  readonly audit: components["schemas"]["GeAudit"];
+  readonly apExams: readonly components["schemas"]["ApExam"][];
   readonly earned: ReadonlySet<string>;
   readonly onToggleAp: (examId: string) => void;
   readonly onBrowse: (letter: string) => void;
   readonly onCount: (code: string, isFull: boolean) => void;
 }): React.JSX.Element {
   const examNames = new Map(apExams.map((e) => [e.id, e.name]));
-  const filled = (p: components['schemas']['GeProgress']): number => p.courses.length + p.exams.length + p.counted;
+  const filled = (p: components["schemas"]["GeProgress"]): number =>
+    p.courses.length + p.exams.length + p.counted;
   return (
     <section>
       <header className={styles.headingRow}>
@@ -222,18 +230,18 @@ function GeStrip({
       </header>
       <div className={styles.geStrip}>
         {audit.categories.map((cat) => {
-          const letter = cat.code.replace('GE-', '');
+          const letter = cat.code.replace("GE-", "");
           const isMet = filled(cat) >= cat.required_count;
-          const fill = isMet ? 'full' : filled(cat) > 0 ? 'half' : 'empty';
+          const fill = isMet ? "full" : filled(cat) > 0 ? "half" : "empty";
           const by = [
             ...cat.courses.map(displayCode),
             ...cat.exams.map((id) => examNames.get(id) ?? id),
             ...(cat.counted > 0 ? [`${cat.counted} counted by you`] : []),
           ];
           const hint = !isMet
-            ? 'Click to count one taken elsewhere'
+            ? "Click to count one taken elsewhere"
             : cat.counted > 0
-              ? 'Click to clear your count'
+              ? "Click to clear your count"
               : null;
           return (
             <span
@@ -247,7 +255,7 @@ function GeStrip({
                 className={`${styles.geCell} ${styles[fill]}`}
                 onClick={() => onCount(cat.code, isMet)}
                 aria-label={`${cat.code} ${cat.name}: ${filled(cat)} of ${cat.required_count}.${
-                  hint ? ` ${hint}.` : ''
+                  hint ? ` ${hint}.` : ""
                 }`}
               >
                 {letter}
@@ -256,8 +264,8 @@ function GeStrip({
                 <span className={styles.popTitle}>{cat.name}</span>
                 <span className={styles.popMeta}>
                   {by.length > 0
-                    ? `Met by ${by.join(', ')}`
-                    : `Needs ${cat.required_count} course${cat.required_count === 1 ? '' : 's'}`}
+                    ? `Met by ${by.join(", ")}`
+                    : `Needs ${cat.required_count} course${cat.required_count === 1 ? "" : "s"}`}
                 </span>
                 {hint && <span className={styles.popHint}>{hint}</span>}
                 <ExamToggles
@@ -292,7 +300,7 @@ function ExamToggles({
   earned,
   onToggle,
 }: {
-  readonly exams: readonly components['schemas']['ApExam'][];
+  readonly exams: readonly components["schemas"]["ApExam"][];
   readonly earned: ReadonlySet<string>;
   readonly onToggle: (examId: string) => void;
 }): React.JSX.Element | null {

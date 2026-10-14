@@ -7,31 +7,42 @@
  * first-run welcome also uses. Selection is delegated to the caller.
  */
 
-import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import type { components } from '../api/schema';
-import { indexPrograms, LEVELS, levelOf, rankPrograms, type Level } from './_degree';
-import styles from './Degree.module.css';
+import { ChevronDown } from "lucide-react";
+import type React from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
+import type { components } from "../api/schema";
+import {
+  indexPrograms,
+  LEVELS,
+  type Level,
+  levelOf,
+  rankPrograms,
+} from "./_degree";
+import styles from "./Degree.module.css";
 
 /**
  * Properties for the degree picker.
  */
 export interface DegreePickerProps {
   /** Degrees and minors; other program kinds are not offered here. */
-  readonly programs: readonly components['schemas']['ProgramSummary'][];
+  readonly programs: readonly components["schemas"]["ProgramSummary"][];
   readonly selectedId: string;
   readonly onSelect: (programId: string) => void;
 }
 
 /** The chip text for a program: its degree type, or Minor. */
-function typeOf(p: components['schemas']['ProgramSummary']): string {
-  return p.degree_type ?? (p.kind === 'minor' ? 'Minor' : '');
+function typeOf(p: components["schemas"]["ProgramSummary"]): string {
+  return p.degree_type ?? (p.kind === "minor" ? "Minor" : "");
 }
 
 /**
  * Renders a degree-type chip ("BS", "BA") in that type's quiet color.
  */
-export function TypeChip({ type }: { readonly type: string }): React.JSX.Element | null {
+export function TypeChip({
+  type,
+}: {
+  readonly type: string;
+}): React.JSX.Element | null {
   if (!type) {
     return null;
   }
@@ -47,8 +58,8 @@ export function TypeChip({ type }: { readonly type: string }): React.JSX.Element
  * another program shares its title.
  */
 function useProgramDetail(
-  programs: readonly components['schemas']['ProgramSummary'][],
-): (p: components['schemas']['ProgramSummary']) => string {
+  programs: readonly components["schemas"]["ProgramSummary"][],
+): (p: components["schemas"]["ProgramSummary"]) => string {
   const sharedTitles = useMemo(() => {
     const seen = new Set<string>();
     const shared = new Set<string>();
@@ -58,16 +69,16 @@ function useProgramDetail(
     return shared;
   }, [programs]);
   return (p) =>
-    [p.emphasis, sharedTitles.has(p.title) ? p.school : '']
+    [p.emphasis, sharedTitles.has(p.title) ? p.school : ""]
       .filter(Boolean)
-      .join(' · ');
+      .join(" · ");
 }
 
 /**
  * Properties for the program combobox.
  */
 export interface ProgramSearchProps {
-  readonly programs: readonly components['schemas']['ProgramSummary'][];
+  readonly programs: readonly components["schemas"]["ProgramSummary"][];
   readonly onChoose: (programId: string) => void;
   /** Leaving the input (blur or Escape); omit to keep it open. */
   readonly onCancel?: () => void;
@@ -78,7 +89,7 @@ export interface ProgramSearchProps {
  */
 export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
   const { programs, onChoose, onCancel } = props;
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   // Null shows every level.
   const [level, setLevel] = useState<Level | null>(null);
@@ -98,11 +109,14 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
   );
   // Typing stays immediate; re-ranking every program follows a beat behind.
   const deferredQuery = useDeferredValue(query);
-  const matches = useMemo(() => rankPrograms(pool, deferredQuery), [pool, deferredQuery]);
+  const matches = useMemo(
+    () => rankPrograms(pool, deferredQuery),
+    [pool, deferredQuery],
+  );
 
   const moveTo = (i: number): void => {
     setCursor(i);
-    list.current?.children[i]?.scrollIntoView({ block: 'nearest' });
+    list.current?.children[i]?.scrollIntoView({ block: "nearest" });
   };
   const restart = (): void => {
     setCursor(0);
@@ -119,7 +133,7 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
         }
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Escape' && onCancel) {
+        if (e.key === "Escape" && onCancel) {
           e.stopPropagation();
           onCancel();
         }
@@ -133,32 +147,38 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
         role="combobox"
         aria-expanded
         aria-controls="degree-options"
-        aria-activedescendant={matches[cursor] ? `degree-${matches[cursor].id}` : undefined}
+        aria-activedescendant={
+          matches[cursor] ? `degree-${matches[cursor].id}` : undefined
+        }
         onChange={(e) => {
           setQuery(e.target.value);
           restart();
         }}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') {
+          if (e.key === "ArrowDown") {
             e.preventDefault();
             moveTo(Math.min(cursor + 1, matches.length - 1));
-          } else if (e.key === 'ArrowUp') {
+          } else if (e.key === "ArrowUp") {
             e.preventDefault();
             moveTo(Math.max(cursor - 1, 0));
-          } else if (e.key === 'Enter' && matches[cursor]) {
+          } else if (e.key === "Enter" && matches[cursor]) {
             onChoose(matches[cursor].id);
           }
         }}
       />
       <div className={styles.popup}>
         {levels.length > 0 && (
-          <div role="group" aria-label="Program level" className={styles.levels}>
-            {[{ level: null, label: 'All' }, ...levels].map((l) => (
+          <div
+            role="group"
+            aria-label="Program level"
+            className={styles.levels}
+          >
+            {[{ level: null, label: "All" }, ...levels].map((l) => (
               <button
                 key={l.label}
                 type="button"
                 aria-pressed={level === l.level}
-                className={`${styles.level} ${level === l.level ? styles.levelOn : ''}`}
+                className={`${styles.level} ${level === l.level ? styles.levelOn : ""}`}
                 // Keep focus in the input, so typing carries on after a click.
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
@@ -171,7 +191,12 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
             ))}
           </div>
         )}
-        <ul ref={list} id="degree-options" role="listbox" className={styles.options}>
+        <ul
+          ref={list}
+          id="degree-options"
+          role="listbox"
+          className={styles.options}
+        >
           {matches.map((d, i) => (
             <ProgramOption
               key={d.id}
@@ -183,7 +208,9 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
               onChoose={onChoose}
             />
           ))}
-          {matches.length === 0 && <li className={styles.optionEmpty}>No programs match.</li>}
+          {matches.length === 0 && (
+            <li className={styles.optionEmpty}>No programs match.</li>
+          )}
         </ul>
       </div>
     </div>
@@ -194,7 +221,7 @@ export function ProgramSearch(props: ProgramSearchProps): React.JSX.Element {
  * Properties for one program in the combobox's list.
  */
 interface ProgramOptionProps {
-  readonly program: components['schemas']['ProgramSummary'];
+  readonly program: components["schemas"]["ProgramSummary"];
   readonly detail: string;
   readonly position: number;
   readonly isActive: boolean;
@@ -213,7 +240,7 @@ function ProgramOption(props: ProgramOptionProps): React.JSX.Element {
       id={`degree-${program.id}`}
       role="option"
       aria-selected={isActive}
-      className={`${styles.option} ${isActive ? styles.optionOn : ''}`}
+      className={`${styles.option} ${isActive ? styles.optionOn : ""}`}
       onMouseEnter={() => onHover(position)}
       // Choose on mousedown so the input's blur doesn't close first.
       onMouseDown={(e) => {
@@ -259,7 +286,7 @@ export function DegreePicker(props: DegreePickerProps): React.JSX.Element {
       aria-haspopup="listbox"
     >
       <span className={styles.degreeName}>
-        {selected?.name ?? 'Choose a program'}
+        {selected?.name ?? "Choose a program"}
       </span>
       {selected && <TypeChip type={typeOf(selected)} />}
       <ChevronDown size={16} className={styles.pickerCaret} />

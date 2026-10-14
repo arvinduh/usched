@@ -7,22 +7,22 @@
  * this hook never reads the plan store.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { streamChat } from '../../api/client';
-import type { components } from '../../api/schema';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { streamChat } from "../../api/client";
+import type { components } from "../../api/schema";
 
 /**
  * A message in the advisor thread; lives only until reload.
  */
 export interface ChatMessage {
   readonly id: string;
-  readonly role: 'user' | 'assistant';
+  readonly role: "user" | "assistant";
   readonly content: string;
   /** Tools the advisor ran while replying, in words, in order. */
   readonly steps?: readonly string[];
   /** The advisor's reasoning summary for this reply. */
   readonly thinking?: string;
-  readonly chips?: components['schemas']['ClosingEvent']['action_chips'];
+  readonly chips?: components["schemas"]["ClosingEvent"]["action_chips"];
   /** Courses the reply names that the catalog does not have. */
   readonly unverified?: readonly string[];
 }
@@ -36,14 +36,14 @@ export interface AdvisorContext {
   readonly sectionIds: readonly string[];
   readonly shortlistedCodes: readonly string[];
   readonly completedCodes: readonly string[];
-  readonly apCredits: readonly components['schemas']['ApCredit'][];
+  readonly apCredits: readonly components["schemas"]["ApCredit"][];
   /** GE seats counted by hand, by category code. */
   readonly geCounted: Readonly<Record<string, number>>;
   readonly programId: string;
   /** The student's other schedules. */
-  readonly variants: readonly components['schemas']['Variant'][];
+  readonly variants: readonly components["schemas"]["Variant"][];
   /** What the student is looking at as they ask. */
-  readonly screen: components['schemas']['Screen'];
+  readonly screen: components["schemas"]["Screen"];
 }
 
 /**
@@ -59,7 +59,7 @@ export interface AdvisorChat {
 
 let nextId = 0;
 
-function message(role: ChatMessage['role'], content: string): ChatMessage {
+function message(role: ChatMessage["role"], content: string): ChatMessage {
   nextId += 1;
   return { id: `m${nextId}`, role, content };
 }
@@ -70,7 +70,9 @@ function message(role: ChatMessage['role'], content: string): ChatMessage {
  * without a click (projecting proposed schedules, for one).
  */
 export function useAdvisorChat(
-  onChips: (chips: components['schemas']['ClosingEvent']['action_chips']) => void,
+  onChips: (
+    chips: components["schemas"]["ClosingEvent"]["action_chips"],
+  ) => void,
 ): AdvisorChat {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,18 +96,18 @@ export function useAdvisorChat(
 
   const send = useCallback((text: string, context: AdvisorContext): void => {
     abort.current?.();
-    const reply = message('assistant', '');
+    const reply = message("assistant", "");
     const patchReply = (patch: Partial<ChatMessage>): void =>
       setMessages((prev) =>
         prev.map((m) => (m.id === reply.id ? { ...m, ...patch } : m)),
       );
     const history = latest.current;
-    setMessages([...history, message('user', text), reply]);
+    setMessages([...history, message("user", text), reply]);
     setIsLoading(true);
 
-    let content = '';
+    let content = "";
     let steps: readonly string[] = [];
-    let thinking = '';
+    let thinking = "";
     abort.current = streamChat(
       {
         message: text,
@@ -139,7 +141,10 @@ export function useAdvisorChat(
           patchReply({ thinking });
         },
         onClose: (event) => {
-          patchReply({ chips: event.action_chips, unverified: event.unverified });
+          patchReply({
+            chips: event.action_chips,
+            unverified: event.unverified,
+          });
           chipsHandler.current(event.action_chips);
         },
         onDone: () => setIsLoading(false),

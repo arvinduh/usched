@@ -62,7 +62,9 @@
   padding: 0 10px;
   border-radius: 999px;
   color: var(--text-secondary);
-  transition: background 100ms ease-out, color 100ms ease-out;
+  transition:
+    background 100ms ease-out,
+    color 100ms ease-out;
 }
 
 .variant:hover {
@@ -162,7 +164,9 @@
   place-items: center;
   border-radius: 50%;
   color: var(--text-muted);
-  transition: background 100ms ease-out, color 100ms ease-out;
+  transition:
+    background 100ms ease-out,
+    color 100ms ease-out;
 }
 
 .duplicate:hover {

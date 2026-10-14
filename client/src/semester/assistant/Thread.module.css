@@ -12,7 +12,9 @@
   border-radius: 999px;
   font-size: 11px;
   color: var(--text-muted);
-  transition: color 100ms ease-out, background 100ms ease-out;
+  transition:
+    color 100ms ease-out,
+    background 100ms ease-out;
 }
 
 .newChat:hover {
@@ -172,7 +174,8 @@
 
 /* The step under way shimmers, so working reads as working. */
 .live {
-  background: linear-gradient(
+  background:
+    linear-gradient(
       90deg,
       var(--text-muted) 0%,
       var(--text-primary) 50%,

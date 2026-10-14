@@ -4,9 +4,9 @@
  * Renders whatever `state/toast` currently holds; the store owns timing.
  */
 
-import React from 'react';
-import { undoLast, useToast } from '../state/toast';
-import styles from './Toast.module.css';
+import type React from "react";
+import { undoLast, useToast } from "../state/toast";
+import styles from "./Toast.module.css";
 
 /**
  * Renders the active toast, keyed so each new one replays its entrance.

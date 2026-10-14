@@ -1,8 +1,8 @@
 # usched documentation
 
 These pages explain how usched works and how to change it. Start with
-[Architecture](architecture.md) for the big picture, then read the page for
-the part you are touching.
+[Architecture](architecture.md) for the big picture, then read the page for the
+part you are touching.
 
 ## Guides
 

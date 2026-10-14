@@ -6,30 +6,31 @@
  * and turning non-2xx responses into errors.
  */
 
-import type { components } from './schema';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL } from "../config";
+import type { components } from "./schema";
 
 /* Canonical domain types derived strictly from components['schemas'] */
-export type Term = components['schemas']['Term'];
-export type Course = components['schemas']['Course'];
-export type Section = components['schemas']['Section'];
-export type KnownCourse = components['schemas']['KnownCourse'];
-export type Program = components['schemas']['Program'];
-export type ProgramSummary = components['schemas']['ProgramSummary'];
-export type ProgramAudit = components['schemas']['ProgramAudit'];
-export type GeCategory = components['schemas']['GeCategory'];
-export type GeProgress = components['schemas']['GeProgress'];
-export type ApExam = components['schemas']['ApExam'];
-export type ApCredit = components['schemas']['ApCredit'];
-export type ChatRequest = components['schemas']['ChatRequest'];
-export type ChatTurn = components['schemas']['ChatTurn'];
-export type ClosingEvent = components['schemas']['ClosingEvent'];
-export type ActionChip = components['schemas']['ClosingEvent']['action_chips'][number];
-export type Weekday = components['schemas']['Weekday'];
-export type Meeting = components['schemas']['Meeting'];
-export type RequisiteGroup = components['schemas']['RequisiteGroup'];
-export type CourseRef = components['schemas']['CourseRef'];
-export type Units = components['schemas']['Units'];
+export type Term = components["schemas"]["Term"];
+export type Course = components["schemas"]["Course"];
+export type Section = components["schemas"]["Section"];
+export type KnownCourse = components["schemas"]["KnownCourse"];
+export type Program = components["schemas"]["Program"];
+export type ProgramSummary = components["schemas"]["ProgramSummary"];
+export type ProgramAudit = components["schemas"]["ProgramAudit"];
+export type GeCategory = components["schemas"]["GeCategory"];
+export type GeProgress = components["schemas"]["GeProgress"];
+export type ApExam = components["schemas"]["ApExam"];
+export type ApCredit = components["schemas"]["ApCredit"];
+export type ChatRequest = components["schemas"]["ChatRequest"];
+export type ChatTurn = components["schemas"]["ChatTurn"];
+export type ClosingEvent = components["schemas"]["ClosingEvent"];
+export type ActionChip =
+  components["schemas"]["ClosingEvent"]["action_chips"][number];
+export type Weekday = components["schemas"]["Weekday"];
+export type Meeting = components["schemas"]["Meeting"];
+export type RequisiteGroup = components["schemas"]["RequisiteGroup"];
+export type CourseRef = components["schemas"]["CourseRef"];
+export type Units = components["schemas"]["Units"];
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, { signal });
@@ -39,10 +40,14 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+async function post<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
   });
@@ -53,8 +58,8 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
 }
 
 /** Lists every term, newest first. */
-export function getTerms(): Promise<readonly components['schemas']['Term'][]> {
-  return get('/terms');
+export function getTerms(): Promise<readonly components["schemas"]["Term"][]> {
+  return get("/terms");
 }
 
 /** Filters for a course search; omitted fields do not filter. */
@@ -71,24 +76,24 @@ export function searchCourses(
   term: number,
   query: CourseQuery,
   signal?: AbortSignal,
-): Promise<readonly components['schemas']['Course'][]> {
+): Promise<readonly components["schemas"]["Course"][]> {
   const params = new URLSearchParams();
   if (query.q) {
-    params.set('q', query.q);
+    params.set("q", query.q);
   }
   if (query.ge) {
-    params.set('ge', query.ge);
+    params.set("ge", query.ge);
   }
   if (query.minRating) {
-    params.set('min_rating', String(query.minRating));
+    params.set("min_rating", String(query.minRating));
   }
   if (query.limit) {
-    params.set('limit', String(query.limit));
+    params.set("limit", String(query.limit));
   }
   if (query.offset) {
-    params.set('offset', String(query.offset));
+    params.set("offset", String(query.offset));
   }
-  const suffix = params.size ? `?${params}` : '';
+  const suffix = params.size ? `?${params}` : "";
   return get(`/terms/${term}/courses${suffix}`, signal);
 }
 
@@ -96,18 +101,20 @@ export function searchCourses(
 export function getCourses(
   term: number,
   codes: readonly string[],
-): Promise<readonly components['schemas']['Course'][]> {
+): Promise<readonly components["schemas"]["Course"][]> {
   if (codes.length === 0) {
     return Promise.resolve([]);
   }
-  return get(`/terms/${term}/courses?codes=${encodeURIComponent(codes.join(','))}`);
+  return get(
+    `/terms/${term}/courses?codes=${encodeURIComponent(codes.join(","))}`,
+  );
 }
 
 /** Loads one course as offered in a term; rejects when it is not. */
 export function getCourse(
   term: number,
   code: string,
-): Promise<components['schemas']['Course']> {
+): Promise<components["schemas"]["Course"]> {
   return get(`/terms/${term}/courses/${encodeURIComponent(code)}`);
 }
 
@@ -115,11 +122,13 @@ export function getCourse(
 export function getSections(
   term: number,
   ids: readonly string[],
-): Promise<readonly components['schemas']['Section'][]> {
+): Promise<readonly components["schemas"]["Section"][]> {
   if (ids.length === 0) {
     return Promise.resolve([]);
   }
-  return get(`/terms/${term}/sections?ids=${encodeURIComponent(ids.join(','))}`);
+  return get(
+    `/terms/${term}/sections?ids=${encodeURIComponent(ids.join(","))}`,
+  );
 }
 
 /**
@@ -128,17 +137,21 @@ export function getSections(
  */
 export function lookupCourses(
   codes: readonly string[],
-): Promise<readonly components['schemas']['KnownCourse'][]> {
-  return get(`/courses?codes=${encodeURIComponent(codes.join(','))}`);
+): Promise<readonly components["schemas"]["KnownCourse"][]> {
+  return get(`/courses?codes=${encodeURIComponent(codes.join(","))}`);
 }
 
 /** Lists the current catalogue's programs. */
-export function getPrograms(): Promise<readonly components['schemas']['ProgramSummary'][]> {
-  return get('/programs');
+export function getPrograms(): Promise<
+  readonly components["schemas"]["ProgramSummary"][]
+> {
+  return get("/programs");
 }
 
 /** Loads a program's requirement tree. */
-export function getProgram(id: string): Promise<components['schemas']['Program']> {
+export function getProgram(
+  id: string,
+): Promise<components["schemas"]["Program"]> {
   return get(`/programs/${encodeURIComponent(id)}`);
 }
 
@@ -147,9 +160,9 @@ export function auditProgram(
   term: number,
   id: string,
   completed: readonly string[],
-  apCredits: readonly components['schemas']['ApCredit'][],
+  apCredits: readonly components["schemas"]["ApCredit"][],
   geCounted: Readonly<Record<string, number>>,
-): Promise<components['schemas']['ProgramAudit']> {
+): Promise<components["schemas"]["ProgramAudit"]> {
   return post(`/terms/${term}/programs/${encodeURIComponent(id)}/audit`, {
     completed,
     ap_credits: apCredits,
@@ -158,22 +171,30 @@ export function auditProgram(
 }
 
 /** Lists GE categories and how many courses each needs. */
-export function getGeCategories(): Promise<readonly components['schemas']['GeCategory'][]> {
-  return get('/ge-categories');
+export function getGeCategories(): Promise<
+  readonly components["schemas"]["GeCategory"][]
+> {
+  return get("/ge-categories");
 }
 
 /** Shows how courses, AP exams, and seats counted by hand fill each GE. */
 export function auditGe(
   completed: readonly string[],
-  apCredits: readonly components['schemas']['ApCredit'][],
+  apCredits: readonly components["schemas"]["ApCredit"][],
   geCounted: Readonly<Record<string, number>>,
-): Promise<components['schemas']['GeAudit']> {
-  return post('/ge-audit', { completed, ap_credits: apCredits, ge_counted: geCounted });
+): Promise<components["schemas"]["GeAudit"]> {
+  return post("/ge-audit", {
+    completed,
+    ap_credits: apCredits,
+    ge_counted: geCounted,
+  });
 }
 
 /** Lists AP exams USC grants credit for. */
-export function getApExams(): Promise<readonly components['schemas']['ApExam'][]> {
-  return get('/ap-exams');
+export function getApExams(): Promise<
+  readonly components["schemas"]["ApExam"][]
+> {
+  return get("/ap-exams");
 }
 
 /** Callbacks for one streamed advisor reply. */
@@ -183,15 +204,15 @@ export interface ChatHandlers {
   readonly onStep: (step: string) => void;
   /** A piece of the advisor's reasoning summary. */
   readonly onThought: (text: string) => void;
-  readonly onClose: (event: components['schemas']['ClosingEvent']) => void;
+  readonly onClose: (event: components["schemas"]["ClosingEvent"]) => void;
   readonly onDone: () => void;
 }
 
 function _isClosingEvent(val: unknown): val is ClosingEvent {
   return (
-    typeof val === 'object' &&
+    typeof val === "object" &&
     val !== null &&
-    'action_chips' in val &&
+    "action_chips" in val &&
     Array.isArray(val.action_chips)
   );
 }
@@ -203,7 +224,7 @@ function _isClosingEvent(val: unknown): val is ClosingEvent {
  * whether the stream ends, fails, or is aborted.
  */
 export function streamChat(
-  request: components['schemas']['ChatRequest'],
+  request: components["schemas"]["ChatRequest"],
   { onToken, onStep, onThought, onClose, onDone }: ChatHandlers,
 ): () => void {
   const controller = new AbortController();
@@ -217,21 +238,21 @@ export function streamChat(
   void (async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/chat`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
         },
         body: JSON.stringify(request),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
-        onToken('The advisor could not be reached.');
+        onToken("The advisor could not be reached.");
         return;
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
       try {
         for (;;) {
           if (controller.signal.aborted) {
@@ -243,20 +264,23 @@ export function streamChat(
             return;
           }
           buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split('\n\n');
-          buffer = events.pop() ?? '';
+          const events = buffer.split("\n\n");
+          buffer = events.pop() ?? "";
           for (const event of events) {
-            const data = event.replace(/^data: ?/, '');
-            if (data === '[DONE]') {
+            const data = event.replace(/^data: ?/, "");
+            if (data === "[DONE]") {
               return;
             }
             const parsed: unknown = JSON.parse(data);
-            if (typeof parsed === 'object' && parsed !== null) {
-              if ('token' in parsed && typeof parsed.token === 'string') {
+            if (typeof parsed === "object" && parsed !== null) {
+              if ("token" in parsed && typeof parsed.token === "string") {
                 onToken(parsed.token);
-              } else if ('step' in parsed && typeof parsed.step === 'string') {
+              } else if ("step" in parsed && typeof parsed.step === "string") {
                 onStep(parsed.step);
-              } else if ('thought' in parsed && typeof parsed.thought === 'string') {
+              } else if (
+                "thought" in parsed &&
+                typeof parsed.thought === "string"
+              ) {
                 onThought(parsed.thought);
               } else if (_isClosingEvent(parsed)) {
                 onClose(parsed);
@@ -268,8 +292,11 @@ export function streamChat(
         reader.releaseLock();
       }
     } catch (err: unknown) {
-      if (!(err instanceof DOMException && err.name === 'AbortError') && !controller.signal.aborted) {
-        onToken('\n(The advisor connection closed.)');
+      if (
+        !(err instanceof DOMException && err.name === "AbortError") &&
+        !controller.signal.aborted
+      ) {
+        onToken("\n(The advisor connection closed.)");
       }
     } finally {
       finish();

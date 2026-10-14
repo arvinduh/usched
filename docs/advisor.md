@@ -1,16 +1,16 @@
 # Advisor
 
 The advisor is an optional chat assistant on Google Gemini. It answers from the
-student's real progress and edits their week through tools, so its schedules
-are conflict-free and its courses exist. Everything else in usched works
-without it. The code lives in `server/agent/`.
+student's real progress and edits their week through tools, so its schedules are
+conflict-free and its courses exist. Everything else in usched works without it.
+The code lives in `server/agent/`.
 
 ## Design goals
 
-- **Grounded, not plausible.** A model asked "what can I take?" invents
-  courses unless the answer is already in front of it. Every message therefore
-  carries a brief computed from the catalog, and every course the reply names
-  is checked afterward.
+- **Grounded, not plausible.** A model asked "what can I take?" invents courses
+  unless the answer is already in front of it. Every message therefore carries a
+  brief computed from the catalog, and every course the reply names is checked
+  afterward.
 - **Proposals, not edits.** Tools never change the plan. Schedule changes come
   back as proposals the student keeps or discards on the week.
 - **Private by construction.** The server stores nothing. Each request carries
@@ -43,8 +43,8 @@ sequenceDiagram
   A-->>C: ClosingEvent (chips, unverified), then [DONE]
 ```
 
-The chat route runs the blocking advisor (synchronous model and SQLite calls)
-on a daemon thread and relays its output to the event loop. If the browser
+The chat route runs the blocking advisor (synchronous model and SQLite calls) on
+a daemon thread and relays its output to the event loop. If the browser
 disconnects, the route signals the thread to stop.
 
 ## The student brief
@@ -64,8 +64,8 @@ Every course the brief names counts as grounded for the reply check.
 
 ## Tools
 
-Tools cover what the brief cannot carry and what the student asks the advisor
-to do. Each returns terse text for the model plus chips for the student.
+Tools cover what the brief cannot carry and what the student asks the advisor to
+do. Each returns terse text for the model plus chips for the student.
 
 | Tool                 | Does                                                                                                                                                   |
 | :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -75,17 +75,17 @@ to do. Each returns terse text for the model plus chips for the student.
 | `edit_week`          | Previews the week with sections added, removed, or courses dropped.                                                                                    |
 | `mark_taken`         | Records courses the student says they took.                                                                                                            |
 
-Bad tool names or arguments become text for the model rather than errors, so
-the model can correct itself. After two tool rounds, one more turn forbids
-tools, so a reply always ends in words.
+Bad tool names or arguments become text for the model rather than errors, so the
+model can correct itself. After two tool rounds, one more turn forbids tools, so
+a reply always ends in words.
 
 ## Action chips
 
 A reply ends with one-tap follow-ups, all derived from what the model actually
 did. Proposed schedules and recorded courses always survive; other buttons are
-capped at four. They form a discriminated union on `action` in
-`_chips.py`, so the generated client types narrow on it and a malformed chip
-fails validation on the server.
+capped at four. They form a discriminated union on `action` in `_chips.py`, so
+the generated client types narrow on it and a malformed chip fails validation on
+the server.
 
 | Chip               | The client                                            |
 | :----------------- | :---------------------------------------------------- |
@@ -100,8 +100,8 @@ fails validation on the server.
 ## The reply check
 
 After the reply finishes, `advisor.unverified()` collects every course code the
-text names that no source backs: not in the brief, not in a tool result, and
-not in the catalog. The closing event lists them, and the client renders them
+text names that no source backs: not in the brief, not in a tool result, and not
+in the catalog. The closing event lists them, and the client renders them
 unlinked with a note, so a made-up course is visible rather than clickable.
 
 ## Models and limits
@@ -118,19 +118,19 @@ Configure it in `.env`:
 | `GEMINI_MODELS`  | An ordered list. Later models take over while earlier ones are busy or out of quota.                            |
 
 Each Flash-Lite model allows 15 requests a minute on the free tier, and a
-message takes one to three. Listing two models doubles that, since each has
-its own quota. Past it, the advisor says it is busy for a minute.
+message takes one to three. Listing two models doubles that, since each has its
+own quota. Past it, the advisor says it is busy for a minute.
 
 ## Evaluating changes
 
-`npm run check` tests the advisor against a fake model. To check behavior on
-the real one, run the live evals:
+`npm run check` tests the advisor against a fake model. To check behavior on the
+real one, run the live evals:
 
 ```bash
 npm run test:live
 ```
 
-This asks the model in your `.env` a set of student questions, such as fitting
-a course, keeping Fridays free, dropping a course, or "option 2 but…". It
-checks what each reply did: its schedules exist, have no conflicts, and keep
-what they should, and it names no unknown course. It spends real quota.
+This asks the model in your `.env` a set of student questions, such as fitting a
+course, keeping Fridays free, dropping a course, or "option 2 but…". It checks
+what each reply did: its schedules exist, have no conflicts, and keep what they
+should, and it names no unknown course. It spends real quota.

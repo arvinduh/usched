@@ -20,8 +20,8 @@ git push main ─▶ GitHub Actions "check" ─▶ Render builds the Dockerfile 
 - **Render** reads `render.yaml`, and deploys a push to `main` only after its
   GitHub checks pass (`autoDeployTrigger: checksPass`).
 
-The service uses Render's free plan, Gemini's free tier, and an
-`onrender.com` address.
+The service uses Render's free plan, Gemini's free tier, and an `onrender.com`
+address.
 
 ## Before you begin
 
@@ -45,8 +45,8 @@ You need:
    `name:` in `render.yaml` (or in the Blueprint form) before you create the
    service. Treat the subdomain as fixed once the service exists.
 
-2. **Publish the catalog.** Fetch fresh data, build and verify the database,
-   and upload it:
+2. **Publish the catalog.** Fetch fresh data, build and verify the database, and
+   upload it:
 
    ```bash
    npm run catalog -- fetch build publish
@@ -66,8 +66,8 @@ You need:
    | `GEMINI_API_KEY` | Your key.                                     |
    | `GEMINI_MODELS`  | `gemini-3.5-flash-lite,gemini-3.1-flash-lite` |
 
-   Click **Apply**. The first build takes a few minutes; the service page
-   shows the public URL.
+   Click **Apply**. The first build takes a few minutes; the service page shows
+   the public URL.
 
 5. **Smoke test** the public URL:
    - The page loads and a course search returns results.
@@ -81,21 +81,21 @@ You need:
 | `/healthz`    | Render's health check; a fixed response, no lookups. |
 | `/api/health` | For uptime monitors.                                 |
 
-On startup, the logs name the catalog's terms and say whether the advisor
-model is ready, or why not.
+On startup, the logs name the catalog's terms and say whether the advisor model
+is ready, or why not.
 
 ### Keep it awake
 
-Free services sleep after 15 idle minutes and take about a minute to wake;
-the loading screen says "Waking up the course catalog…" meanwhile. Before a
-demo, add a free [UptimeRobot](https://uptimerobot.com) HTTP monitor on
+Free services sleep after 15 idle minutes and take about a minute to wake; the
+loading screen says "Waking up the course catalog…" meanwhile. Before a demo,
+add a free [UptimeRobot](https://uptimerobot.com) HTTP monitor on
 `https://<name>.onrender.com/api/health` every 5 minutes. Render's 750 free
 hours a month cover one service running all month.
 
 ## Update
 
-- **Code:** merge to `main`. Render deploys once the `check` workflow passes
-  on that commit. A failed build leaves the previous deploy running.
+- **Code:** merge to `main`. Render deploys once the `check` workflow passes on
+  that commit. A failed build leaves the previous deploy running.
 - **Course data:** each new term, or whenever listings should refresh, rerun
   step 2, then select **Manual Deploy > Deploy latest commit** on Render.
 
@@ -141,12 +141,11 @@ The `Dockerfile` has two stages:
    into this stage too.
 2. **Runtime** installs only runtime Python dependencies
    (`uv sync --no-default-groups`: no dev tools, no Playwright), copies
-   `server/` and the built client, then downloads the catalog from
-   `CATALOG_URL` into `server/data/catalog.db`. The build stops if
-   `CATALOG_URL` is unset.
+   `server/` and the built client, then downloads the catalog from `CATALOG_URL`
+   into `server/data/catalog.db`. The build stops if `CATALOG_URL` is unset.
 
-The server listens on `$PORT` (Render sets it; 8000 otherwise) with one
-Uvicorn worker. Hashed client assets are cached for a year and `index.html` is
+The server listens on `$PORT` (Render sets it; 8000 otherwise) with one Uvicorn
+worker. Hashed client assets are cached for a year and `index.html` is
 revalidated on every load, so a deploy reaches visitors on their next visit.
 
 ### Configuration
@@ -163,8 +162,8 @@ revalidated on every load, so a deploy reaches visitors on their next visit.
 `main`:
 
 - **`check`** runs `npm ci` (which runs `uv sync`), then `npm run check`.
-- **`image`** builds the client stage with `docker build --target client .`.
-  The full image needs the published catalog, so only Render builds it.
+- **`image`** builds the client stage with `docker build --target client .`. The
+  full image needs the published catalog, so only Render builds it.
 
 ### Run the image elsewhere
 

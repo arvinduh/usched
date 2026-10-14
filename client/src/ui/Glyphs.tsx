@@ -6,11 +6,11 @@
  * plan state; callers pass plain values.
  */
 
-import React from 'react';
-import { Dumbbell, Star } from 'lucide-react';
-import { WEEKDAYS } from '../semester/_schedule';
-import { textureBackground } from './encoding';
-import styles from './Glyphs.module.css';
+import { Dumbbell, Star } from "lucide-react";
+import type React from "react";
+import { WEEKDAYS } from "../semester/_schedule";
+import { textureBackground } from "./encoding";
+import styles from "./Glyphs.module.css";
 
 /**
  * Renders Mon–Fri as five dots, filling meeting days. A Saturday dot is
@@ -21,13 +21,13 @@ export function DayStrip({
 }: {
   readonly days: readonly string[];
 }): React.JSX.Element {
-  const shown = days.includes('Sat') ? [...WEEKDAYS, 'Sat'] : WEEKDAYS;
+  const shown = days.includes("Sat") ? [...WEEKDAYS, "Sat"] : WEEKDAYS;
   return (
-    <span className={styles.days} aria-label={days.join(' ')} role="img">
+    <span className={styles.days} aria-label={days.join(" ")} role="img">
       {shown.map((d) => (
         <span
           key={d}
-          className={`${styles.dot} ${days.includes(d) ? styles.dotOn : ''}`}
+          className={`${styles.dot} ${days.includes(d) ? styles.dotOn : ""}`}
         />
       ))}
     </span>
@@ -77,8 +77,8 @@ export function RatingPair({
   const muted = count < MIN_CONFIDENT_RATINGS;
   return (
     <span
-      className={`${styles.rating} ${muted ? styles.ratingMuted : ''}`}
-      title={`${count} rating${count === 1 ? '' : 's'} on RateMyProfessors`}
+      className={`${styles.rating} ${muted ? styles.ratingMuted : ""}`}
+      title={`${count} rating${count === 1 ? "" : "s"} on RateMyProfessors`}
     >
       <span aria-label={`Quality ${rating.toFixed(1)}`}>
         <Star size={11} className={styles.star} fill="currentColor" />
@@ -116,10 +116,12 @@ export function SeatNote({
   }
   const label =
     `${enrolled} of ${capacity} seats taken` +
-    (waitlist > 0 ? `, ${waitlist} waitlisted` : '');
+    (waitlist > 0 ? `, ${waitlist} waitlisted` : "");
   return (
     <span className={open <= 0 ? styles.full : styles.few} title={label}>
-      {open <= 0 ? `Full${waitlist > 0 ? ` · ${waitlist} waitlisted` : ''}` : `${open} left`}
+      {open <= 0
+        ? `Full${waitlist > 0 ? ` · ${waitlist} waitlisted` : ""}`
+        : `${open} left`}
     </span>
   );
 }

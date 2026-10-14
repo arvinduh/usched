@@ -1,84 +1,84 @@
 [
- {
-  "programs": [
-   {
-    "schools": null,
-    "courses": null,
-    "programNote": null,
-    "departmentClearances": null,
+  {
+    "programs": [
+      {
+        "schools": null,
+        "courses": null,
+        "programNote": null,
+        "departmentClearances": null,
+        "termCode": 20271,
+        "prefix": "CHEM",
+        "name": "Chemistry",
+        "sortOrder": 9
+      },
+      {
+        "schools": null,
+        "courses": null,
+        "programNote": null,
+        "departmentClearances": null,
+        "termCode": 20271,
+        "prefix": "MATH",
+        "name": "Mathematics",
+        "sortOrder": 40
+      }
+    ],
     "termCode": 20271,
-    "prefix": "CHEM",
-    "name": "Chemistry",
-    "sortOrder": 9
-   },
-   {
-    "schools": null,
-    "courses": null,
-    "programNote": null,
-    "departmentClearances": null,
+    "prefix": "DRNS",
+    "name": "Dornsife College of Letters, Arts and Sciences",
+    "sortOrder": 0
+  },
+  {
+    "programs": [
+      {
+        "schools": null,
+        "courses": null,
+        "programNote": null,
+        "departmentClearances": null,
+        "termCode": 20271,
+        "prefix": "ANAT",
+        "name": "Anatomy",
+        "sortOrder": 1
+      }
+    ],
     "termCode": 20271,
-    "prefix": "MATH",
-    "name": "Mathematics",
-    "sortOrder": 40
-   }
-  ],
-  "termCode": 20271,
-  "prefix": "DRNS",
-  "name": "Dornsife College of Letters, Arts and Sciences",
-  "sortOrder": 0
- },
- {
-  "programs": [
-   {
-    "schools": null,
-    "courses": null,
-    "programNote": null,
-    "departmentClearances": null,
+    "prefix": "DNTR",
+    "name": "Ostrow School of Dentistry",
+    "sortOrder": 10
+  },
+  {
+    "programs": [
+      {
+        "schools": null,
+        "courses": null,
+        "programNote": null,
+        "departmentClearances": null,
+        "termCode": 20271,
+        "prefix": "CSCI",
+        "name": "Computer Science",
+        "sortOrder": 5
+      }
+    ],
     "termCode": 20271,
-    "prefix": "ANAT",
-    "name": "Anatomy",
-    "sortOrder": 1
-   }
-  ],
-  "termCode": 20271,
-  "prefix": "DNTR",
-  "name": "Ostrow School of Dentistry",
-  "sortOrder": 10
- },
- {
-  "programs": [
-   {
-    "schools": null,
-    "courses": null,
-    "programNote": null,
-    "departmentClearances": null,
+    "prefix": "ENGV",
+    "name": "Viterbi School of Engineering",
+    "sortOrder": 13
+  },
+  {
+    "programs": [
+      {
+        "schools": null,
+        "courses": null,
+        "programNote": null,
+        "departmentClearances": null,
+        "termCode": 20271,
+        "prefix": "ANAT",
+        "name": "Anatomy",
+        "sortOrder": 2
+      }
+    ],
     "termCode": 20271,
-    "prefix": "CSCI",
-    "name": "Computer Science",
-    "sortOrder": 5
-   }
-  ],
-  "termCode": 20271,
-  "prefix": "ENGV",
-  "name": "Viterbi School of Engineering",
-  "sortOrder": 13
- },
- {
-  "programs": [
-   {
-    "schools": null,
-    "courses": null,
-    "programNote": null,
-    "departmentClearances": null,
-    "termCode": 20271,
-    "prefix": "ANAT",
-    "name": "Anatomy",
-    "sortOrder": 2
-   }
-  ],
-  "termCode": 20271,
-  "prefix": "MEDK",
-  "name": "Keck School of Medicine",
-  "sortOrder": 17
- }
+    "prefix": "MEDK",
+    "name": "Keck School of Medicine",
+    "sortOrder": 17
+  }
 ]

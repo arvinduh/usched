@@ -5,8 +5,8 @@
  * management for floating UI primitives (ContextMenu, Select, TopBar menus).
  */
 
-import { useEffect } from 'react';
-import type React from 'react';
+import type React from "react";
+import { useEffect } from "react";
 
 /** Keeps overlays this far from viewport edges by default. */
 export const DEFAULT_VIEWPORT_PADDING = 8;
@@ -79,30 +79,30 @@ export function useFloatingOverlay(options: FloatingOverlayOptions): void {
     };
 
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
     };
 
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
 
     if (closeOnScroll) {
-      window.addEventListener('scroll', onClose, true);
+      window.addEventListener("scroll", onClose, true);
     }
     if (closeOnResize) {
-      window.addEventListener('resize', onClose);
+      window.addEventListener("resize", onClose);
     }
 
     return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
       if (closeOnScroll) {
-        window.removeEventListener('scroll', onClose, true);
+        window.removeEventListener("scroll", onClose, true);
       }
       if (closeOnResize) {
-        window.removeEventListener('resize', onClose);
+        window.removeEventListener("resize", onClose);
       }
     };
   }, [open, onClose, overlayRef, triggerRef, closeOnScroll, closeOnResize]);

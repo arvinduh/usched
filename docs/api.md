@@ -1,8 +1,8 @@
 # HTTP API
 
 The server exposes a small JSON API under `/api`. The client is its only
-intended caller, and its TypeScript types are generated from this API's
-OpenAPI schema. With the dev server running, interactive docs are at
+intended caller, and its TypeScript types are generated from this API's OpenAPI
+schema. With the dev server running, interactive docs are at
 <http://localhost:18800/docs>.
 
 ## Conventions
@@ -19,8 +19,8 @@ OpenAPI schema. With the dev server running, interactive docs are at
 - **Missing catalog.** When `catalog.db` has not been built, catalog routes
   answer `503` with the command that builds it.
 - **Caching.** Routes over data that changes only with a rebuild (terms,
-  programs, GE categories, AP exams, code lookup) send a `Cache-Control`
-  header so browsers reuse them.
+  programs, GE categories, AP exams, code lookup) send a `Cache-Control` header
+  so browsers reuse them.
 
 ## Catalog
 
@@ -60,10 +60,10 @@ curl 'http://localhost:18800/api/terms/20271/courses?q=algorithms&limit=5'
 | POST   | `/api/ge-audit`                                 | `GeAuditRequest`      | `GeAudit`      |
 | POST   | `/api/terms/{term}/programs/{program_id}/audit` | `ProgramAuditRequest` | `ProgramAudit` |
 
-Both bodies carry `completed` (course codes), `ap_credits`
-(`{exam_id, score}`), and `ge_counted` (GE seats counted by hand, by category).
-The program audit uses `term` to decide which remaining courses are locked by
-prerequisites. See [Degree and GE audits](audits.md) for the rules.
+Both bodies carry `completed` (course codes), `ap_credits` (`{exam_id, score}`),
+and `ge_counted` (GE seats counted by hand, by category). The program audit uses
+`term` to decide which remaining courses are locked by prerequisites. See
+[Degree and GE audits](audits.md) for the rules.
 
 ```bash
 curl -X POST http://localhost:18800/api/ge-audit \
@@ -76,11 +76,11 @@ curl -X POST http://localhost:18800/api/ge-audit \
 `POST /api/chat` streams a reply as
 [Server-Sent Events](https://developer.mozilla.org/docs/Web/API/Server-sent_events).
 The body is a `ChatRequest`: the message, prior turns, the term, and the
-student's plan (program, sections on the week, saved and completed courses,
-AP credits, other schedules, and what is on screen).
+student's plan (program, sections on the week, saved and completed courses, AP
+credits, other schedules, and what is on screen).
 
-Each event's `data` is JSON, except the final literal `[DONE]`. Events arrive
-in this order:
+Each event's `data` is JSON, except the final literal `[DONE]`. Events arrive in
+this order:
 
 | Event              | Meaning                                             |
 | :----------------- | :-------------------------------------------------- |
@@ -90,8 +90,8 @@ in this order:
 | `ClosingEvent`     | Once: `action_chips` and `unverified` course codes. |
 | `[DONE]`           | The stream is over.                                 |
 
-When the model is not configured or cannot answer, the reply still streams:
-the reason arrives as text and the stream closes normally. See
+When the model is not configured or cannot answer, the reply still streams: the
+reason arrives as text and the stream closes normally. See
 [Advisor](advisor.md).
 
 ## Health

@@ -6,21 +6,21 @@
  * then orders it. Pure functions only; the Library owns the filter state.
  */
 
-import type { components } from '../../api/schema';
-import { clashes, startOf, timedMeetings } from '../_schedule';
+import type { components } from "../../api/schema";
+import { clashes, startOf, timedMeetings } from "../_schedule";
 
 /** Time-of-day buckets by start time. */
-export type DayPart = 'morning' | 'afternoon' | 'evening';
+export type DayPart = "morning" | "afternoon" | "evening";
 
 /** Ways to order results. */
-export type SortKey = 'relevance' | 'rating' | 'easiest' | 'code';
+export type SortKey = "relevance" | "rating" | "easiest" | "code";
 
 /**
  * Section-level filters the user has set.
  */
 export interface SectionFilter {
   /** Weekdays a section must not meet on, e.g. "Fri". */
-  readonly excludedDays: ReadonlySet<components['schemas']['Weekday']>;
+  readonly excludedDays: ReadonlySet<components["schemas"]["Weekday"]>;
   /** Allowed start buckets; empty means any time. */
   readonly dayParts: ReadonlySet<DayPart>;
   readonly openSeatsOnly: boolean;
@@ -40,9 +40,9 @@ const FIVE_PM = 17 * 60;
 
 function dayPartOf(start: number): DayPart {
   if (start < NOON) {
-    return 'morning';
+    return "morning";
   }
-  return start < FIVE_PM ? 'afternoon' : 'evening';
+  return start < FIVE_PM ? "afternoon" : "evening";
 }
 
 /**
@@ -62,9 +62,9 @@ export function activeFilterCount(f: SectionFilter): number {
  * day and time filters since they have no meeting time to exclude.
  */
 export function sectionPasses(
-  section: components['schemas']['Section'],
+  section: components["schemas"]["Section"],
   f: SectionFilter,
-  week: readonly components['schemas']['Section'][],
+  week: readonly components["schemas"]["Section"][],
 ): boolean {
   if (
     f.openSeatsOnly &&
@@ -78,7 +78,9 @@ export function sectionPasses(
     return true;
   }
   if (
-    timedMeetings(section).some((m) => m.days.some((d) => f.excludedDays.has(d)))
+    timedMeetings(section).some((m) =>
+      m.days.some((d) => f.excludedDays.has(d)),
+    )
   ) {
     return false;
   }
@@ -93,9 +95,9 @@ export function sectionPasses(
  * passing section, so a match is always actually schedulable.
  */
 export function courseMatches(
-  course: components['schemas']['Course'],
+  course: components["schemas"]["Course"],
   f: SectionFilter,
-  week: readonly components['schemas']['Section'][],
+  week: readonly components["schemas"]["Section"][],
 ): boolean {
   if (activeFilterCount(f) === 0 || course.sections.length === 0) {
     return true;
@@ -107,8 +109,8 @@ export function courseMatches(
 }
 
 function best(
-  course: components['schemas']['Course'],
-  pick: (r: components['schemas']['Rating']) => number | null,
+  course: components["schemas"]["Course"],
+  pick: (r: components["schemas"]["Rating"]) => number | null,
 ): number | null {
   let result: number | null = null;
   for (const s of course.sections) {
@@ -127,23 +129,24 @@ function best(
  * the best instructor across sections and put unrated courses last.
  */
 export function sortCourses(
-  courses: readonly components['schemas']['Course'][],
+  courses: readonly components["schemas"]["Course"][],
   key: SortKey,
-): readonly components['schemas']['Course'][] {
+): readonly components["schemas"]["Course"][] {
   switch (key) {
-    case 'relevance':
+    case "relevance":
       return courses;
-    case 'code':
+    case "code":
       return [...courses].sort((a, b) =>
         a.code.localeCompare(b.code, undefined, { numeric: true }),
       );
-    case 'rating': {
-      const score = (c: components['schemas']['Course']) => best(c, (r) => r.rating) ?? -1;
+    case "rating": {
+      const score = (c: components["schemas"]["Course"]) =>
+        best(c, (r) => r.rating) ?? -1;
       return [...courses].sort((a, b) => score(b) - score(a));
     }
-    case 'easiest': {
+    case "easiest": {
       // Easiest = lowest difficulty, so negate to reuse "best is highest".
-      const score = (c: components['schemas']['Course']) =>
+      const score = (c: components["schemas"]["Course"]) =>
         best(c, (r) => (r.difficulty === null ? null : -r.difficulty)) ?? -99;
       return [...courses].sort((a, b) => score(b) - score(a));
     }

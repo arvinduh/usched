@@ -9,13 +9,14 @@
  * the next place enters.
  */
 
-import React, { useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { APP_NAME } from '../config';
-import { ProgramSearch } from '../degree/DegreePicker';
-import { morph } from '../ui/_morph';
-import type { components } from '../api/schema';
-import styles from './Welcome.module.css';
+import type React from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import type { components } from "../api/schema";
+import { APP_NAME } from "../config";
+import { ProgramSearch } from "../degree/DegreePicker";
+import { morph } from "../ui/_morph";
+import styles from "./Welcome.module.css";
 
 /** How long the screen takes to lift away; matches `.leaving`. */
 const LEAVE_MS = 180;
@@ -24,7 +25,7 @@ const LEAVE_MS = 180;
  * Properties for the welcome screen.
  */
 export interface WelcomeProps {
-  readonly programs: readonly components['schemas']['ProgramSummary'][];
+  readonly programs: readonly components["schemas"]["ProgramSummary"][];
   readonly onChoose: (programId: string) => void;
   readonly onSkip: () => void;
 }
@@ -32,7 +33,11 @@ export interface WelcomeProps {
 /**
  * Renders the question, the program search, and a way to skip.
  */
-export function Welcome({ programs, onChoose, onSkip }: WelcomeProps): React.JSX.Element {
+export function Welcome({
+  programs,
+  onChoose,
+  onSkip,
+}: WelcomeProps): React.JSX.Element {
   const [leaving, setLeaving] = useState(false);
   const left = useRef(false);
   const leave = (update: () => void): void => {
@@ -41,7 +46,7 @@ export function Welcome({ programs, onChoose, onSkip }: WelcomeProps): React.JSX
     }
     left.current = true;
     const go = (): void => morph(() => flushSync(update));
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       go();
       return;
     }
@@ -49,18 +54,22 @@ export function Welcome({ programs, onChoose, onSkip }: WelcomeProps): React.JSX
     setTimeout(go, LEAVE_MS);
   };
   return (
-    <main className={`${styles.welcome} ${leaving ? styles.leaving : ''}`}>
+    <main className={`${styles.welcome} ${leaving ? styles.leaving : ""}`}>
       <header className={styles.top}>
         <span className={styles.wordmark}>{APP_NAME}</span>
-        <button type="button" className={styles.skip} onClick={() => leave(onSkip)}>
+        <button
+          type="button"
+          className={styles.skip}
+          onClick={() => leave(onSkip)}
+        >
           Skip for now
         </button>
       </header>
       <h1 className={styles.question}>What are you studying?</h1>
       <p className={styles.why}>
-        Your major shapes your degree progress, the courses suggested to you, and
-        the advisor's answers. Then type the classes you've taken, like “/took
-        CSCI 103L, MATH 125”.
+        Your major shapes your degree progress, the courses suggested to you,
+        and the advisor's answers. Then type the classes you've taken, like
+        “/took CSCI 103L, MATH 125”.
       </p>
       <ProgramSearch
         programs={programs}

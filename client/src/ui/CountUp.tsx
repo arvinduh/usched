@@ -6,7 +6,8 @@
  * Reduced motion shows the new value at once.
  */
 
-import React, { useLayoutEffect, useRef } from 'react';
+import type React from "react";
+import { useLayoutEffect, useRef } from "react";
 
 const COUNT_MS = 420;
 
@@ -17,7 +18,11 @@ function format(n: number): string {
 /**
  * Renders `value`, counting from the previous one when it changes.
  */
-export function CountUp({ value }: { readonly value: number }): React.JSX.Element {
+export function CountUp({
+  value,
+}: {
+  readonly value: number;
+}): React.JSX.Element {
   const ref = useRef<HTMLSpanElement>(null);
   // What the span shows now, which mid-count is neither old nor new value.
   const shown = useRef(value);
@@ -29,7 +34,10 @@ export function CountUp({ value }: { readonly value: number }): React.JSX.Elemen
     if (!el) {
       return;
     }
-    if (from === value || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (
+      from === value ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
       shown.current = value;
       el.textContent = format(value);
       return;
@@ -39,7 +47,8 @@ export function CountUp({ value }: { readonly value: number }): React.JSX.Elemen
     const tick = (now: number): void => {
       const t = Math.min(1, (now - start) / COUNT_MS);
       // Ease out: quick at first, settling onto the value.
-      shown.current = t === 1 ? value : from + (value - from) * (1 - (1 - t) ** 3);
+      shown.current =
+        t === 1 ? value : from + (value - from) * (1 - (1 - t) ** 3);
       el.textContent = format(shown.current);
       if (t < 1) {
         frame = requestAnimationFrame(tick);

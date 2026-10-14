@@ -4,1505 +4,1517 @@
  */
 
 export interface paths {
-    "/api/terms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Terms
-         * @description Lists every term, newest first; plan for the first with courses.
-         */
-        get: operations["list_terms_api_terms_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/api/terms": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/terms/{term}/courses": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Courses
-         * @description Searches a term's courses by text, GE category, and instructor rating.
-         *
-         *     With `codes`, loads exactly those courses in one request instead.
-         */
-        get: operations["search_courses_api_terms__term__courses_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * List Terms
+     * @description Lists every term, newest first; plan for the first with courses.
+     */
+    get: operations["list_terms_api_terms_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/terms/{term}/courses": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/terms/{term}/courses/{code}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Course
-         * @description Returns one course as offered in a term.
-         */
-        get: operations["get_course_api_terms__term__courses__code__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Search Courses
+     * @description Searches a term's courses by text, GE category, and instructor rating.
+     *
+     *     With `codes`, loads exactly those courses in one request instead.
+     */
+    get: operations["search_courses_api_terms__term__courses_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/terms/{term}/courses/{code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/terms/{term}/sections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Sections
-         * @description Returns a term's sections by comma-separated section numbers.
-         */
-        get: operations["get_sections_api_terms__term__sections_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Course
+     * @description Returns one course as offered in a term.
+     */
+    get: operations["get_course_api_terms__term__courses__code__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/terms/{term}/sections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/courses": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Lookup Courses
-         * @description Recognizes comma-separated course codes written any way.
-         *
-         *     Answers with the catalog's spelling and title for each known course, in
-         *     request order; codes that name no course are left out.
-         */
-        get: operations["lookup_courses_api_courses_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Sections
+     * @description Returns a term's sections by comma-separated section numbers.
+     */
+    get: operations["get_sections_api_terms__term__sections_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/courses": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/programs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Programs
-         * @description Lists the current catalogue's programs, optionally of one kind.
-         */
-        get: operations["list_programs_api_programs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Lookup Courses
+     * @description Recognizes comma-separated course codes written any way.
+     *
+     *     Answers with the catalog's spelling and title for each known course, in
+     *     request order; codes that name no course are left out.
+     */
+    get: operations["lookup_courses_api_courses_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/programs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/programs/{program_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Program
-         * @description Returns a program with its requirement tree.
-         */
-        get: operations["get_program_api_programs__program_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * List Programs
+     * @description Lists the current catalogue's programs, optionally of one kind.
+     */
+    get: operations["list_programs_api_programs_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/programs/{program_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/ge-categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Ge Categories
-         * @description Lists GE categories and how many courses each needs.
-         */
-        get: operations["list_ge_categories_api_ge_categories_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Program
+     * @description Returns a program with its requirement tree.
+     */
+    get: operations["get_program_api_programs__program_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ge-categories": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/ap-exams": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Ap Exams
-         * @description Lists AP exams with the GE categories and courses they cover.
-         */
-        get: operations["list_ap_exams_api_ap_exams_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * List Ge Categories
+     * @description Lists GE categories and how many courses each needs.
+     */
+    get: operations["list_ge_categories_api_ge_categories_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ap-exams": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/ge-audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Audit Ge
-         * @description Shows how completed courses and AP exams fill each GE category.
-         */
-        post: operations["audit_ge_api_ge_audit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * List Ap Exams
+     * @description Lists AP exams with the GE categories and courses they cover.
+     */
+    get: operations["list_ap_exams_api_ap_exams_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ge-audit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/terms/{term}/programs/{program_id}/audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Audit Program
-         * @description Audits a program; prerequisites follow the planning term's listings.
-         */
-        post: operations["audit_program_api_terms__term__programs__program_id__audit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Audit Ge
+     * @description Shows how completed courses and AP exams fill each GE category.
+     */
+    post: operations["audit_ge_api_ge_audit_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/terms/{term}/programs/{program_id}/audit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/chat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Chat Stream
-         * @description Streams AI advisor markdown guidance and interactive chips via SSE.
-         */
-        post: operations["chat_stream_api_chat_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Audit Program
+     * @description Audits a program; prerequisites follow the planning term's listings.
+     */
+    post: operations["audit_program_api_terms__term__programs__program_id__audit_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/chat": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/healthz": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Healthz
-         * @description Zero-allocation liveness probe for orchestration platforms.
-         */
-        get: operations["healthz_healthz_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Chat Stream
+     * @description Streams AI advisor markdown guidance and interactive chips via SSE.
+     */
+    post: operations["chat_stream_api_chat_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/healthz": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health Check
-         * @description Answers ok while the server runs; uptime monitors ping this.
-         */
-        get: operations["health_check_api_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Healthz
+     * @description Zero-allocation liveness probe for orchestration platforms.
+     */
+    get: operations["healthz_healthz_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /**
+     * Health Check
+     * @description Answers ok while the server runs; uptime monitors ping this.
+     */
+    get: operations["health_check_api_health_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /**
-         * ApCredit
-         * @description A student's AP exam result.
-         */
-        ApCredit: {
-            /** Exam Id */
-            exam_id: string;
-            /** Score */
-            score: number;
-        };
-        /**
-         * ApExam
-         * @description An AP exam USC grants credit for.
-         */
-        ApExam: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Min Score */
-            min_score: number;
-            /** Units */
-            units: number;
-            /** Ge */
-            ge: string[];
-            /** Waives */
-            waives: components["schemas"]["CourseRef"][];
-        };
-        /**
-         * ChatRequest
-         * @description A student's message with what the advisor should know about them.
-         */
-        ChatRequest: {
-            /** Message */
-            message: string;
-            /**
-             * History
-             * @default []
-             */
-            history: components["schemas"]["ChatTurn"][];
-            /**
-             * Term
-             * @description The term being planned.
-             */
-            term: number;
-            /** Program Id */
-            program_id?: string | null;
-            /**
-             * Section Ids
-             * @description Sections in the active schedule.
-             * @default []
-             */
-            section_ids: string[];
-            /**
-             * Shortlisted
-             * @description Codes of courses saved for later.
-             * @default []
-             */
-            shortlisted: string[];
-            /**
-             * Completed
-             * @description Codes of courses already taken.
-             * @default []
-             */
-            completed: string[];
-            /**
-             * Ap Credits
-             * @default []
-             */
-            ap_credits: components["schemas"]["ApCredit"][];
-            /**
-             * Ge Counted
-             * @description GE seats the student counted by hand, by code.
-             * @default {}
-             */
-            ge_counted: {
-                [key: string]: number;
-            };
-            /**
-             * Variants
-             * @description The student's other schedules.
-             * @default []
-             */
-            variants: components["schemas"]["Variant"][];
-            /** @description What the student is looking at as they ask. */
-            screen?: components["schemas"]["Screen"];
-        };
-        /**
-         * ChatTurn
-         * @description A prior message in the conversation.
-         */
-        ChatTurn: {
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "user" | "assistant";
-            /** Content */
-            content: string;
-            /**
-             * Action Chips
-             * @description What an assistant turn offered, as it ended.
-             * @default []
-             */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkTaken"] | components["schemas"]["Search"])[];
-        };
-        /**
-         * ClosingEvent
-         * @description The final event of a reply: chips, and courses the reply made up.
-         */
-        ClosingEvent: {
-            /** Action Chips */
-            action_chips: (components["schemas"]["ProposeSchedule"] | components["schemas"]["EnrollSection"] | components["schemas"]["WatchCourse"] | components["schemas"]["MarkTaken"] | components["schemas"]["Search"])[];
-            /**
-             * Unverified
-             * @description Courses the reply names that the catalog does not have.
-             */
-            unverified: string[];
-        };
-        /**
-         * Course
-         * @description A course as offered in one term, with its sections.
-         */
-        Course: {
-            /** Term */
-            term: number;
-            /**
-             * Code
-             * @description e.g. CSCI-104L.
-             */
-            code: string;
-            /** Department */
-            department: string;
-            /** Number */
-            number: string;
-            /** Suffix */
-            suffix: string;
-            /** Title */
-            title: string;
-            /** Description */
-            description: string;
-            units: components["schemas"]["Units"];
-            /** Recommended Prep */
-            recommended_prep: string | null;
-            /** Duplicate Credit */
-            duplicate_credit: string | null;
-            /** Course Notes */
-            course_notes: string | null;
-            /** Term Notes */
-            term_notes: string | null;
-            /** Is Cross Listed */
-            is_cross_listed: boolean;
-            /**
-             * Ge
-             * @description GE categories, e.g. GE-B.
-             */
-            ge: string[];
-            requisites: components["schemas"]["Requisites"];
-            /** Restrictions */
-            restrictions: components["schemas"]["Restriction"][];
-            /** Sections */
-            sections: components["schemas"]["Section"][];
-        };
-        /**
-         * CourseRef
-         * @description A reference to a course as a source wrote it.
-         */
-        CourseRef: {
-            /**
-             * Code
-             * @description As written, e.g. CSCI-103.
-             */
-            code: string;
-            /**
-             * Resolved
-             * @description The catalog course it matches, e.g. CSCI-103L, if any.
-             */
-            resolved: string | null;
-        };
-        /**
-         * EnrollSection
-         * @description Adds one section (and so its course) to the active schedule.
-         */
-        EnrollSection: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "enroll_section";
-            /** Label */
-            label: string;
-            /** Section Id */
-            section_id: string;
-        };
-        /**
-         * GeAudit
-         * @description General Education progress per category and in units.
-         */
-        GeAudit: {
-            /** Categories */
-            categories: components["schemas"]["GeProgress"][];
-            /**
-             * Units
-             * @description Units of the distinct courses, exams, and hand counts used.
-             */
-            units: number;
-            /**
-             * Required Units
-             * @description Units earned plus the fewest more that meet every category.
-             */
-            required_units: number;
-        };
-        /**
-         * GeAuditRequest
-         * @description What a student has done toward General Education.
-         */
-        GeAuditRequest: {
-            /**
-             * Completed
-             * @description Course codes taken.
-             */
-            completed: string[];
-            /**
-             * Ap Credits
-             * @default []
-             */
-            ap_credits: components["schemas"]["ApCredit"][];
-            /**
-             * Ge Counted
-             * @description GE seats the student counted by hand, by code.
-             * @default {}
-             */
-            ge_counted: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * GeCategory
-         * @description A GE category and how many courses it needs.
-         */
-        GeCategory: {
-            /** Code */
-            code: string;
-            /** Name */
-            name: string;
-            /**
-             * Area
-             * @description core, global, or seminar.
-             */
-            area: string;
-            /** Required Count */
-            required_count: number;
-        };
-        /**
-         * GeProgress
-         * @description How a GE category is filled; satisfied once filled reaches required.
-         */
-        GeProgress: {
-            /** Code */
-            code: string;
-            /** Name */
-            name: string;
-            /**
-             * Area
-             * @description core, global, or seminar.
-             */
-            area: string;
-            /** Required Count */
-            required_count: number;
-            /**
-             * Courses
-             * @description Completed codes used here.
-             */
-            courses: string[];
-            /**
-             * Exams
-             * @description AP exam ids used here.
-             */
-            exams: string[];
-            /**
-             * Counted
-             * @description Seats the student counted by hand, such as transfer credit.
-             * @default 0
-             */
-            counted: number;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /**
-         * Instructor
-         * @description Someone teaching a section.
-         */
-        Instructor: {
-            /**
-             * Key
-             * @description Normalized name, e.g. carter slocum.
-             */
-            key: string;
-            /** Name */
-            name: string;
-            rmp: components["schemas"]["Rating"] | null;
-        };
-        /**
-         * KnownCourse
-         * @description A course the catalog knows, in its canonical spelling.
-         */
-        KnownCourse: {
-            /**
-             * Code
-             * @description e.g. BISC-101Lgx.
-             */
-            code: string;
-            /** Title */
-            title: string;
-        };
-        /**
-         * MarkTaken
-         * @description Records courses as taken; the client applies it with undo.
-         */
-        MarkTaken: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "mark_taken";
-            /** Label */
-            label: string;
-            /** Course Codes */
-            course_codes: string[];
-        };
-        /**
-         * Meeting
-         * @description A weekly meeting pattern; empty days and null times mean TBA.
-         */
-        Meeting: {
-            /** Days */
-            days: components["schemas"]["Weekday"][];
-            /**
-             * Start Minute
-             * @description Minutes after midnight, e.g. 600 = 10:00.
-             */
-            start_minute: number | null;
-            /** End Minute */
-            end_minute: number | null;
-        };
-        /**
-         * Program
-         * @description A program with its full requirement tree.
-         */
-        Program: {
-            /**
-             * Id
-             * @description Slug, e.g. computer-science-bs.
-             */
-            id: string;
-            /** Title */
-            title: string;
-            /** Name */
-            name: string;
-            /** Emphasis */
-            emphasis: string | null;
-            /**
-             * Kind
-             * @description degree, minor, certificate, other.
-             */
-            kind: string;
-            /**
-             * Degree Type
-             * @description e.g. BS; None if not a degree.
-             */
-            degree_type: string | null;
-            /** School */
-            school: string | null;
-            /** Total Units */
-            total_units: number | null;
-            /**
-             * Total Units Stated
-             * @description False when the total is the university's bachelor's minimum.
-             */
-            total_units_stated: boolean;
-            /**
-             * Catalogue
-             * @description e.g. USC Catalogue 2026-2027.
-             */
-            catalogue: string;
-            /** Description */
-            description: string;
-            /** Requirements */
-            requirements: components["schemas"]["Requirement"][];
-        };
-        /**
-         * ProgramAudit
-         * @description A program audited against completed courses in a planning term.
-         */
-        ProgramAudit: {
-            /**
-             * Units
-             * @description Units of every completed course with known units, plus passed AP exams.
-             */
-            units: number;
-            /** Requirements */
-            requirements: components["schemas"]["RequirementProgress"][];
-            /**
-             * Locked
-             * @description Program courses whose prerequisites are not yet met, each mapped to the untaken courses of its unmet prerequisite groups.
-             */
-            locked: {
-                [key: string]: string[];
-            };
-        };
-        /**
-         * ProgramAuditRequest
-         * @description What a student has done: courses taken and AP exams passed.
-         */
-        ProgramAuditRequest: {
-            /** Completed */
-            completed: string[];
-            /**
-             * Ap Credits
-             * @default []
-             */
-            ap_credits: components["schemas"]["ApCredit"][];
-            /**
-             * Ge Counted
-             * @description GE seats the student counted by hand, by code.
-             * @default {}
-             */
-            ge_counted: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * ProgramSummary
-         * @description A degree, minor, certificate, or other program.
-         */
-        ProgramSummary: {
-            /**
-             * Id
-             * @description Slug, e.g. computer-science-bs.
-             */
-            id: string;
-            /** Title */
-            title: string;
-            /** Name */
-            name: string;
-            /** Emphasis */
-            emphasis: string | null;
-            /**
-             * Kind
-             * @description degree, minor, certificate, other.
-             */
-            kind: string;
-            /**
-             * Degree Type
-             * @description e.g. BS; None if not a degree.
-             */
-            degree_type: string | null;
-            /** School */
-            school: string | null;
-            /** Total Units */
-            total_units: number | null;
-            /**
-             * Total Units Stated
-             * @description False when the total is the university's bachelor's minimum.
-             */
-            total_units_stated: boolean;
-        };
-        /**
-         * ProposeSchedule
-         * @description Previews a set of sections as a schedule the student can accept.
-         */
-        ProposeSchedule: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "propose_schedule";
-            /** Label */
-            label: string;
-            /** Name */
-            name: string;
-            /** Section Ids */
-            section_ids: string[];
-            /**
-             * Tradeoff
-             * @description Why to pick this week over the other options, e.g. 'No class on Fri, avg prof 3.4'; empty when there is no choice.
-             * @default
-             */
-            tradeoff: string;
-        };
-        /**
-         * Rating
-         * @description An instructor's RateMyProfessors profile.
-         */
-        Rating: {
-            /** Rmp Id */
-            rmp_id: number;
-            /**
-             * Rating
-             * @description 1-5; None if unrated.
-             */
-            rating: number | null;
-            /**
-             * Difficulty
-             * @description 1-5; None if unrated.
-             */
-            difficulty: number | null;
-            /** Num Ratings */
-            num_ratings: number;
-            /**
-             * Would Take Again
-             * @description Percent of students who would take again; None if unknown.
-             */
-            would_take_again: number | null;
-        };
-        /**
-         * Requirement
-         * @description A requirement heading; each slot is filled by one of its choices.
-         */
-        Requirement: {
-            /** Position */
-            position: number;
-            /**
-             * Parent
-             * @description Parent requirement position.
-             */
-            parent: number | null;
-            /** Title */
-            title: string;
-            units: components["schemas"]["Units"] | null;
-            /**
-             * Notes
-             * @description Prose rules, e.g. Take at least...
-             */
-            notes: string;
-            /**
-             * Is General Education
-             * @description The university GE requirement; the GE audit decides it.
-             */
-            is_general_education: boolean;
-            /** Slots */
-            slots: components["schemas"]["RequirementChoice"][][];
-        };
-        /**
-         * RequirementChoice
-         * @description One course that can fill a requirement slot.
-         */
-        RequirementChoice: {
-            course: components["schemas"]["CourseRef"];
-            /**
-             * Title
-             * @description From the course's latest offering; None if never offered.
-             */
-            title: string | null;
-            units: components["schemas"]["Units"] | null;
-        };
-        /**
-         * RequirementProgress
-         * @description Progress on one requirement of a program.
-         */
-        RequirementProgress: {
-            /**
-             * Position
-             * @description The requirement's position.
-             */
-            position: number;
-            status: components["schemas"]["RequirementStatus"];
-            /**
-             * Units
-             * @description Units earned here and in nested requirements.
-             */
-            units: number;
-            /**
-             * Courses
-             * @description Completed codes filling this requirement's own slots.
-             */
-            courses: string[];
-        };
-        /**
-         * RequirementStatus
-         * @description How far along a requirement is.
-         * @enum {string}
-         */
-        RequirementStatus: "done" | "partial" | "todo" | "manual";
-        /**
-         * RequisiteGroup
-         * @description Met by `required_count` of its options; an option is courses ANDed.
-         */
-        RequisiteGroup: {
-            /** Required Count */
-            required_count: number;
-            /** Options */
-            options: components["schemas"]["CourseRef"][][];
-        };
-        /**
-         * Requisites
-         * @description Every group of each kind must be met.
-         */
-        Requisites: {
-            /** Prerequisite */
-            prerequisite: components["schemas"]["RequisiteGroup"][];
-            /** Corequisite */
-            corequisite: components["schemas"]["RequisiteGroup"][];
-            /** Concurrent */
-            concurrent: components["schemas"]["RequisiteGroup"][];
-        };
-        /**
-         * Restriction
-         * @description Who may enroll: inclusive entries admit a group, exclusive bar it.
-         */
-        Restriction: {
-            /**
-             * Kind
-             * @description class, major, or school.
-             */
-            kind: string;
-            /** Code */
-            code: string;
-            /** Description */
-            description: string;
-            /** Inclusive */
-            inclusive: boolean;
-        };
-        /**
-         * Screen
-         * @description What the student is looking at as they ask.
-         *
-         *     Attributes:
-         *       page: The planner (week and column) or the degree page.
-         *       open_course: The course whose card is open, if any.
-         *       proposal: The advisor's proposal the week projects, not yet kept.
-         */
-        Screen: {
-            /**
-             * Page
-             * @default planner
-             * @enum {string}
-             */
-            page: "planner" | "degree";
-            /** Open Course */
-            open_course?: string | null;
-            proposal?: components["schemas"]["Variant"] | null;
-        };
-        /**
-         * Search
-         * @description Runs a course search.
-         */
-        Search: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "search";
-            /** Label */
-            label: string;
-            /** Query */
-            query: string;
-        };
-        /**
-         * Section
-         * @description A registrable section of a course in a term.
-         */
-        Section: {
-            /** Term */
-            term: number;
-            /**
-             * Id
-             * @description USC section number, e.g. 29905.
-             */
-            id: string;
-            /** Course Code */
-            course_code: string;
-            /**
-             * Type
-             * @description Lecture, Lab, Discussion, Quiz, ...
-             */
-            type: string;
-            /**
-             * Link Code
-             * @description Bundle letter: take one section of each type sharing a letter. None means the section stands alone.
-             */
-            link_code: string | null;
-            /**
-             * Session
-             * @description USC session code.
-             */
-            session: string | null;
-            /**
-             * Name
-             * @description Special-topic title.
-             */
-            name: string | null;
-            units: components["schemas"]["Units"] | null;
-            /** Requires D Clearance */
-            requires_d_clearance: boolean;
-            /** Is Cancelled */
-            is_cancelled: boolean;
-            /** Registered */
-            registered: number;
-            /** Capacity */
-            capacity: number;
-            /** Waitlisted */
-            waitlisted: number;
-            /**
-             * Description
-             * @description Registration guidance, e.g. which sections to pair.
-             */
-            description: string | null;
-            /** Notes */
-            notes: string | null;
-            /** Syllabus Url */
-            syllabus_url: string | null;
-            /** Meetings */
-            meetings: components["schemas"]["Meeting"][];
-            /** Instructors */
-            instructors: components["schemas"]["Instructor"][];
-        };
-        /**
-         * Term
-         * @description An academic term.
-         */
-        Term: {
-            /**
-             * Code
-             * @description USC term code, e.g. 20271.
-             */
-            code: number;
-            /**
-             * Season
-             * @description Spring, Summer, or Fall.
-             */
-            season: string;
-            /** Year */
-            year: number;
-            /**
-             * Status
-             * @description As USC reports it, e.g. Active.
-             */
-            status: string;
-            /**
-             * Has Courses
-             * @description Whether this term's courses were fetched.
-             */
-            has_courses: boolean;
-        };
-        /**
-         * Units
-         * @description A unit count or range; min equals max for fixed-unit courses.
-         */
-        Units: {
-            /** Min */
-            min: number;
-            /** Max */
-            max: number;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
-        /**
-         * Variant
-         * @description A named schedule: one the student keeps, or a proposal on the week.
-         */
-        Variant: {
-            /** Name */
-            name: string;
-            /** Section Ids */
-            section_ids: string[];
-        };
-        /**
-         * WatchCourse
-         * @description Shortlists a course without picking sections.
-         */
-        WatchCourse: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            action: "watch_course";
-            /** Label */
-            label: string;
-            /** Course Code */
-            course_code: string;
-        };
-        /**
-         * Weekday
-         * @description A meeting day, in the abbreviation USC uses.
-         * @enum {string}
-         */
-        Weekday: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+  schemas: {
+    /**
+     * ApCredit
+     * @description A student's AP exam result.
+     */
+    ApCredit: {
+      /** Exam Id */
+      exam_id: string;
+      /** Score */
+      score: number;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /**
+     * ApExam
+     * @description An AP exam USC grants credit for.
+     */
+    ApExam: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Min Score */
+      min_score: number;
+      /** Units */
+      units: number;
+      /** Ge */
+      ge: string[];
+      /** Waives */
+      waives: components["schemas"]["CourseRef"][];
+    };
+    /**
+     * ChatRequest
+     * @description A student's message with what the advisor should know about them.
+     */
+    ChatRequest: {
+      /** Message */
+      message: string;
+      /**
+       * History
+       * @default []
+       */
+      history: components["schemas"]["ChatTurn"][];
+      /**
+       * Term
+       * @description The term being planned.
+       */
+      term: number;
+      /** Program Id */
+      program_id?: string | null;
+      /**
+       * Section Ids
+       * @description Sections in the active schedule.
+       * @default []
+       */
+      section_ids: string[];
+      /**
+       * Shortlisted
+       * @description Codes of courses saved for later.
+       * @default []
+       */
+      shortlisted: string[];
+      /**
+       * Completed
+       * @description Codes of courses already taken.
+       * @default []
+       */
+      completed: string[];
+      /**
+       * Ap Credits
+       * @default []
+       */
+      ap_credits: components["schemas"]["ApCredit"][];
+      /**
+       * Ge Counted
+       * @description GE seats the student counted by hand, by code.
+       * @default {}
+       */
+      ge_counted: {
+        [key: string]: number;
+      };
+      /**
+       * Variants
+       * @description The student's other schedules.
+       * @default []
+       */
+      variants: components["schemas"]["Variant"][];
+      /** @description What the student is looking at as they ask. */
+      screen?: components["schemas"]["Screen"];
+    };
+    /**
+     * ChatTurn
+     * @description A prior message in the conversation.
+     */
+    ChatTurn: {
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "user" | "assistant";
+      /** Content */
+      content: string;
+      /**
+       * Action Chips
+       * @description What an assistant turn offered, as it ended.
+       * @default []
+       */
+      action_chips: (
+        | components["schemas"]["ProposeSchedule"]
+        | components["schemas"]["EnrollSection"]
+        | components["schemas"]["WatchCourse"]
+        | components["schemas"]["MarkTaken"]
+        | components["schemas"]["Search"]
+      )[];
+    };
+    /**
+     * ClosingEvent
+     * @description The final event of a reply: chips, and courses the reply made up.
+     */
+    ClosingEvent: {
+      /** Action Chips */
+      action_chips: (
+        | components["schemas"]["ProposeSchedule"]
+        | components["schemas"]["EnrollSection"]
+        | components["schemas"]["WatchCourse"]
+        | components["schemas"]["MarkTaken"]
+        | components["schemas"]["Search"]
+      )[];
+      /**
+       * Unverified
+       * @description Courses the reply names that the catalog does not have.
+       */
+      unverified: string[];
+    };
+    /**
+     * Course
+     * @description A course as offered in one term, with its sections.
+     */
+    Course: {
+      /** Term */
+      term: number;
+      /**
+       * Code
+       * @description e.g. CSCI-104L.
+       */
+      code: string;
+      /** Department */
+      department: string;
+      /** Number */
+      number: string;
+      /** Suffix */
+      suffix: string;
+      /** Title */
+      title: string;
+      /** Description */
+      description: string;
+      units: components["schemas"]["Units"];
+      /** Recommended Prep */
+      recommended_prep: string | null;
+      /** Duplicate Credit */
+      duplicate_credit: string | null;
+      /** Course Notes */
+      course_notes: string | null;
+      /** Term Notes */
+      term_notes: string | null;
+      /** Is Cross Listed */
+      is_cross_listed: boolean;
+      /**
+       * Ge
+       * @description GE categories, e.g. GE-B.
+       */
+      ge: string[];
+      requisites: components["schemas"]["Requisites"];
+      /** Restrictions */
+      restrictions: components["schemas"]["Restriction"][];
+      /** Sections */
+      sections: components["schemas"]["Section"][];
+    };
+    /**
+     * CourseRef
+     * @description A reference to a course as a source wrote it.
+     */
+    CourseRef: {
+      /**
+       * Code
+       * @description As written, e.g. CSCI-103.
+       */
+      code: string;
+      /**
+       * Resolved
+       * @description The catalog course it matches, e.g. CSCI-103L, if any.
+       */
+      resolved: string | null;
+    };
+    /**
+     * EnrollSection
+     * @description Adds one section (and so its course) to the active schedule.
+     */
+    EnrollSection: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "enroll_section";
+      /** Label */
+      label: string;
+      /** Section Id */
+      section_id: string;
+    };
+    /**
+     * GeAudit
+     * @description General Education progress per category and in units.
+     */
+    GeAudit: {
+      /** Categories */
+      categories: components["schemas"]["GeProgress"][];
+      /**
+       * Units
+       * @description Units of the distinct courses, exams, and hand counts used.
+       */
+      units: number;
+      /**
+       * Required Units
+       * @description Units earned plus the fewest more that meet every category.
+       */
+      required_units: number;
+    };
+    /**
+     * GeAuditRequest
+     * @description What a student has done toward General Education.
+     */
+    GeAuditRequest: {
+      /**
+       * Completed
+       * @description Course codes taken.
+       */
+      completed: string[];
+      /**
+       * Ap Credits
+       * @default []
+       */
+      ap_credits: components["schemas"]["ApCredit"][];
+      /**
+       * Ge Counted
+       * @description GE seats the student counted by hand, by code.
+       * @default {}
+       */
+      ge_counted: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * GeCategory
+     * @description A GE category and how many courses it needs.
+     */
+    GeCategory: {
+      /** Code */
+      code: string;
+      /** Name */
+      name: string;
+      /**
+       * Area
+       * @description core, global, or seminar.
+       */
+      area: string;
+      /** Required Count */
+      required_count: number;
+    };
+    /**
+     * GeProgress
+     * @description How a GE category is filled; satisfied once filled reaches required.
+     */
+    GeProgress: {
+      /** Code */
+      code: string;
+      /** Name */
+      name: string;
+      /**
+       * Area
+       * @description core, global, or seminar.
+       */
+      area: string;
+      /** Required Count */
+      required_count: number;
+      /**
+       * Courses
+       * @description Completed codes used here.
+       */
+      courses: string[];
+      /**
+       * Exams
+       * @description AP exam ids used here.
+       */
+      exams: string[];
+      /**
+       * Counted
+       * @description Seats the student counted by hand, such as transfer credit.
+       * @default 0
+       */
+      counted: number;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /**
+     * Instructor
+     * @description Someone teaching a section.
+     */
+    Instructor: {
+      /**
+       * Key
+       * @description Normalized name, e.g. carter slocum.
+       */
+      key: string;
+      /** Name */
+      name: string;
+      rmp: components["schemas"]["Rating"] | null;
+    };
+    /**
+     * KnownCourse
+     * @description A course the catalog knows, in its canonical spelling.
+     */
+    KnownCourse: {
+      /**
+       * Code
+       * @description e.g. BISC-101Lgx.
+       */
+      code: string;
+      /** Title */
+      title: string;
+    };
+    /**
+     * MarkTaken
+     * @description Records courses as taken; the client applies it with undo.
+     */
+    MarkTaken: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "mark_taken";
+      /** Label */
+      label: string;
+      /** Course Codes */
+      course_codes: string[];
+    };
+    /**
+     * Meeting
+     * @description A weekly meeting pattern; empty days and null times mean TBA.
+     */
+    Meeting: {
+      /** Days */
+      days: components["schemas"]["Weekday"][];
+      /**
+       * Start Minute
+       * @description Minutes after midnight, e.g. 600 = 10:00.
+       */
+      start_minute: number | null;
+      /** End Minute */
+      end_minute: number | null;
+    };
+    /**
+     * Program
+     * @description A program with its full requirement tree.
+     */
+    Program: {
+      /**
+       * Id
+       * @description Slug, e.g. computer-science-bs.
+       */
+      id: string;
+      /** Title */
+      title: string;
+      /** Name */
+      name: string;
+      /** Emphasis */
+      emphasis: string | null;
+      /**
+       * Kind
+       * @description degree, minor, certificate, other.
+       */
+      kind: string;
+      /**
+       * Degree Type
+       * @description e.g. BS; None if not a degree.
+       */
+      degree_type: string | null;
+      /** School */
+      school: string | null;
+      /** Total Units */
+      total_units: number | null;
+      /**
+       * Total Units Stated
+       * @description False when the total is the university's bachelor's minimum.
+       */
+      total_units_stated: boolean;
+      /**
+       * Catalogue
+       * @description e.g. USC Catalogue 2026-2027.
+       */
+      catalogue: string;
+      /** Description */
+      description: string;
+      /** Requirements */
+      requirements: components["schemas"]["Requirement"][];
+    };
+    /**
+     * ProgramAudit
+     * @description A program audited against completed courses in a planning term.
+     */
+    ProgramAudit: {
+      /**
+       * Units
+       * @description Units of every completed course with known units, plus passed AP exams.
+       */
+      units: number;
+      /** Requirements */
+      requirements: components["schemas"]["RequirementProgress"][];
+      /**
+       * Locked
+       * @description Program courses whose prerequisites are not yet met, each mapped to the untaken courses of its unmet prerequisite groups.
+       */
+      locked: {
+        [key: string]: string[];
+      };
+    };
+    /**
+     * ProgramAuditRequest
+     * @description What a student has done: courses taken and AP exams passed.
+     */
+    ProgramAuditRequest: {
+      /** Completed */
+      completed: string[];
+      /**
+       * Ap Credits
+       * @default []
+       */
+      ap_credits: components["schemas"]["ApCredit"][];
+      /**
+       * Ge Counted
+       * @description GE seats the student counted by hand, by code.
+       * @default {}
+       */
+      ge_counted: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * ProgramSummary
+     * @description A degree, minor, certificate, or other program.
+     */
+    ProgramSummary: {
+      /**
+       * Id
+       * @description Slug, e.g. computer-science-bs.
+       */
+      id: string;
+      /** Title */
+      title: string;
+      /** Name */
+      name: string;
+      /** Emphasis */
+      emphasis: string | null;
+      /**
+       * Kind
+       * @description degree, minor, certificate, other.
+       */
+      kind: string;
+      /**
+       * Degree Type
+       * @description e.g. BS; None if not a degree.
+       */
+      degree_type: string | null;
+      /** School */
+      school: string | null;
+      /** Total Units */
+      total_units: number | null;
+      /**
+       * Total Units Stated
+       * @description False when the total is the university's bachelor's minimum.
+       */
+      total_units_stated: boolean;
+    };
+    /**
+     * ProposeSchedule
+     * @description Previews a set of sections as a schedule the student can accept.
+     */
+    ProposeSchedule: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "propose_schedule";
+      /** Label */
+      label: string;
+      /** Name */
+      name: string;
+      /** Section Ids */
+      section_ids: string[];
+      /**
+       * Tradeoff
+       * @description Why to pick this week over the other options, e.g. 'No class on Fri, avg prof 3.4'; empty when there is no choice.
+       * @default
+       */
+      tradeoff: string;
+    };
+    /**
+     * Rating
+     * @description An instructor's RateMyProfessors profile.
+     */
+    Rating: {
+      /** Rmp Id */
+      rmp_id: number;
+      /**
+       * Rating
+       * @description 1-5; None if unrated.
+       */
+      rating: number | null;
+      /**
+       * Difficulty
+       * @description 1-5; None if unrated.
+       */
+      difficulty: number | null;
+      /** Num Ratings */
+      num_ratings: number;
+      /**
+       * Would Take Again
+       * @description Percent of students who would take again; None if unknown.
+       */
+      would_take_again: number | null;
+    };
+    /**
+     * Requirement
+     * @description A requirement heading; each slot is filled by one of its choices.
+     */
+    Requirement: {
+      /** Position */
+      position: number;
+      /**
+       * Parent
+       * @description Parent requirement position.
+       */
+      parent: number | null;
+      /** Title */
+      title: string;
+      units: components["schemas"]["Units"] | null;
+      /**
+       * Notes
+       * @description Prose rules, e.g. Take at least...
+       */
+      notes: string;
+      /**
+       * Is General Education
+       * @description The university GE requirement; the GE audit decides it.
+       */
+      is_general_education: boolean;
+      /** Slots */
+      slots: components["schemas"]["RequirementChoice"][][];
+    };
+    /**
+     * RequirementChoice
+     * @description One course that can fill a requirement slot.
+     */
+    RequirementChoice: {
+      course: components["schemas"]["CourseRef"];
+      /**
+       * Title
+       * @description From the course's latest offering; None if never offered.
+       */
+      title: string | null;
+      units: components["schemas"]["Units"] | null;
+    };
+    /**
+     * RequirementProgress
+     * @description Progress on one requirement of a program.
+     */
+    RequirementProgress: {
+      /**
+       * Position
+       * @description The requirement's position.
+       */
+      position: number;
+      status: components["schemas"]["RequirementStatus"];
+      /**
+       * Units
+       * @description Units earned here and in nested requirements.
+       */
+      units: number;
+      /**
+       * Courses
+       * @description Completed codes filling this requirement's own slots.
+       */
+      courses: string[];
+    };
+    /**
+     * RequirementStatus
+     * @description How far along a requirement is.
+     * @enum {string}
+     */
+    RequirementStatus: "done" | "partial" | "todo" | "manual";
+    /**
+     * RequisiteGroup
+     * @description Met by `required_count` of its options; an option is courses ANDed.
+     */
+    RequisiteGroup: {
+      /** Required Count */
+      required_count: number;
+      /** Options */
+      options: components["schemas"]["CourseRef"][][];
+    };
+    /**
+     * Requisites
+     * @description Every group of each kind must be met.
+     */
+    Requisites: {
+      /** Prerequisite */
+      prerequisite: components["schemas"]["RequisiteGroup"][];
+      /** Corequisite */
+      corequisite: components["schemas"]["RequisiteGroup"][];
+      /** Concurrent */
+      concurrent: components["schemas"]["RequisiteGroup"][];
+    };
+    /**
+     * Restriction
+     * @description Who may enroll: inclusive entries admit a group, exclusive bar it.
+     */
+    Restriction: {
+      /**
+       * Kind
+       * @description class, major, or school.
+       */
+      kind: string;
+      /** Code */
+      code: string;
+      /** Description */
+      description: string;
+      /** Inclusive */
+      inclusive: boolean;
+    };
+    /**
+     * Screen
+     * @description What the student is looking at as they ask.
+     *
+     *     Attributes:
+     *       page: The planner (week and column) or the degree page.
+     *       open_course: The course whose card is open, if any.
+     *       proposal: The advisor's proposal the week projects, not yet kept.
+     */
+    Screen: {
+      /**
+       * Page
+       * @default planner
+       * @enum {string}
+       */
+      page: "planner" | "degree";
+      /** Open Course */
+      open_course?: string | null;
+      proposal?: components["schemas"]["Variant"] | null;
+    };
+    /**
+     * Search
+     * @description Runs a course search.
+     */
+    Search: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "search";
+      /** Label */
+      label: string;
+      /** Query */
+      query: string;
+    };
+    /**
+     * Section
+     * @description A registrable section of a course in a term.
+     */
+    Section: {
+      /** Term */
+      term: number;
+      /**
+       * Id
+       * @description USC section number, e.g. 29905.
+       */
+      id: string;
+      /** Course Code */
+      course_code: string;
+      /**
+       * Type
+       * @description Lecture, Lab, Discussion, Quiz, ...
+       */
+      type: string;
+      /**
+       * Link Code
+       * @description Bundle letter: take one section of each type sharing a letter. None means the section stands alone.
+       */
+      link_code: string | null;
+      /**
+       * Session
+       * @description USC session code.
+       */
+      session: string | null;
+      /**
+       * Name
+       * @description Special-topic title.
+       */
+      name: string | null;
+      units: components["schemas"]["Units"] | null;
+      /** Requires D Clearance */
+      requires_d_clearance: boolean;
+      /** Is Cancelled */
+      is_cancelled: boolean;
+      /** Registered */
+      registered: number;
+      /** Capacity */
+      capacity: number;
+      /** Waitlisted */
+      waitlisted: number;
+      /**
+       * Description
+       * @description Registration guidance, e.g. which sections to pair.
+       */
+      description: string | null;
+      /** Notes */
+      notes: string | null;
+      /** Syllabus Url */
+      syllabus_url: string | null;
+      /** Meetings */
+      meetings: components["schemas"]["Meeting"][];
+      /** Instructors */
+      instructors: components["schemas"]["Instructor"][];
+    };
+    /**
+     * Term
+     * @description An academic term.
+     */
+    Term: {
+      /**
+       * Code
+       * @description USC term code, e.g. 20271.
+       */
+      code: number;
+      /**
+       * Season
+       * @description Spring, Summer, or Fall.
+       */
+      season: string;
+      /** Year */
+      year: number;
+      /**
+       * Status
+       * @description As USC reports it, e.g. Active.
+       */
+      status: string;
+      /**
+       * Has Courses
+       * @description Whether this term's courses were fetched.
+       */
+      has_courses: boolean;
+    };
+    /**
+     * Units
+     * @description A unit count or range; min equals max for fixed-unit courses.
+     */
+    Units: {
+      /** Min */
+      min: number;
+      /** Max */
+      max: number;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
+    };
+    /**
+     * Variant
+     * @description A named schedule: one the student keeps, or a proposal on the week.
+     */
+    Variant: {
+      /** Name */
+      name: string;
+      /** Section Ids */
+      section_ids: string[];
+    };
+    /**
+     * WatchCourse
+     * @description Shortlists a course without picking sections.
+     */
+    WatchCourse: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "watch_course";
+      /** Label */
+      label: string;
+      /** Course Code */
+      course_code: string;
+    };
+    /**
+     * Weekday
+     * @description A meeting day, in the abbreviation USC uses.
+     * @enum {string}
+     */
+    Weekday: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_terms_api_terms_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Term"][];
-                };
-            };
-        };
+  list_terms_api_terms_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    search_courses_api_terms__term__courses_get: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                ge?: string | null;
-                min_rating?: number | null;
-                limit?: number;
-                offset?: number;
-                /** @description Comma-separated codes to load instead of searching; codes not offered this term are skipped. */
-                codes?: string | null;
-            };
-            header?: never;
-            path: {
-                term: number;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Course"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["Term"][];
         };
+      };
     };
-    get_course_api_terms__term__courses__code__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                term: number;
-                code: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Course"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  search_courses_api_terms__term__courses_get: {
+    parameters: {
+      query?: {
+        q?: string | null;
+        ge?: string | null;
+        min_rating?: number | null;
+        limit?: number;
+        offset?: number;
+        /** @description Comma-separated codes to load instead of searching; codes not offered this term are skipped. */
+        codes?: string | null;
+      };
+      header?: never;
+      path: {
+        term: number;
+      };
+      cookie?: never;
     };
-    get_sections_api_terms__term__sections_get: {
-        parameters: {
-            query: {
-                ids: string;
-            };
-            header?: never;
-            path: {
-                term: number;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Section"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["Course"][];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    lookup_courses_api_courses_get: {
-        parameters: {
-            query: {
-                codes: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnownCourse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_course_api_terms__term__courses__code__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        term: number;
+        code: string;
+      };
+      cookie?: never;
     };
-    list_programs_api_programs_get: {
-        parameters: {
-            query?: {
-                kind?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramSummary"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["Course"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_program_api_programs__program_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                program_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Program"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_sections_api_terms__term__sections_get: {
+    parameters: {
+      query: {
+        ids: string;
+      };
+      header?: never;
+      path: {
+        term: number;
+      };
+      cookie?: never;
     };
-    list_ge_categories_api_ge_categories_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeCategory"][];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["Section"][];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    list_ap_exams_api_ap_exams_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApExam"][];
-                };
-            };
-        };
+  };
+  lookup_courses_api_courses_get: {
+    parameters: {
+      query: {
+        codes: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    audit_ge_api_ge_audit_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GeAuditRequest"];
-            };
+        content: {
+          "application/json": components["schemas"]["KnownCourse"][];
         };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeAudit"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    audit_program_api_terms__term__programs__program_id__audit_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                term: number;
-                program_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProgramAuditRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramAudit"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  list_programs_api_programs_get: {
+    parameters: {
+      query?: {
+        kind?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    chat_stream_api_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChatRequest"];
-            };
+        content: {
+          "application/json": components["schemas"]["ProgramSummary"][];
         };
-        responses: {
-            /** @description An event stream of `{token}` (answer text), `{thought}` (reasoning) and `{step}` (a tool starting) events, then one ClosingEvent, then `[DONE]`. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClosingEvent"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    healthz_healthz_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
+  };
+  get_program_api_programs__program_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        program_id: string;
+      };
+      cookie?: never;
     };
-    health_check_api_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["Program"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
+  };
+  list_ge_categories_api_ge_categories_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GeCategory"][];
+        };
+      };
+    };
+  };
+  list_ap_exams_api_ap_exams_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApExam"][];
+        };
+      };
+    };
+  };
+  audit_ge_api_ge_audit_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GeAuditRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GeAudit"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  audit_program_api_terms__term__programs__program_id__audit_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        term: number;
+        program_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProgramAuditRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProgramAudit"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  chat_stream_api_chat_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChatRequest"];
+      };
+    };
+    responses: {
+      /** @description An event stream of `{token}` (answer text), `{thought}` (reasoning) and `{step}` (a tool starting) events, then one ClosingEvent, then `[DONE]`. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClosingEvent"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  healthz_healthz_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  health_check_api_health_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: string;
+          };
+        };
+      };
+    };
+  };
 }

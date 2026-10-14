@@ -6,9 +6,10 @@
  * concern.
  */
 
-import React, { useEffect, useState } from 'react';
-import { ARM_WINDOW_MS } from '../../config';
-import styles from './ResetButton.module.css';
+import type React from "react";
+import { useEffect, useState } from "react";
+import { ARM_WINDOW_MS } from "../../config";
+import styles from "./ResetButton.module.css";
 
 /**
  * Properties for the reset control.
@@ -34,7 +35,7 @@ export function ResetButton({ onReset }: ResetButtonProps): React.JSX.Element {
   return (
     <button
       type="button"
-      className={`${styles.button} ${armed ? styles.armed : ''}`}
+      className={`${styles.button} ${armed ? styles.armed : ""}`}
       onClick={() => {
         if (armed) {
           setArmed(false);
@@ -44,7 +45,7 @@ export function ResetButton({ onReset }: ResetButtonProps): React.JSX.Element {
         }
       }}
     >
-      {armed ? 'Click again to erase' : 'Reset all data'}
+      {armed ? "Click again to erase" : "Reset all data"}
     </button>
   );
 }

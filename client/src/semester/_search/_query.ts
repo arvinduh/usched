@@ -6,7 +6,7 @@
  * reads which mode the bar is in from its first character (`readBar`).
  */
 
-import { extractCourseCodes } from '../../degree/_degree';
+import { extractCourseCodes } from "../../degree/_degree";
 
 /**
  * A recognized filter token, with the exact text that produced it so the
@@ -37,23 +37,23 @@ const RATING_PATTERN = /(?:^|\s)([1-4](?:\.\d)?)\+(?=\s|$)/;
 export function parseQuery(text: string): ParsedQuery {
   let rest = text;
   const tokens: QueryToken[] = [];
-  let ge = '';
+  let ge = "";
   let minRmp = 0;
 
   const geMatch = GE_PATTERN.exec(rest);
   if (geMatch) {
     ge = `GE-${geMatch[1].toUpperCase()}`;
     tokens.push({ label: ge, raw: geMatch[0] });
-    rest = rest.replace(geMatch[0], ' ');
+    rest = rest.replace(geMatch[0], " ");
   }
   const ratingMatch = RATING_PATTERN.exec(rest);
   if (ratingMatch) {
     minRmp = Number(ratingMatch[1]);
     tokens.push({ label: `★ ${ratingMatch[1]}+`, raw: `${ratingMatch[1]}+` });
-    rest = rest.replace(`${ratingMatch[1]}+`, ' ');
+    rest = rest.replace(`${ratingMatch[1]}+`, " ");
   }
   return {
-    keywords: rest.replace(/\s+/g, ' ').trim(),
+    keywords: rest.replace(/\s+/g, " ").trim(),
     ge,
     minRmp,
     tokens,
@@ -65,12 +65,16 @@ export function parseQuery(text: string): ParsedQuery {
  * talks to the advisor, ">" finds courses, and "/" runs a command.
  */
 export type Bar =
-  | { readonly kind: 'chat'; readonly text: string }
-  | { readonly kind: 'courses'; readonly query: string }
+  | { readonly kind: "chat"; readonly text: string }
+  | { readonly kind: "courses"; readonly query: string }
   /** A command still being named, such as "/" or "/to". */
-  | { readonly kind: 'commands'; readonly name: string }
+  | { readonly kind: "commands"; readonly name: string }
   /** "/took CSCI 103L, MATH 1": codes so far, and the one being typed. */
-  | { readonly kind: 'took'; readonly codes: readonly string[]; readonly partial: string };
+  | {
+      readonly kind: "took";
+      readonly codes: readonly string[];
+      readonly partial: string;
+    };
 
 const TOOK = /^\/took\s/i;
 /** What separates codes in a list: "CSCI 103L, MATH 125 and WRIT 150". */
@@ -80,19 +84,19 @@ const LIST_BREAK = /,|;|\band\b/i;
  * Reads the bar's mode and its argument from its text.
  */
 export function readBar(text: string): Bar {
-  if (text.startsWith('>')) {
-    return { kind: 'courses', query: text.slice(1).trim() };
+  if (text.startsWith(">")) {
+    return { kind: "courses", query: text.slice(1).trim() };
   }
   if (TOOK.test(text)) {
-    const args = text.replace(TOOK, '');
+    const args = text.replace(TOOK, "");
     const segments = args.split(LIST_BREAK);
     const partial = segments[segments.length - 1].trim();
-    return { kind: 'took', codes: extractCourseCodes(args), partial };
+    return { kind: "took", codes: extractCourseCodes(args), partial };
   }
-  if (text.startsWith('/')) {
-    return { kind: 'commands', name: text.slice(1).trim().toLowerCase() };
+  if (text.startsWith("/")) {
+    return { kind: "commands", name: text.slice(1).trim().toLowerCase() };
   }
-  return { kind: 'chat', text: text.trim() };
+  return { kind: "chat", text: text.trim() };
 }
 
 /**
@@ -100,5 +104,9 @@ export function readBar(text: string): Bar {
  * typed after "/took". Empty means nothing to look up.
  */
 export function searchTextOf(bar: Bar): string {
-  return bar.kind === 'courses' ? bar.query : bar.kind === 'took' ? bar.partial : '';
+  return bar.kind === "courses"
+    ? bar.query
+    : bar.kind === "took"
+      ? bar.partial
+      : "";
 }

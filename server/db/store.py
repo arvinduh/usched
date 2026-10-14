@@ -46,9 +46,8 @@ def _marks(values: Sequence[Any]) -> str:
 def _query(
   conn: sqlite3.Connection, sql: str, params: Sequence[Any] = ()
 ) -> Iterator[sqlite3.Cursor]:
-  with _QUERY_LOCK:
-    with contextlib.closing(conn.execute(sql, params)) as cur:
-      yield cur
+  with _QUERY_LOCK, contextlib.closing(conn.execute(sql, params)) as cur:
+    yield cur
 
 
 def _units(low: float | None, high: float | None) -> models.Units | None:

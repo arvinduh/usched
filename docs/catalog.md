@@ -1,14 +1,14 @@
 # Catalog pipeline
 
-The catalog is a SQLite database of USC courses, sections, instructors,
-ratings, degree programs, and GE policy. It is generated from public sources
-and never committed. This page explains how `npm run catalog` builds it and
-how to change it.
+The catalog is a SQLite database of USC courses, sections, instructors, ratings,
+degree programs, and GE policy. It is generated from public sources and never
+committed. This page explains how `npm run catalog` builds it and how to change
+it.
 
 ## Before you begin
 
-- Install the browser the fetcher uses to pass the catalogue site's bot
-  firewall (no USC login is involved):
+- Install the browser the fetcher uses to pass the catalogue site's bot firewall
+  (no USC login is involved):
 
   ```bash
   uv run playwright install chromium
@@ -28,10 +28,10 @@ npm run catalog -- fetch build publish
 uv run catalog --helpfull           # every flag, e.g. --terms=20271
 ```
 
-A failed fetch keeps the cache's previous copy, so the build still runs, but
-the command exits 1. A build that fails verification leaves the live database
-untouched and also exits 1. A scheduled refresh therefore never reports
-success while serving stale data.
+A failed fetch keeps the cache's previous copy, so the build still runs, but the
+command exits 1. A build that fails verification leaves the live database
+untouched and also exits 1. A scheduled refresh therefore never reports success
+while serving stale data.
 
 ## Stages
 
@@ -58,28 +58,28 @@ window, so routine runs refetch only section listings.
 | RateMyProfessors    | `_rmp.py`            | One search per instructor, including empty results          | 30 days         |
 
 `_http.py` owns transport: a pooled client with browser-like headers, and
-retries with backoff for network errors, 429s, and 5xx responses. Fetches run
-in parallel.
+retries with backoff for network errors, 429s, and 5xx responses. Fetches run in
+parallel.
 
 ### Raw cache
 
 `_cache.RawCache` stores exactly what each source returned under
 `server/data/raw/`, keyed by paths such as
-`classes/20271/programs/ENGV-CSCI.json`. Writes are atomic. Keeping raw
-payloads makes builds reproducible and offline: the same cache always gives
-the same database.
+`classes/20271/programs/ENGV-CSCI.json`. Writes are atomic. Keeping raw payloads
+makes builds reproducible and offline: the same cache always gives the same
+database.
 
 ### Parse
 
 Parsers are pure functions over cached payloads, tested against fixtures in
 `tests/catalog/fixtures/`:
 
-- `_parse_classes.py` reads terms, schools, and listings into course,
-  offering, section, meeting, instructor, requisite, and restriction rows.
+- `_parse_classes.py` reads terms, schools, and listings into course, offering,
+  section, meeting, instructor, requisite, and restriction rows.
 - `_parse_courses.py` reads the catalogue's course index: canonical titles,
   units, descriptions, and GE categories stated on a course. GE Seminars
-  (`GESM 1X0`, `1X1`) fill the Core category their number names and the
-  seminar requirement.
+  (`GESM 1X0`, `1X1`) fill the Core category their number names and the seminar
+  requirement.
 - `_parse_catalogue.py` reads program pages as ordered text blocks. Headings
   become a requirement tree, course items become choice slots (items joined by
   "or" share a slot), and prose becomes notes.
@@ -106,14 +106,14 @@ sequence letter. Attribute letters (L lab, g GE, x, m, w, p) are ignored, so
 `_verify.py` checks invariants that constraints alone cannot express, such as
 meeting times inside a day, unit ranges in order, and every fetched term
 populated. Any violation fails the build. Resolution rates, such as how many
-requisites resolved, are reported but not enforced, because they depend on
-how much of USC the cache holds.
+requisites resolved, are reported but not enforced, because they depend on how
+much of USC the cache holds.
 
 ### Publish
 
-`_publish.py` verifies the database and uploads it to the repository's
-`catalog` GitHub release, creating it on first use, then prints the
-`CATALOG_URL` that deployments download. See [Deploy](deploy.md).
+`_publish.py` verifies the database and uploads it to the repository's `catalog`
+GitHub release, creating it on first use, then prints the `CATALOG_URL` that
+deployments download. See [Deploy](deploy.md).
 
 ## Schema
 
@@ -147,5 +147,5 @@ in `server/seeds/` and read at build time:
 > **Note:** `ap_exams.json` was entered by hand and is not yet checked against
 > the catalogue's AP credit chart.
 
-Changing a seed takes a rebuild (`npm run catalog -- build`) and, for the
-hosted app, a publish.
+Changing a seed takes a rebuild (`npm run catalog -- build`) and, for the hosted
+app, a publish.

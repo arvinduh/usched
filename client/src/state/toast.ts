@@ -6,7 +6,7 @@
  * the current one; each auto-dismisses after a few seconds.
  */
 
-import { createExternalStore, useSelector } from './_externalStore';
+import { createExternalStore, useSelector } from "./_externalStore";
 
 const LIFETIME_MS = 5000;
 

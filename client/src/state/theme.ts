@@ -9,11 +9,11 @@
  * loading splash shows it too; this module owns it from then on.
  */
 
-import { STORAGE_KEYS } from '../config';
-import { createExternalStore, useSelector } from './_externalStore';
+import { STORAGE_KEYS } from "../config";
+import { createExternalStore, useSelector } from "./_externalStore";
 
 /** A theme choice. */
-export type Theme = 'system' | 'light' | 'dark';
+export type Theme = "system" | "light" | "dark";
 
 // index.html repeats this read; keep the two (keys included) in step.
 function readTheme(): Theme {
@@ -21,14 +21,14 @@ function readTheme(): Theme {
     const saved =
       localStorage.getItem(STORAGE_KEYS.THEME) ??
       localStorage.getItem(STORAGE_KEYS.LEGACY_THEME);
-    return saved === 'light' || saved === 'dark' ? saved : 'system';
+    return saved === "light" || saved === "dark" ? saved : "system";
   } catch {
-    return 'system';
+    return "system";
   }
 }
 
 function apply(theme: Theme): void {
-  if (theme === 'system') {
+  if (theme === "system") {
     delete document.documentElement.dataset.theme;
   } else {
     document.documentElement.dataset.theme = theme;
@@ -51,14 +51,14 @@ export function useTheme(): Theme {
 export function setTheme(next: Theme): void {
   apply(next);
   try {
-    if (next === 'system') {
+    if (next === "system") {
       localStorage.removeItem(STORAGE_KEYS.THEME);
       localStorage.removeItem(STORAGE_KEYS.LEGACY_THEME);
     } else {
       localStorage.setItem(STORAGE_KEYS.THEME, next);
     }
   } catch (err) {
-    console.error('Failed to save theme', err);
+    console.error("Failed to save theme", err);
   }
   theme.set(next);
 }

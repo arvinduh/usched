@@ -8,10 +8,11 @@
  * the value.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
-import { useFloatingOverlay } from './_overlay';
-import styles from './Select.module.css';
+import { Check, ChevronDown } from "lucide-react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFloatingOverlay } from "./_overlay";
+import styles from "./Select.module.css";
 
 /**
  * One choice: what the caller stores, and what the list shows.
@@ -31,7 +32,7 @@ export interface SelectProps<T> {
   /** Names the control for assistive technology. */
   readonly label: string;
   /** Which edge the list aligns to; `end` for triggers near the right. */
-  readonly align?: 'start' | 'end';
+  readonly align?: "start" | "end";
 }
 
 let nextId = 0;
@@ -39,8 +40,10 @@ let nextId = 0;
 /**
  * Renders the trigger and, while open, the list.
  */
-export function Select<T extends string | number>(props: SelectProps<T>): React.JSX.Element {
-  const { value, options, onChange, label, align = 'start' } = props;
+export function Select<T extends string | number>(
+  props: SelectProps<T>,
+): React.JSX.Element {
+  const { value, options, onChange, label, align = "start" } = props;
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
   const [id] = useState(() => `select-${(nextId += 1)}`);
@@ -85,15 +88,15 @@ export function Select<T extends string | number>(props: SelectProps<T>): React.
     if (e.key in moves) {
       e.preventDefault();
       setCursor(moves[e.key]);
-    } else if (e.key === 'Enter' || e.key === ' ') {
+    } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       choose(cursor);
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       // This layer only: the app's own Escape handling never sees it.
       e.preventDefault();
       e.stopPropagation();
       close();
-    } else if (e.key === 'Tab') {
+    } else if (e.key === "Tab") {
       setOpen(false);
     }
   };
@@ -109,7 +112,7 @@ export function Select<T extends string | number>(props: SelectProps<T>): React.
         aria-label={label}
         onClick={() => (open ? close() : show())}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             show();
           }
@@ -125,7 +128,7 @@ export function Select<T extends string | number>(props: SelectProps<T>): React.
           tabIndex={-1}
           aria-label={label}
           aria-activedescendant={`${id}-${cursor}`}
-          className={`${styles.list} ${align === 'end' ? styles.end : ''}`}
+          className={`${styles.list} ${align === "end" ? styles.end : ""}`}
           onKeyDown={onListKey}
         >
           {options.map((o, i) => (
@@ -134,12 +137,14 @@ export function Select<T extends string | number>(props: SelectProps<T>): React.
               id={`${id}-${i}`}
               role="option"
               aria-selected={i === selected}
-              className={`${styles.option} ${i === cursor ? styles.optionOn : ''}`}
+              className={`${styles.option} ${i === cursor ? styles.optionOn : ""}`}
               onMouseEnter={() => setCursor(i)}
               onClick={() => choose(i)}
             >
               {o.label}
-              {i === selected && <Check size={12} className={styles.check} aria-hidden />}
+              {i === selected && (
+                <Check size={12} className={styles.check} aria-hidden />
+              )}
             </li>
           ))}
         </ul>

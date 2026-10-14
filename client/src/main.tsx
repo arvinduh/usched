@@ -5,16 +5,16 @@
  * validation enabled.
  */
 
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/inter';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "@fontsource-variable/inter";
 // Applies the saved theme before first paint.
-import './state/theme';
-import { App } from './App';
+import "./state/theme";
+import { App } from "./App";
 
-const container = document.getElementById('app-root');
+const container = document.getElementById("app-root");
 if (!container) {
-  throw new Error('Failed to locate #app-root mounting container in the DOM.');
+  throw new Error("Failed to locate #app-root mounting container in the DOM.");
 }
 
 createRoot(container).render(
@@ -22,4 +22,3 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 );
-

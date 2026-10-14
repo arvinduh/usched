@@ -10,25 +10,25 @@
  * picks, or saves them, so paging through results never touches the week.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getCourses, getSections } from '../api/client';
-import type { components } from '../api/schema';
-import { usePreview } from './preview';
-import { useTermPlan } from './store';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getCourses, getSections } from "../api/client";
+import type { components } from "../api/schema";
+import { usePreview } from "./preview";
+import { useTermPlan } from "./store";
 
 /**
  * Lookup tables for every course and section the client knows this term.
  */
 export interface PlanCourses {
-  readonly coursesByCode: ReadonlyMap<string, components['schemas']['Course']>;
-  readonly sectionsById: ReadonlyMap<string, components['schemas']['Section']>;
+  readonly coursesByCode: ReadonlyMap<string, components["schemas"]["Course"]>;
+  readonly sectionsById: ReadonlyMap<string, components["schemas"]["Section"]>;
   /** Pins a course so it outlives the catalog page it came from. */
-  readonly remember: (course: components['schemas']['Course']) => void;
+  readonly remember: (course: components["schemas"]["Course"]) => void;
 }
 
 interface TermCache {
   readonly term: number;
-  readonly courses: ReadonlyMap<string, components['schemas']['Course']>;
+  readonly courses: ReadonlyMap<string, components["schemas"]["Course"]>;
 }
 
 /**
@@ -52,12 +52,12 @@ export function usePlanCourses(
   const cached = cache.term === term ? cache.courses : undefined;
 
   const coursesByCode = useMemo(
-    () => cached ?? new Map<string, components['schemas']['Course']>(),
+    () => cached ?? new Map<string, components["schemas"]["Course"]>(),
     [cached],
   );
 
   const sectionsById = useMemo(() => {
-    const map = new Map<string, components['schemas']['Section']>();
+    const map = new Map<string, components["schemas"]["Section"]>();
     for (const course of coursesByCode.values()) {
       for (const section of course.sections) {
         map.set(section.id, section);
@@ -67,7 +67,10 @@ export function usePlanCourses(
   }, [coursesByCode]);
 
   const add = useCallback(
-    (forTerm: number, courses: readonly components['schemas']['Course'][]): void => {
+    (
+      forTerm: number,
+      courses: readonly components["schemas"]["Course"][],
+    ): void => {
       setCache((prev) => {
         const base = prev.term === forTerm ? prev.courses : new Map();
         const next = new Map(base);
@@ -81,7 +84,7 @@ export function usePlanCourses(
   );
 
   const remember = useCallback(
-    (course: components['schemas']['Course']): void => {
+    (course: components["schemas"]["Course"]): void => {
       if (!cached?.has(course.code)) {
         add(course.term, [course]);
       }
@@ -116,7 +119,10 @@ export function usePlanCourses(
     // loads every missing course.
     const hydrate = async (): Promise<void> => {
       const sections = await getSections(term, sectionIds);
-      const toFetch = new Set([...codes, ...sections.map((s) => s.course_code)]);
+      const toFetch = new Set([
+        ...codes,
+        ...sections.map((s) => s.course_code),
+      ]);
       add(term, await getCourses(term, [...toFetch]));
     };
     hydrate().catch(console.error);

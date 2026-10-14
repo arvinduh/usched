@@ -2,9 +2,9 @@
 
 The client is a React 19 app built with Vite, TypeScript, and the React
 Compiler. Its only runtime dependencies are React, Lucide icons, and the Inter
-font. It has no router and no global state library: two places (the planner and the degree) under one top
-bar, and a few small stores. This page explains how state flows so you can add
-a feature without fighting it.
+font. It has no router and no global state library: two places (the planner and
+the degree) under one top bar, and a few small stores. This page explains how
+state flows so you can add a feature without fighting it.
 
 ## Places
 
@@ -20,27 +20,27 @@ a feature without fighting it.
         Degree drops down over both from the meter (click it, or /degree)
 ```
 
-- **`App.tsx`** picks the term (the stored one, else the newest with
-  courses), composes the places, wires search, audits, chat, and shortcuts,
-  and owns which course is open. Every place opens courses into the same
-  card, which stays open across places.
+- **`App.tsx`** picks the term (the stored one, else the newest with courses),
+  composes the places, wires search, audits, chat, and shortcuts, and owns which
+  course is open. Every place opens courses into the same card, which stays open
+  across places.
 - **`semester/assistant/Assistant.tsx`** is the column. Covered layers stay
-  mounted and keep their scroll, so closing a card or clearing the input
-  returns the student exactly where they were.
+  mounted and keep their scroll, so closing a card or clearing the input returns
+  the student exactly where they were.
 - **`semester/Week.tsx`** owns layout only: fitting the hour range, splitting
   overlaps into lanes, texturing blocks by section type, and projecting
   proposals with their trade-off caption.
 - **`degree/`** renders the requirement tree in the chip grammar: a loose chip
   is a course to take, chips in a box are alternatives. AP exams join the slots
   they waive and the GE categories they fill.
-- **`shell/`** holds the top bar, the first-run welcome, and the splash
-  handoff. The splash is static markup in `index.html`, so it paints before
-  any script loads.
+- **`shell/`** holds the top bar, the first-run welcome, and the splash handoff.
+  The splash is static markup in `index.html`, so it paints before any script
+  loads.
 
 ## The input
 
-`semester/assistant/Composer.tsx` reads its mode from the first character,
-never from the words:
+`semester/assistant/Composer.tsx` reads its mode from the first character, never
+from the words:
 
 | Starts with | Mode    | Enter                                                   |
 | :---------- | :------ | :------------------------------------------------------ |
@@ -71,11 +71,11 @@ Rules that keep this predictable:
 - **The plan store holds only what the student authored.** It keeps codes and
   section numbers, never fetched records. `state/usePlanCourses.ts` resolves
   them into courses and sections and fetches anything it cannot resolve.
-- **Writes go through named actions.** `state/actions.ts` applies each
-  mutation as a pure recipe through `update`. Destructive actions return their
-  inverse, which the toast offers as undo.
-- **Previews never persist.** Hovering a section, expanding a course, or
-  showing an advisor proposal changes only `preview.ts`, so the app root never
+- **Writes go through named actions.** `state/actions.ts` applies each mutation
+  as a pure recipe through `update`. Destructive actions return their inverse,
+  which the toast offers as undo.
+- **Previews never persist.** Hovering a section, expanding a course, or showing
+  an advisor proposal changes only `preview.ts`, so the app root never
   re-renders on hover. Keeping a proposal is what writes to the plan.
 - **Schedules belong to a term.** Section numbers mean nothing outside their
   term, so each term keeps its own variants; completed courses and the program
@@ -89,8 +89,8 @@ with `npm run api` after changing a server model. During development Vite
 proxies `/api` to the API port from `.env`.
 
 `semester/_schedule.ts` mirrors the server's schedule rules (overlaps, link
-groups, units, missing components, prerequisites) so the week reacts to
-hovering instantly. See [Schedule engine](scheduling.md).
+groups, units, missing components, prerequisites) so the week reacts to hovering
+instantly. See [Schedule engine](scheduling.md).
 
 ## Keyboard
 
@@ -108,14 +108,13 @@ hovering instantly. See [Schedule engine](scheduling.md).
 | `⌘Enter`        | Ask the advisor about a `>` search                |
 | `⌘Z` / `Ctrl+Z` | Undo the last change                              |
 
-Right-click a section to add it to another variant. `+` starts an empty
-variant; right-click a variant's name to duplicate, rename, or delete it. The
-settings menu copies your section numbers for registration and resets all
-local data.
+Right-click a section to add it to another variant. `+` starts an empty variant;
+right-click a variant's name to duplicate, rename, or delete it. The settings
+menu copies your section numbers for registration and resets all local data.
 
 ## Style
 
 The client follows the repository's TypeScript and CSS conventions: named
 exports, `interface` over `type` for object shapes, CSS Modules per component,
-and design tokens in `index.css` for both themes. `npm run check -w client`
-runs oxlint and `tsc`.
+and design tokens in `index.css` for both themes. `npm run check -w client` runs
+oxlint and `tsc`.

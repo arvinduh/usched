@@ -10,23 +10,23 @@
  * the caller; lines carry `data-nav` hooks for arrow-key navigation.
  */
 
-import React, { useCallback, useState } from 'react';
-import { ArrowLeft, Bookmark, Check, CircleCheck, Lock } from 'lucide-react';
-import { courseKey, displayCode } from '../degree/_degree';
+import { ArrowLeft, Bookmark, Check, CircleCheck, Lock } from "lucide-react";
+import React, { useCallback, useState } from "react";
+import type { components } from "../api/schema";
+import { courseKey, displayCode } from "../degree/_degree";
+import { setFocus, usePreview } from "../state/preview";
+import { ContextMenu } from "../ui/ContextMenu";
+import { hueFor } from "../ui/encoding";
+import { DayStrip, RatingPair, SeatNote, TypeSwatch } from "../ui/Glyphs";
 import {
   compatible,
   groupByType,
   missingComponents,
   timedMeetings,
   unmetPrereqs,
-} from './_schedule';
-import { formatRange } from './_time';
-import { setFocus, usePreview } from '../state/preview';
-import { ContextMenu } from '../ui/ContextMenu';
-import { DayStrip, RatingPair, SeatNote, TypeSwatch } from '../ui/Glyphs';
-import { hueFor } from '../ui/encoding';
-import type { components } from '../api/schema';
-import styles from './Course.module.css';
+} from "./_schedule";
+import { formatRange } from "./_time";
+import styles from "./Course.module.css";
 
 /**
  * What a line or card needs to know about the student's plan.
@@ -46,33 +46,35 @@ export interface CoursePlan {
  * Properties for a course line.
  */
 export interface CourseLineProps {
-  readonly course: components['schemas']['Course'];
+  readonly course: components["schemas"]["Course"];
   readonly plan: CoursePlan;
-  readonly onOpen: (course: components['schemas']['Course']) => void;
+  readonly onOpen: (course: components["schemas"]["Course"]) => void;
 }
 
 interface MenuState {
   readonly x: number;
   readonly y: number;
-  readonly section: components['schemas']['Section'];
+  readonly section: components["schemas"]["Section"];
 }
 
-function refCode(ref: components['schemas']['CourseRef']): string {
+function refCode(ref: components["schemas"]["CourseRef"]): string {
   return displayCode(ref.resolved ?? ref.code);
 }
 
-function prereqLabel(groups: readonly components['schemas']['RequisiteGroup'][]): string {
-  const group = (g: components['schemas']['RequisiteGroup']): string => {
-    const options = g.options.map((o) => o.map(refCode).join(' and '));
+function prereqLabel(
+  groups: readonly components["schemas"]["RequisiteGroup"][],
+): string {
+  const group = (g: components["schemas"]["RequisiteGroup"]): string => {
+    const options = g.options.map((o) => o.map(refCode).join(" and "));
     return g.required_count > 1
-      ? `${g.required_count} of ${options.join(', ')}`
-      : options.join(' or ');
+      ? `${g.required_count} of ${options.join(", ")}`
+      : options.join(" or ");
   };
-  return `Needs ${groups.map(group).join('; ')}`;
+  return `Needs ${groups.map(group).join("; ")}`;
 }
 
 /** Units as a label, or null for the usual four. */
-function unitsLabel(units: components['schemas']['Units']): string | null {
+function unitsLabel(units: components["schemas"]["Units"]): string | null {
   if (units.min === units.max) {
     return units.min === 4 ? null : `${units.min}u`;
   }
@@ -99,24 +101,32 @@ function Toggles({
     <>
       <button
         type="button"
-        className={`${cls} ${isTaken ? styles.saved : ''}`}
+        className={`${cls} ${isTaken ? styles.saved : ""}`}
         onClick={() => plan.onToggleTaken(code)}
         aria-pressed={isTaken}
-        aria-label={labeled ? undefined : isTaken ? `Unmark ${code} as taken` : `Mark ${code} as taken`}
-        title={labeled ? undefined : isTaken ? 'Taken' : 'Mark as taken'}
+        aria-label={
+          labeled
+            ? undefined
+            : isTaken
+              ? `Unmark ${code} as taken`
+              : `Mark ${code} as taken`
+        }
+        title={labeled ? undefined : isTaken ? "Taken" : "Mark as taken"}
       >
         <CircleCheck size={13} />
-        {labeled && (isTaken ? 'Taken' : 'Mark taken')}
+        {labeled && (isTaken ? "Taken" : "Mark taken")}
       </button>
       <button
         type="button"
-        className={`${cls} ${isSaved ? styles.saved : ''}`}
+        className={`${cls} ${isSaved ? styles.saved : ""}`}
         onClick={() => plan.onToggleSave(code)}
         aria-pressed={isSaved}
-        aria-label={labeled ? undefined : isSaved ? `Unsave ${code}` : `Save ${code}`}
+        aria-label={
+          labeled ? undefined : isSaved ? `Unsave ${code}` : `Save ${code}`
+        }
       >
-        <Bookmark size={13} fill={isSaved ? 'currentColor' : 'none'} />
-        {labeled && (isSaved ? 'Saved' : 'Save')}
+        <Bookmark size={13} fill={isSaved ? "currentColor" : "none"} />
+        {labeled && (isSaved ? "Saved" : "Save")}
       </button>
     </>
   );
@@ -125,12 +135,16 @@ function Toggles({
 /**
  * Renders one course as a line that opens its card.
  */
-export function CourseLine({ course, plan, onOpen }: CourseLineProps): React.JSX.Element {
+export function CourseLine({
+  course,
+  plan,
+  onOpen,
+}: CourseLineProps): React.JSX.Element {
   const chosen = course.sections.filter((s) => plan.activeSectionIds.has(s.id));
   const missing = chosen.length > 0 ? missingComponents(course, chosen) : [];
   const unmet = unmetPrereqs(course, plan.completed);
   const hue = hueFor(course.code, plan.scheduledCourseIds);
-  const geLetters = course.ge.map((g) => g.replace('GE-', ''));
+  const geLetters = course.ge.map((g) => g.replace("GE-", ""));
   const isTaken = plan.completed.has(courseKey(course.code));
   const units = unitsLabel(course.units);
 
@@ -143,7 +157,7 @@ export function CourseLine({ course, plan, onOpen }: CourseLineProps): React.JSX
         onClick={() => onOpen(course)}
       >
         <span className={styles.code}>{displayCode(course.code)}</span>
-        <span className={`${styles.title} ${isTaken ? styles.titleTaken : ''}`}>
+        <span className={`${styles.title} ${isTaken ? styles.titleTaken : ""}`}>
           {course.title}
         </span>
         {chosen.length > 0 && (
@@ -152,16 +166,16 @@ export function CourseLine({ course, plan, onOpen }: CourseLineProps): React.JSX
             style={{ color: hue.ink }}
             title={
               missing.length > 0
-                ? `Still needs a ${missing.join(' and a ')}`
-                : 'All sections chosen'
+                ? `Still needs a ${missing.join(" and a ")}`
+                : "All sections chosen"
             }
           >
-            {missing.length > 0 ? '◐' : '●'}
+            {missing.length > 0 ? "◐" : "●"}
           </span>
         )}
         {geLetters.length > 0 && (
-          <span className={styles.meta} title={course.ge.join(', ')}>
-            {geLetters.join('')}
+          <span className={styles.meta} title={course.ge.join(", ")}>
+            {geLetters.join("")}
           </span>
         )}
         {units && <span className={styles.meta}>{units}</span>}
@@ -181,22 +195,25 @@ export function CourseLine({ course, plan, onOpen }: CourseLineProps): React.JSX
  */
 export interface CourseCardProps {
   /** The course as this term offers it, or null when it is not offered. */
-  readonly course: components['schemas']['Course'] | null;
+  readonly course: components["schemas"]["Course"] | null;
   readonly code: string;
   /** A title for a course this term lacks, when the opener knew one. */
   readonly title: string | null;
   readonly termName: string;
   readonly plan: CoursePlan;
   readonly onToggleSection: (
-    section: components['schemas']['Section'],
-    course: components['schemas']['Course'],
+    section: components["schemas"]["Section"],
+    course: components["schemas"]["Course"],
   ) => void;
   /** Variants other than the active one, for "Add to" in the menu. */
-  readonly otherVariants: readonly { readonly id: string; readonly name: string }[];
+  readonly otherVariants: readonly {
+    readonly id: string;
+    readonly name: string;
+  }[];
   /** Adds to the given variant, or to a new one when `configId` is null. */
   readonly onAddToVariant: (
-    section: components['schemas']['Section'],
-    course: components['schemas']['Course'],
+    section: components["schemas"]["Section"],
+    course: components["schemas"]["Course"],
     configId: string | null,
   ) => void;
   readonly onClose: () => void;
@@ -213,15 +230,22 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
 
   const header = (
     <header className={styles.cardHead}>
-      <button type="button" className={styles.back} onClick={onClose} aria-label="Close">
+      <button
+        type="button"
+        className={styles.back}
+        onClick={onClose}
+        aria-label="Close"
+      >
         <ArrowLeft size={14} />
       </button>
-      <span className={styles.cardCode}>{displayCode(course?.code ?? code)}</span>
+      <span className={styles.cardCode}>
+        {displayCode(course?.code ?? code)}
+      </span>
       {course && unitsLabel(course.units) !== null && (
         <span className={styles.meta}>{unitsLabel(course.units)}</span>
       )}
       {course && course.ge.length > 0 && (
-        <span className={styles.meta}>{course.ge.join(' ')}</span>
+        <span className={styles.meta}>{course.ge.join(" ")}</span>
       )}
     </header>
   );
@@ -248,13 +272,13 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
   const groups = groupByType(live);
   const chosenTypes = new Set(chosen.map((s) => s.type));
   // Link letters only matter when a course has more than one group.
-  const showLinks = new Set(live.map((s) => s.link_code ?? '')).size > 1;
+  const showLinks = new Set(live.map((s) => s.link_code ?? "")).size > 1;
   const status =
     chosen.length === 0
-      ? 'Pick a section here or on the week.'
+      ? "Pick a section here or on the week."
       : missing.length > 0
-        ? `On your week; still needs a ${missing.join(' and a ')}.`
-        : 'On your week.';
+        ? `On your week; still needs a ${missing.join(" and a ")}.`
+        : "On your week.";
 
   return (
     <div className={styles.card}>
@@ -266,12 +290,14 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
       <p className={styles.cardNote}>
         {unmet.length > 0 && (
           <span className={styles.cardWarn}>
-            <Lock size={11} /> {prereqLabel(unmet)}.{' '}
+            <Lock size={11} /> {prereqLabel(unmet)}.{" "}
           </span>
         )}
         {status}
       </p>
-      {course.description && <p className={styles.description}>{course.description}</p>}
+      {course.description && (
+        <p className={styles.description}>{course.description}</p>
+      )}
       {groups.length > 1 && (
         <p className={styles.together}>
           <span className={styles.togetherLabel}>Take together</span>
@@ -279,7 +305,7 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
             <React.Fragment key={g.type}>
               {i > 0 && <span className={styles.plus}>+</span>}
               <span
-                className={`${styles.part} ${chosenTypes.has(g.type) ? styles.partDone : ''}`}
+                className={`${styles.part} ${chosenTypes.has(g.type) ? styles.partDone : ""}`}
               >
                 <TypeSwatch sectionType={g.type} ink={hue.ink} />
                 {g.type}
@@ -296,14 +322,16 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
               <TypeSwatch sectionType={g.type} ink={hue.ink} />
               <span className={styles.groupName}>{g.type}</span>
               <span className={styles.groupRule}>
-                {g.sections.length > 1 ? 'choose one' : 'one option'}
+                {g.sections.length > 1 ? "choose one" : "one option"}
               </span>
               {chosenTypes.has(g.type) ? (
                 <span className={styles.groupDone} style={{ color: hue.ink }}>
                   <Check size={12} />
                 </span>
               ) : (
-                chosen.length > 0 && <span className={styles.groupNeeded}>needed</span>
+                chosen.length > 0 && (
+                  <span className={styles.groupNeeded}>needed</span>
+                )
               )}
             </header>
             <div className={styles.sections}>
@@ -316,7 +344,8 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
                   isChosen={activeSectionIds.has(section.id)}
                   link={showLinks ? section.link_code : null}
                   isOffGroup={
-                    chosen.length > 0 && !chosen.every((c) => compatible(c, section))
+                    chosen.length > 0 &&
+                    !chosen.every((c) => compatible(c, section))
                   }
                   onToggle={() => props.onToggleSection(section, course)}
                   onMenu={(x, y) => setMenu({ x, y, section })}
@@ -338,7 +367,7 @@ export function CourseCard(props: CourseCardProps): React.JSX.Element {
               onSelect: () => props.onAddToVariant(menu.section, course, v.id),
             })),
             {
-              label: 'Add to a new variant',
+              label: "Add to a new variant",
               onSelect: () => props.onAddToVariant(menu.section, course, null),
             },
           ]}
@@ -358,7 +387,7 @@ function SectionRow({
   onToggle,
   onMenu,
 }: {
-  readonly section: components['schemas']['Section'];
+  readonly section: components["schemas"]["Section"];
   readonly ink: string;
   readonly fill: string;
   readonly isChosen: boolean;
@@ -377,10 +406,10 @@ function SectionRow({
   return (
     <button
       type="button"
-      className={`${styles.section} ${isOffGroup ? styles.offGroup : ''} ${
-        isFocused ? styles.sectionFocus : ''
+      className={`${styles.section} ${isOffGroup ? styles.offGroup : ""} ${
+        isFocused ? styles.sectionFocus : ""
       }`}
-      title={isOffGroup ? 'Choosing this switches to its group' : undefined}
+      title={isOffGroup ? "Choosing this switches to its group" : undefined}
       style={isChosen ? { background: fill } : undefined}
       aria-pressed={isChosen}
       data-nav="section"
@@ -393,7 +422,7 @@ function SectionRow({
       onFocus={() => setFocus(section.id)}
     >
       <span
-        className={`${styles.radio} ${isChosen ? styles.radioOn : ''}`}
+        className={`${styles.radio} ${isChosen ? styles.radioOn : ""}`}
         style={{ color: ink }}
         aria-hidden="true"
       />
@@ -425,7 +454,7 @@ function SectionRow({
         )}
       </span>
       <span className={instructor ? styles.instructor : styles.tba}>
-        {instructor?.name ?? 'Staff'}
+        {instructor?.name ?? "Staff"}
         {coTeachers.length > 0 && ` +${coTeachers.length}`}
       </span>
       <span className={styles.stats}>

@@ -3,10 +3,10 @@
  */
 
 /** The application display name. */
-export const APP_NAME = 'usched';
+export const APP_NAME = "usched";
 
 /** The root base URL for API requests. */
-export const API_BASE_URL = '/api';
+export const API_BASE_URL = "/api";
 
 /** Local storage keys, including backwards-compatible fallback keys. */
 export interface StorageKeys {
@@ -17,10 +17,10 @@ export interface StorageKeys {
 }
 
 export const STORAGE_KEYS: StorageKeys = {
-  PLAN: 'usched:v2:plan',
-  THEME: 'usched:v2:theme',
-  LEGACY_PLAN: 'usched:v2',
-  LEGACY_THEME: 'usched:theme',
+  PLAN: "usched:v2:plan",
+  THEME: "usched:v2:theme",
+  LEGACY_PLAN: "usched:v2",
+  LEGACY_THEME: "usched:theme",
 };
 
 /** Default starting hour for the schedule calendar view (9 AM). */
@@ -30,10 +30,17 @@ export const DEFAULT_START_HOUR = 9;
 export const DEFAULT_END_HOUR = 17;
 
 /** Standard weekdays shown in the schedule calendar view. */
-export const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const;
+export const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const;
 
 /** Extended days of the week including Saturday when weekend classes exist. */
-export const EXTENDED_DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+export const EXTENDED_DAYS_OF_WEEK = [
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const;
 
 /**
  * Most units a term takes at flat tuition; each unit past it costs extra.
@@ -54,6 +61,6 @@ export const DEBOUNCE_MS = 60;
  * Builds the external link to a course on USC's Schedule of Classes for a given term.
  */
 export function uscCourseUrl(code: string, term: number): string {
-  const smashed = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const smashed = code.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   return `https://classes.usc.edu/term/${term}/catalogue/course/${smashed}`;
 }

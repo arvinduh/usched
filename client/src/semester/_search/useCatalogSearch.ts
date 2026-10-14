@@ -7,15 +7,22 @@
  * is pinned by `usePlanCourses`, never read back from here.
  */
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
-import { searchCourses } from '../../api/client';
-import { DEBOUNCE_MS, PAGE_SIZE } from '../../config';
-import { parseQuery, readBar, searchTextOf } from './_query';
-import type { Bar, ParsedQuery } from './_query';
-import type { components } from '../../api/schema';
+import type { Dispatch, SetStateAction } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { searchCourses } from "../../api/client";
+import type { components } from "../../api/schema";
+import { DEBOUNCE_MS, PAGE_SIZE } from "../../config";
+import type { Bar, ParsedQuery } from "./_query";
+import { parseQuery, readBar, searchTextOf } from "./_query";
 
-const NO_COURSES: readonly components['schemas']['Course'][] = [];
+const NO_COURSES: readonly components["schemas"]["Course"][] = [];
 
 /**
  * Search text, its interpretation, loaded results, and paging controls.
@@ -26,7 +33,7 @@ export interface CatalogSearch {
   readonly setText: Dispatch<SetStateAction<string>>;
   readonly bar: Bar;
   readonly parsed: ParsedQuery;
-  readonly courses: readonly components['schemas']['Course'][];
+  readonly courses: readonly components["schemas"]["Course"][];
   /** True until the current text's first page arrives. */
   readonly isSearching: boolean;
   readonly hasMore: boolean;
@@ -34,14 +41,14 @@ export interface CatalogSearch {
 }
 
 function _isAbortError(err: unknown): boolean {
-  if (err instanceof DOMException && err.name === 'AbortError') {
+  if (err instanceof DOMException && err.name === "AbortError") {
     return true;
   }
   return (
-    typeof err === 'object' &&
+    typeof err === "object" &&
     err !== null &&
-    'name' in err &&
-    err.name === 'AbortError'
+    "name" in err &&
+    err.name === "AbortError"
   );
 }
 
@@ -52,16 +59,18 @@ function _isAbortError(err: unknown): boolean {
  * catalog; chat and empty text load nothing.
  */
 export function useCatalogSearch(term: number): CatalogSearch {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const bar = useMemo(() => readBar(text), [text]);
   const parsed = useMemo(() => parseQuery(searchTextOf(bar)), [bar]);
   const { keywords, ge, minRmp } = parsed;
   const isEmpty = !keywords && !ge && minRmp === 0;
 
-  const [courses, setCourses] = useState<readonly components['schemas']['Course'][]>([]);
+  const [courses, setCourses] = useState<
+    readonly components["schemas"]["Course"][]
+  >([]);
   // Which query `courses` answers, so stale results never read as final.
   const queryKey = `${term}|${keywords}|${ge}|${minRmp}`;
-  const [resultKey, setResultKey] = useState('');
+  const [resultKey, setResultKey] = useState("");
   // Server offset of the next page; can exceed `courses.length` when a page
   // repeats rows already shown.
   const [nextOffset, setNextOffset] = useState(0);

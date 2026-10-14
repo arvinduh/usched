@@ -7,8 +7,8 @@
  * on hover.
  */
 
-import { createExternalStore, useSelector } from './_externalStore';
-import type { components } from '../api/schema';
+import type { components } from "../api/schema";
+import { createExternalStore, useSelector } from "./_externalStore";
 
 /**
  * A whole schedule suggested by the advisor, shown before it is kept.
@@ -22,7 +22,7 @@ export interface Proposal {
 
 interface Preview {
   /** Course whose sections are offered as ghosts on the week. */
-  readonly expanded: components['schemas']['Course'] | null;
+  readonly expanded: components["schemas"]["Course"] | null;
   /** Section the pointer or keyboard is on; its ghost is emphasized. */
   readonly focusId: string | null;
   /** Schedules the advisor proposed; the week projects one at a time. */
@@ -48,7 +48,9 @@ export function usePreview<T>(selector: (p: Preview) => T): T {
 /**
  * Expands a course (ghosting its sections), or collapses with `null`.
  */
-export function setExpanded(course: components['schemas']['Course'] | null): void {
+export function setExpanded(
+  course: components["schemas"]["Course"] | null,
+): void {
   preview.set({ ...preview.get(), expanded: course, focusId: null });
 }
 
@@ -74,7 +76,13 @@ export function shownProposal(p: Preview): Proposal | null {
  * clears them.
  */
 export function setProposals(proposals: readonly Proposal[]): void {
-  preview.set({ ...preview.get(), proposals, shown: 0, expanded: null, focusId: null });
+  preview.set({
+    ...preview.get(),
+    proposals,
+    shown: 0,
+    expanded: null,
+    focusId: null,
+  });
 }
 
 /**

@@ -31,7 +31,7 @@
 }
 
 .resize::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
@@ -48,7 +48,7 @@
 }
 
 .degree {
-  composes: scroll from './ui/Scroll.module.css';
+  composes: scroll from "./ui/Scroll.module.css";
   flex: 1;
   min-height: 0;
   overflow-y: auto;

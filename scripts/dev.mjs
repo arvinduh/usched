@@ -17,18 +17,18 @@
  * stopped too.
  */
 
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 
-const WINDOWS = process.platform === 'win32';
+const WINDOWS = process.platform === "win32";
 const GRACE_MS = 3000;
-const root = fileURLToPath(new URL('..', import.meta.url));
+const root = fileURLToPath(new URL("..", import.meta.url));
 const python = WINDOWS
-  ? join(root, '.venv', 'Scripts', 'python.exe')
-  : join(root, '.venv', 'bin', 'python');
+  ? join(root, ".venv", "Scripts", "python.exe")
+  : join(root, ".venv", "bin", "python");
 
 if (WINDOWS && process.env.npm_execpath) {
   console.warn(
@@ -39,21 +39,25 @@ if (WINDOWS && process.env.npm_execpath) {
 
 // Brings the venv up to date, as `uv run` would. The shell is fine for this
 // short step (uv itself may be a .cmd shim); no server is running yet.
-const sync = spawnSync('uv sync --quiet', { cwd: root, stdio: 'inherit', shell: true });
+const sync = spawnSync("uv sync --quiet", {
+  cwd: root,
+  stdio: "inherit",
+  shell: true,
+});
 if (sync.status !== 0 || !existsSync(python)) {
-  console.error('usched: the Python environment is not ready; run `uv sync`.');
+  console.error("usched: the Python environment is not ready; run `uv sync`.");
   process.exit(1);
 }
 
 const color = process.stdout.isTTY;
-const env = color ? { ...process.env, FORCE_COLOR: '1' } : process.env;
+const env = color ? { ...process.env, FORCE_COLOR: "1" } : process.env;
 const servers = [
-  { name: 'api', tint: 34, file: python, args: ['-m', 'server.main'] },
+  { name: "api", tint: 34, file: python, args: ["-m", "server.main"] },
   {
-    name: 'web',
+    name: "web",
     tint: 35,
     file: process.execPath,
-    args: ['node_modules/vite/bin/vite.js', 'client', '--clearScreen', 'false'],
+    args: ["node_modules/vite/bin/vite.js", "client", "--clearScreen", "false"],
   },
 ];
 
@@ -73,9 +77,11 @@ function signalGroup(child, signal) {
 /** Ends a server and everything it started, at once. */
 function kill(child) {
   if (WINDOWS) {
-    spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
   } else {
-    signalGroup(child, 'SIGKILL');
+    signalGroup(child, "SIGKILL");
   }
 }
 
@@ -91,7 +97,7 @@ function stop(signal) {
   for (const child of running) {
     if (!WINDOWS) {
       signalGroup(child, signal);
-    } else if (signal !== 'SIGINT') {
+    } else if (signal !== "SIGINT") {
       kill(child);
     }
   }
@@ -102,7 +108,7 @@ for (const { name, tint, file, args } of servers) {
   const child = spawn(file, args, {
     cwd: root,
     env,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ["ignore", "pipe", "pipe"],
     // Its own process group, outside Windows; there it would get its own
     // console instead.
     detached: !WINDOWS,
@@ -112,20 +118,24 @@ for (const { name, tint, file, args } of servers) {
     [child.stdout, process.stdout],
     [child.stderr, process.stderr],
   ]) {
-    createInterface({ input: stream }).on('line', (line) => out.write(prefix + line + '\n'));
+    createInterface({ input: stream }).on("line", (line) =>
+      out.write(prefix + line + "\n"),
+    );
   }
   running.add(child);
-  child.on('error', (error) => console.error(`${prefix}${error.message}`));
-  child.on('exit', (code, signal) => {
+  child.on("error", (error) => console.error(`${prefix}${error.message}`));
+  child.on("exit", (code, signal) => {
     running.delete(child);
     // Anything the server left behind (a reloader's worker) goes with it.
     if (!WINDOWS) {
-      signalGroup(child, 'SIGKILL');
+      signalGroup(child, "SIGKILL");
     }
     if (!stopping) {
-      console.error(`${prefix}exited (${signal ?? code}); stopping the other server`);
+      console.error(
+        `${prefix}exited (${signal ?? code}); stopping the other server`,
+      );
       failed = true;
-      stop('SIGTERM');
+      stop("SIGTERM");
     }
     if (running.size === 0) {
       process.exit(failed ? 1 : 0);
@@ -133,5 +143,5 @@ for (const { name, tint, file, args } of servers) {
   });
 }
 
-process.on('SIGINT', () => stop('SIGINT'));
-process.on('SIGTERM', () => stop('SIGTERM'));
+process.on("SIGINT", () => stop("SIGINT"));
+process.on("SIGTERM", () => stop("SIGTERM"));

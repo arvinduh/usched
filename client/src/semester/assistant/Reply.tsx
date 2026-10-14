@@ -10,9 +10,9 @@
  * the text.
  */
 
-import React from 'react';
-import { CalendarDays, Check } from 'lucide-react';
-import styles from './Thread.module.css';
+import { CalendarDays, Check } from "lucide-react";
+import React from "react";
+import styles from "./Thread.module.css";
 
 /** Course codes as prose writes them: "CSCI-104L", "CSCI 104L", "MUSC 200gmw". */
 const CODE = /\b([A-Z]{2,5})[- ](\d{3}[A-Za-z]{0,4})\b/g;
@@ -23,8 +23,8 @@ const HEADING = /^\s*#{1,6}\s+/;
 const SPAN = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
 
 type Block =
-  | { readonly kind: 'p' | 'h'; readonly text: string }
-  | { readonly kind: 'ul' | 'ol'; readonly items: string[] };
+  | { readonly kind: "p" | "h"; readonly text: string }
+  | { readonly kind: "ul" | "ol"; readonly items: string[] };
 
 /**
  * Groups lines into blocks: consecutive list lines form one list, and a
@@ -35,15 +35,15 @@ function parse(text: string): Block[] {
   let lines: string[] = [];
   const flush = (): void => {
     if (lines.length > 0) {
-      blocks.push({ kind: 'p', text: lines.join(' ') });
+      blocks.push({ kind: "p", text: lines.join(" ") });
       lines = [];
     }
   };
-  for (const line of text.split('\n')) {
-    const list = BULLET.test(line) ? 'ul' : NUMBERED.test(line) ? 'ol' : null;
+  for (const line of text.split("\n")) {
+    const list = BULLET.test(line) ? "ul" : NUMBERED.test(line) ? "ol" : null;
     if (list) {
       flush();
-      const item = line.replace(list === 'ul' ? BULLET : NUMBERED, '');
+      const item = line.replace(list === "ul" ? BULLET : NUMBERED, "");
       const last = blocks.at(-1);
       if (last?.kind === list) {
         last.items.push(item);
@@ -52,7 +52,7 @@ function parse(text: string): Block[] {
       }
     } else if (HEADING.test(line)) {
       flush();
-      blocks.push({ kind: 'h', text: line.replace(HEADING, '') });
+      blocks.push({ kind: "h", text: line.replace(HEADING, "") });
     } else if (line.trim()) {
       lines.push(line.trim());
     } else {
@@ -77,7 +77,7 @@ export interface ReplyProps {
 }
 
 /** A course the student took, or has on this term's week. */
-export type CourseState = 'taken' | 'planned' | null;
+export type CourseState = "taken" | "planned" | null;
 
 /**
  * Renders the reply's blocks.
@@ -92,7 +92,11 @@ export function Reply(props: ReplyProps): React.JSX.Element {
       nodes.push(part.slice(last, at));
       nodes.push(
         unverified.has(`${m[1]} ${m[2]}`) ? (
-          <span key={at} className={styles.unknownCode} title="Not in USC's catalog">
+          <span
+            key={at}
+            className={styles.unknownCode}
+            title="Not in USC's catalog"
+          >
             {m[0]}
           </span>
         ) : (
@@ -112,13 +116,15 @@ export function Reply(props: ReplyProps): React.JSX.Element {
 
   const inline = (line: string): React.ReactNode =>
     line.split(SPAN).map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
         return <strong key={i}>{codes(part.slice(2, -2))}</strong>;
       }
-      if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
-        return <React.Fragment key={i}>{codes(part.slice(1, -1))}</React.Fragment>;
+      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        return (
+          <React.Fragment key={i}>{codes(part.slice(1, -1))}</React.Fragment>
+        );
       }
-      if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
         return <em key={i}>{codes(part.slice(1, -1))}</em>;
       }
       return <React.Fragment key={i}>{codes(part)}</React.Fragment>;
@@ -128,16 +134,16 @@ export function Reply(props: ReplyProps): React.JSX.Element {
     <div className={styles.text}>
       {parse(text).map((block, i) => {
         switch (block.kind) {
-          case 'p':
+          case "p":
             return <p key={i}>{inline(block.text)}</p>;
-          case 'h':
+          case "h":
             return (
               <p key={i} className={styles.heading}>
                 {inline(block.text)}
               </p>
             );
-          case 'ul':
-          case 'ol': {
+          case "ul":
+          case "ol": {
             const List = block.kind;
             return (
               <List key={i}>
@@ -162,16 +168,27 @@ function CodeLink({
   readonly state: CourseState;
   readonly onOpen: () => void;
 }): React.JSX.Element {
-  const cls = state === 'taken' ? styles.codeTaken : state === 'planned' ? styles.codePlanned : '';
+  const cls =
+    state === "taken"
+      ? styles.codeTaken
+      : state === "planned"
+        ? styles.codePlanned
+        : "";
   return (
     <button
       type="button"
       className={`${styles.code} ${cls}`}
-      title={state === 'taken' ? 'Taken' : state === 'planned' ? 'On your week' : undefined}
+      title={
+        state === "taken"
+          ? "Taken"
+          : state === "planned"
+            ? "On your week"
+            : undefined
+      }
       onClick={onOpen}
     >
-      {state === 'taken' && <Check size={10} />}
-      {state === 'planned' && <CalendarDays size={10} />}
+      {state === "taken" && <Check size={10} />}
+      {state === "planned" && <CalendarDays size={10} />}
       {text}
     </button>
   );

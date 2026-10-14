@@ -10,9 +10,9 @@
  * Advisor chat is deliberately absent: it is ephemeral.
  */
 
-import { STORAGE_KEYS } from '../config';
-import { createExternalStore, useSelector } from './_externalStore';
-import type { components } from '../api/schema';
+import type { components } from "../api/schema";
+import { STORAGE_KEYS } from "../config";
+import { createExternalStore, useSelector } from "./_externalStore";
 
 /**
  * One schedule variant of a term: the sections the student picked.
@@ -41,7 +41,7 @@ export interface PlanState {
   /** Plans by term code; a term without one reads as `EMPTY_TERM_PLAN`. */
   readonly terms: Readonly<Record<number, TermPlan>>;
   readonly completedCourseIds: readonly string[];
-  readonly apCredits: readonly components['schemas']['ApCredit'][];
+  readonly apCredits: readonly components["schemas"]["ApCredit"][];
   /** GE seats counted by hand (credit the catalog cannot place), by code. */
   readonly geCounted: Readonly<Record<string, number>>;
   /** Chosen program, or empty until the student picks one. */
@@ -52,8 +52,8 @@ export interface PlanState {
 
 /** The plan of a term the student has not touched yet. */
 export const EMPTY_TERM_PLAN: TermPlan = {
-  configurations: [{ id: 'config-1', name: 'A', section_ids: [] }],
-  activeConfigId: 'config-1',
+  configurations: [{ id: "config-1", name: "A", section_ids: [] }],
+  activeConfigId: "config-1",
   watchedCourseIds: [],
 };
 
@@ -63,16 +63,16 @@ const DEFAULT_STATE: PlanState = {
   completedCourseIds: [],
   apCredits: [],
   geCounted: {},
-  programId: '',
+  programId: "",
   welcomed: false,
 };
 
 function _isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function _isStringArray(arr: unknown): arr is readonly string[] {
-  return Array.isArray(arr) && arr.every((item) => typeof item === 'string');
+  return Array.isArray(arr) && arr.every((item) => typeof item === "string");
 }
 
 function _isValidConfiguration(c: unknown): c is ScheduleConfiguration {
@@ -80,9 +80,9 @@ function _isValidConfiguration(c: unknown): c is ScheduleConfiguration {
     return false;
   }
   return (
-    typeof c['id'] === 'string' &&
-    typeof c['name'] === 'string' &&
-    _isStringArray(c['section_ids'])
+    typeof c["id"] === "string" &&
+    typeof c["name"] === "string" &&
+    _isStringArray(c["section_ids"])
   );
 }
 
@@ -91,18 +91,18 @@ function _isValidTermPlan(tp: unknown): tp is TermPlan {
     return false;
   }
   return (
-    typeof tp['activeConfigId'] === 'string' &&
-    _isStringArray(tp['watchedCourseIds']) &&
-    Array.isArray(tp['configurations']) &&
-    tp['configurations'].every(_isValidConfiguration)
+    typeof tp["activeConfigId"] === "string" &&
+    _isStringArray(tp["watchedCourseIds"]) &&
+    Array.isArray(tp["configurations"]) &&
+    tp["configurations"].every(_isValidConfiguration)
   );
 }
 
-function _isApCredit(c: unknown): c is components['schemas']['ApCredit'] {
+function _isApCredit(c: unknown): c is components["schemas"]["ApCredit"] {
   return (
     _isRecord(c) &&
-    typeof c['exam_id'] === 'string' &&
-    typeof c['score'] === 'number'
+    typeof c["exam_id"] === "string" &&
+    typeof c["score"] === "number"
   );
 }
 
@@ -111,44 +111,44 @@ function _isValidPlanState(candidate: unknown): candidate is PlanState {
     return false;
   }
 
-  if (candidate['term'] !== null && typeof candidate['term'] !== 'number') {
+  if (candidate["term"] !== null && typeof candidate["term"] !== "number") {
     return false;
   }
 
-  if (!_isRecord(candidate['terms'])) {
+  if (!_isRecord(candidate["terms"])) {
     return false;
   }
-  for (const [key, val] of Object.entries(candidate['terms'])) {
+  for (const [key, val] of Object.entries(candidate["terms"])) {
     if (Number.isNaN(Number(key)) || !_isValidTermPlan(val)) {
       return false;
     }
   }
 
-  if (!_isStringArray(candidate['completedCourseIds'])) {
+  if (!_isStringArray(candidate["completedCourseIds"])) {
     return false;
   }
 
   if (
-    !Array.isArray(candidate['apCredits']) ||
-    !candidate['apCredits'].every(_isApCredit)
+    !Array.isArray(candidate["apCredits"]) ||
+    !candidate["apCredits"].every(_isApCredit)
   ) {
     return false;
   }
 
-  if (!_isRecord(candidate['geCounted'])) {
+  if (!_isRecord(candidate["geCounted"])) {
     return false;
   }
-  for (const [k, v] of Object.entries(candidate['geCounted'])) {
-    if (typeof k !== 'string' || typeof v !== 'number') {
+  for (const [k, v] of Object.entries(candidate["geCounted"])) {
+    if (typeof k !== "string" || typeof v !== "number") {
       return false;
     }
   }
 
-  if (typeof candidate['programId'] !== 'string') {
+  if (typeof candidate["programId"] !== "string") {
     return false;
   }
 
-  if (typeof candidate['welcomed'] !== 'boolean') {
+  if (typeof candidate["welcomed"] !== "boolean") {
     return false;
   }
 
@@ -168,7 +168,11 @@ function readStorage(): PlanState {
       return DEFAULT_STATE;
     }
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return DEFAULT_STATE;
     }
     const candidate = { ...DEFAULT_STATE, ...parsed };
@@ -184,7 +188,7 @@ function readStorage(): PlanState {
 const plan = createExternalStore(readStorage());
 
 // Another tab wrote (key set) or cleared storage (key null): adopt its state.
-window.addEventListener('storage', (event) => {
+window.addEventListener("storage", (event) => {
   if (
     event.key === STORAGE_KEYS.PLAN ||
     event.key === STORAGE_KEYS.LEGACY_PLAN ||
@@ -240,7 +244,7 @@ export function update(recipe: (prev: PlanState) => PlanState): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PLAN, JSON.stringify(next));
   } catch (err) {
-    console.error('Failed to persist plan state', err);
+    console.error("Failed to persist plan state", err);
   }
   plan.set(next);
 }
@@ -268,7 +272,7 @@ export function reset(): void {
     localStorage.removeItem(STORAGE_KEYS.PLAN);
     localStorage.removeItem(STORAGE_KEYS.LEGACY_PLAN);
   } catch (err) {
-    console.error('Failed to clear plan state', err);
+    console.error("Failed to clear plan state", err);
   }
   plan.set({ ...DEFAULT_STATE, term: plan.get().term });
 }

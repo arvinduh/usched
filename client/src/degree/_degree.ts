@@ -5,12 +5,12 @@
  * indexation and search ranking.
  */
 
-import abbreviations from '../../../server/seeds/abbreviations.json';
-import type { components } from '../api/schema';
+import abbreviations from "../../../server/seeds/abbreviations.json";
+import type { components } from "../api/schema";
 
 const PARTS = /^\s*([A-Za-z]{2,5})[\s-]*(\d{3})([A-Za-z]*)\s*$/;
 /** Letters that describe a course rather than identify it (L lab, g GE...). */
-const ATTRIBUTES = new Set(['l', 'g', 'x', 'm', 'w', 'p']);
+const ATTRIBUTES = new Set(["l", "g", "x", "m", "w", "p"]);
 
 /**
  * A course code's identity for comparisons: CHEM-105aLg becomes CHEM-105A
@@ -22,7 +22,7 @@ export function courseKey(courseId: string): string {
     return courseId.trim().toUpperCase();
   }
   const first = match[3].slice(0, 1).toLowerCase();
-  const sequence = first && !ATTRIBUTES.has(first) ? first.toUpperCase() : '';
+  const sequence = first && !ATTRIBUTES.has(first) ? first.toUpperCase() : "";
   return `${match[1].toUpperCase()}-${match[2]}${sequence}`;
 }
 
@@ -30,7 +30,7 @@ export function courseKey(courseId: string): string {
  * Formats a course ID for display: "CSCI-104L" becomes "CSCI 104L".
  */
 export function displayCode(courseId: string): string {
-  return courseId.replace('-', ' ');
+  return courseId.replace("-", " ");
 }
 
 // Up to five prefix and four suffix letters: BISC 101Lxg, AMST 101gmw.
@@ -49,53 +49,62 @@ export function extractCourseCodes(text: string): readonly string[] {
   return [...codes];
 }
 
-const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = abbreviations;
+const ALIASES: Readonly<Record<string, readonly string[] | undefined>> =
+  abbreviations;
 
 /** How far along a program leads: what the picker's chips filter by. */
-export type Level = 'major' | 'minor' | 'master' | 'doctoral';
+export type Level = "major" | "minor" | "master" | "doctoral";
 
 /** The chips' order and labels. */
-export const LEVELS: readonly { readonly level: Level; readonly label: string }[] = [
-  { level: 'major', label: 'Major' },
-  { level: 'minor', label: 'Minor' },
-  { level: 'master', label: "Master's" },
-  { level: 'doctoral', label: 'Doctoral' },
+export const LEVELS: readonly {
+  readonly level: Level;
+  readonly label: string;
+}[] = [
+  { level: "major", label: "Major" },
+  { level: "minor", label: "Minor" },
+  { level: "master", label: "Master's" },
+  { level: "doctoral", label: "Doctoral" },
 ];
 
 /**
  * Groups a program by its degree type: BS is a major, MS a master's, PhD
  * or MD doctoral. Null for types that fit none, which only "All" shows.
  */
-export function levelOf(p: components['schemas']['ProgramSummary']): Level | null {
-  if (p.kind === 'minor') {
-    return 'minor';
+export function levelOf(
+  p: components["schemas"]["ProgramSummary"],
+): Level | null {
+  if (p.kind === "minor") {
+    return "minor";
   }
-  const type = p.degree_type ?? '';
-  if (type.startsWith('B')) {
-    return 'major';
+  const type = p.degree_type ?? "";
+  if (type.startsWith("B")) {
+    return "major";
   }
   // Before master's: MD is a doctorate, as are PhD, JD, EdD, and DPT.
   if (/^D|D$/.test(type)) {
-    return 'doctoral';
+    return "doctoral";
   }
-  return /^(M|LLM)/.test(type) ? 'master' : null;
+  return /^(M|LLM)/.test(type) ? "master" : null;
 }
 
 /** A program with its title split once, for matching on every keystroke. */
 export interface IndexedProgram {
-  readonly program: components['schemas']['ProgramSummary'];
+  readonly program: components["schemas"]["ProgramSummary"];
   readonly words: readonly string[];
 }
 
 function wordsOf(text: string): string[] {
-  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
 }
 
 /**
  * Splits each title into words, alphabetically by title.
  */
 export function indexPrograms(
-  programs: readonly components['schemas']['ProgramSummary'][],
+  programs: readonly components["schemas"]["ProgramSummary"][],
 ): IndexedProgram[] {
   return programs
     .map((program) => ({ program, words: wordsOf(program.title) }))
@@ -120,12 +129,15 @@ function phraseAt(words: readonly string[], phrase: readonly string[]): number {
 export function rankPrograms(
   index: readonly IndexedProgram[],
   query: string,
-): components['schemas']['ProgramSummary'][] {
+): components["schemas"]["ProgramSummary"][] {
   const spellings = wordsOf(query).map((word) => [
     [word],
     ...(ALIASES[word] ?? []).map(wordsOf),
   ]);
-  const ranked: { program: components['schemas']['ProgramSummary']; rank: number }[] = [];
+  const ranked: {
+    program: components["schemas"]["ProgramSummary"];
+    rank: number;
+  }[] = [];
   for (const { program, words } of index) {
     let rank = 0;
     for (const alternatives of spellings) {

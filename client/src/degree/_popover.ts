@@ -6,7 +6,7 @@
  * popover to the right instead. Styling lives in Degree.module.css.
  */
 
-import type React from 'react';
+import type React from "react";
 
 /** The popover's widest extent, matching `.chipPop`'s max-width. */
 const POPOVER_PX = 260;
@@ -18,6 +18,9 @@ const POPOVER_PX = 260;
  */
 export function placePopover(e: React.SyntheticEvent<HTMLElement>): void {
   const chip = e.currentTarget;
-  const bound = chip.closest('section')?.getBoundingClientRect().right ?? window.innerWidth;
-  chip.dataset.flip = String(chip.getBoundingClientRect().left + POPOVER_PX > bound);
+  const bound =
+    chip.closest("section")?.getBoundingClientRect().right ?? window.innerWidth;
+  chip.dataset.flip = String(
+    chip.getBoundingClientRect().left + POPOVER_PX > bound,
+  );
 }

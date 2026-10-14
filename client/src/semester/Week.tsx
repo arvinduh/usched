@@ -10,9 +10,34 @@
  * state comes from the preview store; plan edits go to the caller.
  */
 
-import React, { useMemo, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { ChevronLeft, ChevronRight, Copy, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Plus, X } from "lucide-react";
+import type React from "react";
+import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
+import type { components } from "../api/schema";
+import {
+  DAYS_OF_WEEK,
+  DEFAULT_END_HOUR,
+  DEFAULT_START_HOUR,
+  EXTENDED_DAYS_OF_WEEK,
+  OVERLOAD_UNITS,
+} from "../config";
+import { displayCode } from "../degree/_degree";
+import type { Proposal } from "../state/preview";
+import {
+  cycleProposal,
+  setFocus,
+  shownProposal,
+  usePreview,
+} from "../state/preview";
+import type { ScheduleConfiguration } from "../state/store";
+import { showToast } from "../state/toast";
+import { morph } from "../ui/_morph";
+import { ContextMenu } from "../ui/ContextMenu";
+import { CountUp } from "../ui/CountUp";
+import { blockBackground, hueFor, textureBackground } from "../ui/encoding";
+import { RatingPair } from "../ui/Glyphs";
+import type { Lane, TimedMeeting } from "./_schedule";
 import {
   bySectionOrder,
   clashes,
@@ -23,28 +48,9 @@ import {
   packIntervals,
   timedMeetings,
   totalUnits,
-} from './_schedule';
-import type { Lane, TimedMeeting } from './_schedule';
-import {
-  DAYS_OF_WEEK,
-  DEFAULT_END_HOUR,
-  DEFAULT_START_HOUR,
-  EXTENDED_DAYS_OF_WEEK,
-  OVERLOAD_UNITS,
-} from '../config';
-import { displayCode } from '../degree/_degree';
-import { formatHour, formatRange } from './_time';
-import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/preview';
-import type { Proposal } from '../state/preview';
-import { showToast } from '../state/toast';
-import type { ScheduleConfiguration } from '../state/store';
-import { ContextMenu } from '../ui/ContextMenu';
-import { CountUp } from '../ui/CountUp';
-import { morph } from '../ui/_morph';
-import { RatingPair } from '../ui/Glyphs';
-import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
-import type { components } from '../api/schema';
-import styles from './Week.module.css';
+} from "./_schedule";
+import { formatHour, formatRange } from "./_time";
+import styles from "./Week.module.css";
 
 /**
  * Properties for the week canvas.
@@ -53,9 +59,9 @@ export interface WeekProps {
   readonly configurations: readonly ScheduleConfiguration[];
   readonly activeConfigId: string;
   /** Sections of the active variant that have resolved records. */
-  readonly sections: readonly components['schemas']['Section'][];
-  readonly sectionsById: ReadonlyMap<string, components['schemas']['Section']>;
-  readonly coursesByCode: ReadonlyMap<string, components['schemas']['Course']>;
+  readonly sections: readonly components["schemas"]["Section"][];
+  readonly sectionsById: ReadonlyMap<string, components["schemas"]["Section"]>;
+  readonly coursesByCode: ReadonlyMap<string, components["schemas"]["Course"]>;
   readonly scheduledCourseIds: readonly string[];
   readonly onSelectVariant: (configId: string) => void;
   readonly onRenameVariant: (configId: string, name: string) => void;
@@ -64,13 +70,13 @@ export interface WeekProps {
   readonly onNewVariant: () => void;
   readonly onDuplicateVariant: (configId: string) => void;
   readonly onToggleSection: (
-    section: components['schemas']['Section'],
-    course: components['schemas']['Course'],
+    section: components["schemas"]["Section"],
+    course: components["schemas"]["Course"],
   ) => void;
-  readonly onRemove: (section: components['schemas']['Section']) => void;
-  readonly onFocusCourse: (course: components['schemas']['Course']) => void;
+  readonly onRemove: (section: components["schemas"]["Section"]) => void;
+  readonly onFocusCourse: (course: components["schemas"]["Course"]) => void;
   /** Shows a clicked block's other sections on the week, or hides them. */
-  readonly onPickBlock: (course: components['schemas']['Course']) => void;
+  readonly onPickBlock: (course: components["schemas"]["Course"]) => void;
   /** Stops showing a block's other sections: a press on the empty week. */
   readonly onClearPick: () => void;
   readonly onKeepProposal: (proposal: Proposal) => void;
@@ -80,7 +86,7 @@ export interface WeekProps {
 /** One timed meeting of a section: what the canvas draws. */
 interface Block extends TimedMeeting {
   readonly key: string;
-  readonly section: components['schemas']['Section'];
+  readonly section: components["schemas"]["Section"];
   /**
    * The meeting's role in the schedule, independent of which section fills
    * it: course, component, and which meeting. Flipping between proposals
@@ -89,13 +95,15 @@ interface Block extends TimedMeeting {
   readonly slot: string;
 }
 
-function blocksOf(sections: readonly components['schemas']['Section'][]): readonly Block[] {
+function blocksOf(
+  sections: readonly components["schemas"]["Section"][],
+): readonly Block[] {
   const seen = new Map<string, number>();
   return sections.flatMap((section) => {
     const role = `${section.course_code}-${section.type}`;
     const nth = seen.get(role) ?? 0;
     seen.set(role, nth + 1);
-    const slot = `slot-${role.replace(/[^a-zA-Z0-9-]/g, '-')}-${nth}`;
+    const slot = `slot-${role.replace(/[^a-zA-Z0-9-]/g, "-")}-${nth}`;
     return timedMeetings(section).map((m, i) => ({
       ...m,
       key: `${section.id}:${i}`,
@@ -107,7 +115,7 @@ function blocksOf(sections: readonly components['schemas']['Section'][]): readon
 
 /** Swaps what the week shows, sliding blocks that keep their slot. */
 function slide(update: () => void): void {
-  morph(() => flushSync(update), 'week-slide');
+  morph(() => flushSync(update), "week-slide");
 }
 
 /**
@@ -163,13 +171,17 @@ export function Week(props: WeekProps): React.JSX.Element {
     () =>
       proposal?.sectionIds
         .map((id) => sectionsById.get(id))
-        .filter((s): s is components['schemas']['Section'] => s !== undefined) ?? null,
+        .filter(
+          (s): s is components["schemas"]["Section"] => s !== undefined,
+        ) ?? null,
     [proposal, sectionsById],
   );
   const sections = proposed ?? props.sections;
   const scheduledCourseIds = useMemo(
     () =>
-      proposed ? [...new Set(proposed.map((s) => s.course_code))] : props.scheduledCourseIds,
+      proposed
+        ? [...new Set(proposed.map((s) => s.course_code))]
+        : props.scheduledCourseIds,
     [proposed, props.scheduledCourseIds],
   );
   // Hues follow the real week first, so a course keeps its color inside a
@@ -180,9 +192,15 @@ export function Week(props: WeekProps): React.JSX.Element {
   );
 
   // Sections already on the real week stay solid inside a proposal.
-  const kept = useMemo(() => new Set(props.sections.map((s) => s.id)), [props.sections]);
+  const kept = useMemo(
+    () => new Set(props.sections.map((s) => s.id)),
+    [props.sections],
+  );
   const timed = useMemo(() => sections.filter(isTimed), [sections]);
-  const activeIds = useMemo(() => new Set(sections.map((s) => s.id)), [sections]);
+  const activeIds = useMemo(
+    () => new Set(sections.map((s) => s.id)),
+    [sections],
+  );
   const ghosts = useMemo(
     () =>
       expanded && !proposal
@@ -195,11 +213,21 @@ export function Week(props: WeekProps): React.JSX.Element {
   const blocks = useMemo(() => blocksOf(timed), [timed]);
   const ghostBlocks = useMemo(() => blocksOf(ghosts), [ghosts]);
   const everything = [...blocks, ...ghostBlocks];
-  const lo = Math.min(DEFAULT_START_HOUR, ...everything.map((b) => Math.floor(b.start / 60)));
-  const hi = Math.max(lo + 1, DEFAULT_END_HOUR, ...everything.map((b) => Math.ceil(b.end / 60)));
+  const lo = Math.min(
+    DEFAULT_START_HOUR,
+    ...everything.map((b) => Math.floor(b.start / 60)),
+  );
+  const hi = Math.max(
+    lo + 1,
+    DEFAULT_END_HOUR,
+    ...everything.map((b) => Math.ceil(b.end / 60)),
+  );
   const span = Math.max(60, (hi - lo) * 60);
-  const pct = (minute: number): string => `${((minute - lo * 60) / span) * 100}%`;
-  const days: readonly components['schemas']['Weekday'][] = everything.some((b) => b.days.includes('Sat'))
+  const pct = (minute: number): string =>
+    `${((minute - lo * 60) / span) * 100}%`;
+  const days: readonly components["schemas"]["Weekday"][] = everything.some(
+    (b) => b.days.includes("Sat"),
+  )
     ? EXTENDED_DAYS_OF_WEEK
     : DAYS_OF_WEEK;
   const hours = Array.from({ length: Math.max(1, hi - lo) }, (_, i) => lo + i);
@@ -234,33 +262,49 @@ export function Week(props: WeekProps): React.JSX.Element {
           >
             <span className={styles.num}>
               <CountUp value={units} />
-            </span>{' '}
+            </span>{" "}
             units
           </span>
           {overlapCount > 0 && (
             <span className={styles.danger}>
-              {overlapCount} overlap{overlapCount === 1 ? '' : 's'}
+              {overlapCount} overlap{overlapCount === 1 ? "" : "s"}
             </span>
           )}
           {proposal && (
             <>
               {proposalCount > 1 && (
                 <span className={styles.cycle}>
-                  <button type="button" onClick={() => slide(() => cycleProposal(-1))} aria-label="Previous option">
+                  <button
+                    type="button"
+                    onClick={() => slide(() => cycleProposal(-1))}
+                    aria-label="Previous option"
+                  >
                     <ChevronLeft size={14} />
                   </button>
                   <span className={styles.num}>
                     {shownIndex + 1} of {proposalCount}
                   </span>
-                  <button type="button" onClick={() => slide(() => cycleProposal(1))} aria-label="Next option">
+                  <button
+                    type="button"
+                    onClick={() => slide(() => cycleProposal(1))}
+                    aria-label="Next option"
+                  >
                     <ChevronRight size={14} />
                   </button>
                 </span>
               )}
-              <button type="button" className={styles.keep} onClick={() => onKeepProposal(proposal)}>
+              <button
+                type="button"
+                className={styles.keep}
+                onClick={() => onKeepProposal(proposal)}
+              >
                 Keep
               </button>
-              <button type="button" className={styles.discard} onClick={() => slide(onDiscardProposal)}>
+              <button
+                type="button"
+                className={styles.discard}
+                onClick={() => slide(onDiscardProposal)}
+              >
                 Discard
               </button>
             </>
@@ -275,7 +319,9 @@ export function Week(props: WeekProps): React.JSX.Element {
 
       <div
         className={styles.grid}
-        style={{ gridTemplateColumns: `36px repeat(${days.length}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `36px repeat(${days.length}, minmax(0, 1fr))`,
+        }}
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest(`.${styles.block}, button`)) {
             onClearPick();
@@ -304,11 +350,15 @@ export function Week(props: WeekProps): React.JSX.Element {
           // time sits side by side; nothing is drawn over a chosen class.
           const lanes = layoutLanes([...dayBlocks, ...dayGhosts]);
           const clashing = clashesOn(dayBlocks);
-          const flipPopover = day === 'Fri' || day === 'Sat';
+          const flipPopover = day === "Fri" || day === "Sat";
           return (
             <div key={day} className={styles.column}>
               {hours.map((h) => (
-                <span key={h} className={styles.rule} style={{ top: pct(h * 60) }} />
+                <span
+                  key={h}
+                  className={styles.rule}
+                  style={{ top: pct(h * 60) }}
+                />
               ))}
 
               {dayBlocks.map((b) => {
@@ -319,10 +369,10 @@ export function Week(props: WeekProps): React.JSX.Element {
                 return (
                   <div
                     key={b.key}
-                    className={`${styles.block} ${clashing.has(b.key) ? styles.clash : ''} ${
-                      proposal && !kept.has(s.id) ? styles.proposed : ''
-                    } ${focusId === s.id ? styles.blockFocus : ''} ${
-                      expanded?.code === s.course_code ? styles.blockPicked : ''
+                    className={`${styles.block} ${clashing.has(b.key) ? styles.clash : ""} ${
+                      proposal && !kept.has(s.id) ? styles.proposed : ""
+                    } ${focusId === s.id ? styles.blockFocus : ""} ${
+                      expanded?.code === s.course_code ? styles.blockPicked : ""
                     }`}
                     style={
                       {
@@ -332,7 +382,7 @@ export function Week(props: WeekProps): React.JSX.Element {
                         width: `${100 / lane.lanes}%`,
                         // A Mon/Wed meeting's first day slides to the next
                         // section's first day, wherever that falls.
-                        '--slot': `${b.slot}-${b.days.indexOf(day)}`,
+                        "--slot": `${b.slot}-${b.days.indexOf(day)}`,
                       } as React.CSSProperties
                     }
                     // Focusable so keyboard users reach the popover's actions.
@@ -342,11 +392,14 @@ export function Week(props: WeekProps): React.JSX.Element {
                     onMouseLeave={() => setFocus(null)}
                     onClick={(e) => {
                       // The popover's own buttons act on the section instead.
-                      if (course && !(e.target as HTMLElement).closest('button')) {
+                      if (
+                        course &&
+                        !(e.target as HTMLElement).closest("button")
+                      ) {
                         onPickBlock(course);
                       }
                     }}
-                    aria-label={`${displayCode(s.course_code)} ${s.type}, ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
+                    aria-label={`${displayCode(s.course_code)} ${s.type}, ${b.days.join(" ")} ${formatRange(b.start, b.end)}`}
                   >
                     <div
                       className={styles.face}
@@ -356,10 +409,12 @@ export function Week(props: WeekProps): React.JSX.Element {
                         color: hue.ink,
                       }}
                     >
-                      <span className={styles.code}>{displayCode(s.course_code)}</span>
+                      <span className={styles.code}>
+                        {displayCode(s.course_code)}
+                      </span>
                       <span className={styles.blockMeta}>
                         {formatRange(b.start, b.end)}
-                        {s.type !== 'Lecture' && ` · ${s.type}`}
+                        {s.type !== "Lecture" && ` · ${s.type}`}
                       </span>
                     </div>
                     <Popover
@@ -369,8 +424,8 @@ export function Week(props: WeekProps): React.JSX.Element {
                       onRemove={proposal ? undefined : () => onRemove(s)}
                       note={
                         expanded?.code === s.course_code
-                          ? 'Click to hide other sections'
-                          : 'Click for other sections'
+                          ? "Click to hide other sections"
+                          : "Click for other sections"
                       }
                     />
                   </div>
@@ -379,52 +434,58 @@ export function Week(props: WeekProps): React.JSX.Element {
 
               {expanded &&
                 dayGhosts.map((b) => {
-                    const g = b.section;
-                    const hue = hueFor(g.course_code, hueOrder);
-                    const bad = clashes(g, timed);
-                    const lane = lanes.get(b.key) ?? { lane: 0, lanes: 1 };
-                    // The slot holds the ghost and, beside it on hover, the same
-                    // popover a chosen block shows, so a prospective section can
-                    // be weighed before it is taken.
-                    return (
-                      <div
-                        key={b.key}
-                        className={styles.ghostSlot}
+                  const g = b.section;
+                  const hue = hueFor(g.course_code, hueOrder);
+                  const bad = clashes(g, timed);
+                  const lane = lanes.get(b.key) ?? { lane: 0, lanes: 1 };
+                  // The slot holds the ghost and, beside it on hover, the same
+                  // popover a chosen block shows, so a prospective section can
+                  // be weighed before it is taken.
+                  return (
+                    <div
+                      key={b.key}
+                      className={styles.ghostSlot}
+                      style={{
+                        top: pct(b.start),
+                        height: `calc(${pct(b.end)} - ${pct(b.start)})`,
+                        left: `calc(${(lane.lane / lane.lanes) * 100}% + 2px)`,
+                        width: `calc(${100 / lane.lanes}% - 4px)`,
+                      }}
+                      onMouseEnter={() => setFocus(g.id)}
+                      onMouseLeave={() => setFocus(null)}
+                    >
+                      <button
+                        type="button"
+                        className={`${styles.ghost} ${bad ? styles.ghostBad : ""} ${
+                          focusId === g.id ? styles.ghostFocus : ""
+                        }`}
                         style={{
-                          top: pct(b.start),
-                          height: `calc(${pct(b.end)} - ${pct(b.start)})`,
-                          left: `calc(${(lane.lane / lane.lanes) * 100}% + 2px)`,
-                          width: `calc(${100 / lane.lanes}% - 4px)`,
+                          color: bad ? undefined : hue.ink,
+                          background: bad
+                            ? undefined
+                            : textureBackground(g.type, hue.fill),
                         }}
-                        onMouseEnter={() => setFocus(g.id)}
-                        onMouseLeave={() => setFocus(null)}
+                        onClick={() => onToggleSection(g, expanded)}
+                        aria-label={`Add ${g.course_code} ${g.type} ${b.days.join(" ")} ${formatRange(b.start, b.end)}`}
                       >
-                        <button
-                          type="button"
-                          className={`${styles.ghost} ${bad ? styles.ghostBad : ''} ${
-                            focusId === g.id ? styles.ghostFocus : ''
-                          }`}
-                          style={{
-                            color: bad ? undefined : hue.ink,
-                            background: bad ? undefined : textureBackground(g.type, hue.fill),
-                          }}
-                          onClick={() => onToggleSection(g, expanded)}
-                          aria-label={`Add ${g.course_code} ${g.type} ${b.days.join(' ')} ${formatRange(b.start, b.end)}`}
-                        >
-                          <span className={styles.blockMeta}>
-                            {formatRange(b.start, b.end)}
-                          </span>
-                        </button>
-                        <Popover
-                          section={g}
-                          course={expanded}
-                          flip={flipPopover}
-                          onRemove={undefined}
-                          note={bad ? 'Overlaps your week · click to take it anyway' : 'Click to take this section'}
-                        />
-                      </div>
-                    );
-                  })}
+                        <span className={styles.blockMeta}>
+                          {formatRange(b.start, b.end)}
+                        </span>
+                      </button>
+                      <Popover
+                        section={g}
+                        course={expanded}
+                        flip={flipPopover}
+                        onRemove={undefined}
+                        note={
+                          bad
+                            ? "Overlaps your week · click to take it anyway"
+                            : "Click to take this section"
+                        }
+                      />
+                    </div>
+                  );
+                })}
             </div>
           );
         })}
@@ -446,7 +507,7 @@ export function Week(props: WeekProps): React.JSX.Element {
               onClick={() => onFocusCourse(course)}
             >
               <span className={styles.code}>{displayCode(course.code)}</span>
-              needs a {missing.join(' and a ')}
+              needs a {missing.join(" and a ")}
             </button>
           ))}
           {[...tba].sort(bySectionOrder).map((s) => (
@@ -484,7 +545,7 @@ function Variants(
     onDuplicateVariant,
   } = props;
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<{
     readonly x: number;
     readonly y: number;
@@ -505,7 +566,11 @@ function Variants(
   };
 
   return (
-    <div className={styles.variants} role="tablist" aria-label="Schedule variants">
+    <div
+      className={styles.variants}
+      role="tablist"
+      aria-label="Schedule variants"
+    >
       {configurations.map((c) =>
         editing === c.id ? (
           <input
@@ -517,9 +582,9 @@ function Variants(
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => commit(c.id)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 commit(c.id);
-              } else if (e.key === 'Escape') {
+              } else if (e.key === "Escape") {
                 setEditing(null);
               }
             }}
@@ -530,7 +595,7 @@ function Variants(
               type="button"
               role="tab"
               aria-selected={c.id === activeConfigId}
-              className={`${styles.variant} ${c.id === activeConfigId ? styles.variantOn : ''}`}
+              className={`${styles.variant} ${c.id === activeConfigId ? styles.variantOn : ""}`}
               onClick={() => onSelectVariant(c.id)}
               onDoubleClick={() => startRename(c)}
               onContextMenu={(e) => {
@@ -580,14 +645,14 @@ function Variants(
           onClose={() => setMenu(null)}
           items={[
             {
-              label: 'Duplicate',
+              label: "Duplicate",
               onSelect: () => onDuplicateVariant(menu.config.id),
             },
-            { label: 'Rename', onSelect: () => startRename(menu.config) },
+            { label: "Rename", onSelect: () => startRename(menu.config) },
             ...(configurations.length > 1
               ? [
                   {
-                    label: 'Delete',
+                    label: "Delete",
                     onSelect: () => onDeleteVariant(menu.config),
                   },
                 ]
@@ -606,8 +671,8 @@ function Popover({
   onRemove,
   note,
 }: {
-  readonly section: components['schemas']['Section'];
-  readonly course: components['schemas']['Course'] | undefined;
+  readonly section: components["schemas"]["Section"];
+  readonly course: components["schemas"]["Course"] | undefined;
   readonly flip: boolean;
   readonly onRemove: (() => void) | undefined;
   /** What a click on the block does, when that is not obvious. */
@@ -621,17 +686,17 @@ function Popover({
       .catch(console.error);
   };
   return (
-    <div className={`${styles.popover} ${flip ? styles.popoverFlip : ''}`}>
+    <div className={`${styles.popover} ${flip ? styles.popoverFlip : ""}`}>
       <p className={styles.popTitle}>{course?.title ?? section.course_code}</p>
       {timedMeetings(section).map((m, i) => (
         <p key={i} className={styles.popLine}>
           {i === 0 && `${section.type} · `}
-          {m.days.join(' ')} {formatRange(m.start, m.end)}
+          {m.days.join(" ")} {formatRange(m.start, m.end)}
         </p>
       ))}
       {section.instructors.length > 0 && (
         <p className={styles.popLine}>
-          <span>{section.instructors.map((i) => i.name).join(', ')}</span>
+          <span>{section.instructors.map((i) => i.name).join(", ")}</span>
           {rated?.rmp && (
             <RatingPair
               rating={rated.rmp.rating}

@@ -6,7 +6,7 @@
  * select a slice re-render when it changes.
  */
 
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from "react";
 
 /**
  * An observable value.

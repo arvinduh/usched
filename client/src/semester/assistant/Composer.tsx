@@ -11,23 +11,30 @@
  * the caller.
  */
 
-import React, { useState } from 'react';
-import { CornerDownLeft } from 'lucide-react';
-import { courseKey, displayCode, extractCourseCodes } from '../../degree/_degree';
-import type { Bar } from '../_search/_query';
-import type { components } from '../../api/schema';
-import styles from './Assistant.module.css';
+import { CornerDownLeft } from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import type { components } from "../../api/schema";
+import {
+  courseKey,
+  displayCode,
+  extractCourseCodes,
+} from "../../degree/_degree";
+import type { Bar } from "../_search/_query";
+import styles from "./Assistant.module.css";
 
 /** Commands other than /took, which takes course codes. */
-export type CommandName = 'new' | 'degree';
+export type CommandName = "new" | "degree";
 
 /** Every command, in the order a list of them shows. */
-const COMMANDS: readonly { readonly name: 'took' | CommandName; readonly hint: string }[] =
-  [
-    { name: 'took', hint: 'Mark courses you have taken' },
-    { name: 'new', hint: 'Start a new chat' },
-    { name: 'degree', hint: 'Open degree progress' },
-  ];
+const COMMANDS: readonly {
+  readonly name: "took" | CommandName;
+  readonly hint: string;
+}[] = [
+  { name: "took", hint: "Mark courses you have taken" },
+  { name: "new", hint: "Start a new chat" },
+  { name: "degree", hint: "Open degree progress" },
+];
 
 /** Course completions shown for a code after "/took". */
 const MAX_SUGGESTIONS = 6;
@@ -51,13 +58,13 @@ export interface ComposerProps {
   readonly setText: (text: string) => void;
   readonly bar: Bar;
   /** The best catalog match for a ">" search, if any. */
-  readonly top: components['schemas']['Course'] | null;
+  readonly top: components["schemas"]["Course"] | null;
   /** Catalog matches for the code being typed after "/took". */
-  readonly suggestions: readonly components['schemas']['Course'][];
+  readonly suggestions: readonly components["schemas"]["Course"][];
   /** True while the advisor is still replying; asking again waits. */
   readonly busy: boolean;
   readonly inputRef: React.RefObject<HTMLInputElement | null>;
-  readonly onOpen: (course: components['schemas']['Course']) => void;
+  readonly onOpen: (course: components["schemas"]["Course"]) => void;
   readonly onAsk: (text: string) => void;
   /** Records courses as taken, given as identities. */
   readonly onTaken: (codes: readonly string[]) => void;
@@ -70,17 +77,17 @@ export interface ComposerProps {
 /** What Enter does for the bar as it reads now, or null for nothing. */
 function enterLabel(
   bar: Bar,
-  top: components['schemas']['Course'] | null,
+  top: components["schemas"]["Course"] | null,
   busy: boolean,
 ): string | null {
   switch (bar.kind) {
-    case 'chat':
-      return bar.text ? (busy ? 'Replying…' : 'Ask') : null;
-    case 'courses':
+    case "chat":
+      return bar.text ? (busy ? "Replying…" : "Ask") : null;
+    case "courses":
       return top ? `Open ${displayCode(top.code)}` : null;
-    case 'took':
+    case "took":
       return bar.codes.length > 0 ? `Mark ${bar.codes.length} taken` : null;
-    case 'commands':
+    case "commands":
       return null;
   }
 }
@@ -89,39 +96,42 @@ function enterLabel(
  * Renders the input, its completions, and what Enter will do.
  */
 export function Composer(props: ComposerProps): React.JSX.Element {
-  const { text, setText, bar, top, busy, inputRef, onEscape, onArrowUp } = props;
+  const { text, setText, bar, top, busy, inputRef, onEscape, onArrowUp } =
+    props;
   const [cursor, setCursor] = useState(0);
 
-  const runCommand = (name: 'took' | CommandName): void => {
-    if (name === 'took') {
-      setText('/took ');
+  const runCommand = (name: "took" | CommandName): void => {
+    if (name === "took") {
+      setText("/took ");
     } else {
-      setText('');
+      setText("");
       props.onCommand(name);
     }
   };
   // Swaps the code being typed for a chosen one, ready for the next.
   const complete = (code: string): void => {
-    if (bar.kind === 'took') {
-      setText(`${text.slice(0, text.lastIndexOf(bar.partial))}${displayCode(code)}, `);
+    if (bar.kind === "took") {
+      setText(
+        `${text.slice(0, text.lastIndexOf(bar.partial))}${displayCode(code)}, `,
+      );
       setCursor(0);
     }
   };
 
-  const listed = new Set(bar.kind === 'took' ? bar.codes.map(courseKey) : []);
+  const listed = new Set(bar.kind === "took" ? bar.codes.map(courseKey) : []);
   const completions: readonly Completion[] =
-    bar.kind === 'commands'
+    bar.kind === "commands"
       ? COMMANDS.filter((c) => c.name.startsWith(bar.name)).map((c) => ({
           key: c.name,
           label: `/${c.name}`,
           detail: c.hint,
           choose: () => runCommand(c.name),
           fill: () => {
-            setText(c.name === 'took' ? '/took ' : `/${c.name}`);
+            setText(c.name === "took" ? "/took " : `/${c.name}`);
             setCursor(0);
           },
         }))
-      : bar.kind === 'took' && bar.partial
+      : bar.kind === "took" && bar.partial
         ? props.suggestions
             .filter((c) => !listed.has(courseKey(c.code)))
             .slice(0, MAX_SUGGESTIONS)
@@ -137,8 +147,8 @@ export function Composer(props: ComposerProps): React.JSX.Element {
   // Enter finishes an unfinished code; a whole code is already listed.
   const completing =
     active !== undefined &&
-    (bar.kind === 'commands' ||
-      (bar.kind === 'took' && extractCourseCodes(bar.partial).length === 0));
+    (bar.kind === "commands" ||
+      (bar.kind === "took" && extractCourseCodes(bar.partial).length === 0));
 
   const onEnter = (ask: boolean): void => {
     if (completing) {
@@ -146,50 +156,56 @@ export function Composer(props: ComposerProps): React.JSX.Element {
       return;
     }
     switch (bar.kind) {
-      case 'chat':
+      case "chat":
         if (bar.text && !busy) {
           props.onAsk(bar.text);
         }
         return;
-      case 'courses':
+      case "courses":
         if (ask && bar.query && !busy) {
           props.onAsk(bar.query);
         } else if (top) {
           props.onOpen(top);
         }
         return;
-      case 'took':
+      case "took":
         if (bar.codes.length > 0) {
           props.onTaken(bar.codes);
         }
         return;
-      case 'commands':
+      case "commands":
         return;
     }
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (completions.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    if (
+      completions.length > 0 &&
+      (e.key === "ArrowDown" || e.key === "ArrowUp")
+    ) {
       e.preventDefault();
-      const step = e.key === 'ArrowDown' ? 1 : -1;
-      setCursor((Math.min(cursor, completions.length - 1) + step + completions.length) % completions.length);
-    } else if (e.key === 'Tab' && active) {
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setCursor(
+        (Math.min(cursor, completions.length - 1) + step + completions.length) %
+          completions.length,
+      );
+    } else if (e.key === "Tab" && active) {
       e.preventDefault();
       active.fill();
-    } else if (e.key === 'Enter') {
+    } else if (e.key === "Enter") {
       e.preventDefault();
       onEnter(e.metaKey || e.ctrlKey);
-    } else if (e.key === 'ArrowUp' && bar.kind === 'courses' && bar.query) {
+    } else if (e.key === "ArrowUp" && bar.kind === "courses" && bar.query) {
       e.preventDefault();
       onArrowUp();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.stopPropagation();
       onEscape();
     }
   };
 
   const label = completing
-    ? `${bar.kind === 'commands' ? 'Run' : 'Add'} ${active.label}`
+    ? `${bar.kind === "commands" ? "Run" : "Add"} ${active.label}`
     : enterLabel(bar, top, busy);
   return (
     <div className={styles.composer}>
@@ -201,7 +217,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
               id={`bar-${c.key}`}
               role="option"
               aria-selected={c === active}
-              className={`${styles.completion} ${c === active ? styles.completionOn : ''}`}
+              className={`${styles.completion} ${c === active ? styles.completionOn : ""}`}
               onMouseEnter={() => setCursor(completions.indexOf(c))}
               // Choose on mousedown, so the input keeps focus.
               onMouseDown={(e) => {

@@ -16,12 +16,12 @@
  * still run the transition, just without those names.
  */
 export function morph(update: () => void, type?: string): void {
-  if (!('startViewTransition' in document)) {
+  if (!("startViewTransition" in document)) {
     update();
     return;
   }
   const transition = document.startViewTransition(update);
-  if (type && 'types' in transition) {
+  if (type && "types" in transition) {
     transition.types.add(type);
   }
   // A skipped animation (hidden tab, rapid toggling) rejects `ready`; the

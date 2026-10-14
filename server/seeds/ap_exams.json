@@ -1,18 +1,109 @@
 {
   "source": "Hand-entered when the project started; not yet checked against the catalogue's AP credit chart. Replace with a scrape of that chart.",
   "exams": [
-    { "id": "AP_ART_HIST", "name": "AP Art History", "min_score": 4, "units": 4, "ge": ["GE-A"], "waives": [] },
-    { "id": "AP_BIO", "name": "AP Biology", "min_score": 4, "units": 4, "ge": ["GE-D"], "waives": [] },
-    { "id": "AP_CHEM", "name": "AP Chemistry", "min_score": 4, "units": 4, "ge": ["GE-E"], "waives": [] },
-    { "id": "AP_PHYS_1", "name": "AP Physics 1", "min_score": 4, "units": 4, "ge": ["GE-E"], "waives": [] },
-    { "id": "AP_PHYS_2", "name": "AP Physics 2", "min_score": 4, "units": 4, "ge": ["GE-E"], "waives": [] },
-    { "id": "AP_PHYS_C_MECH", "name": "AP Physics C: Mechanics", "min_score": 4, "units": 4, "ge": ["GE-E"], "waives": ["PHYS-151L"] },
-    { "id": "AP_PHYS_C_EM", "name": "AP Physics C: Electricity & Magnetism", "min_score": 4, "units": 4, "ge": ["GE-E"], "waives": ["PHYS-152L"] },
-    { "id": "AP_CALC_AB", "name": "AP Calculus AB", "min_score": 4, "units": 4, "ge": ["GE-F"], "waives": ["MATH-125"] },
-    { "id": "AP_CALC_BC", "name": "AP Calculus BC", "min_score": 4, "units": 4, "ge": ["GE-F"], "waives": ["MATH-125", "MATH-126"] },
-    { "id": "AP_STATS", "name": "AP Statistics", "min_score": 4, "units": 4, "ge": ["GE-F"], "waives": [] },
-    { "id": "AP_MICRO", "name": "AP Microeconomics", "min_score": 4, "units": 4, "ge": ["GE-F"], "waives": ["ECON-203"] },
-    { "id": "AP_MACRO", "name": "AP Macroeconomics", "min_score": 4, "units": 4, "ge": ["GE-F"], "waives": ["ECON-205"] },
-    { "id": "AP_CSA", "name": "AP Computer Science A", "min_score": 4, "units": 4, "ge": [], "waives": ["CSCI-102L", "ITP-115"] }
+    {
+      "id": "AP_ART_HIST",
+      "name": "AP Art History",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-A"],
+      "waives": []
+    },
+    {
+      "id": "AP_BIO",
+      "name": "AP Biology",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-D"],
+      "waives": []
+    },
+    {
+      "id": "AP_CHEM",
+      "name": "AP Chemistry",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-E"],
+      "waives": []
+    },
+    {
+      "id": "AP_PHYS_1",
+      "name": "AP Physics 1",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-E"],
+      "waives": []
+    },
+    {
+      "id": "AP_PHYS_2",
+      "name": "AP Physics 2",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-E"],
+      "waives": []
+    },
+    {
+      "id": "AP_PHYS_C_MECH",
+      "name": "AP Physics C: Mechanics",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-E"],
+      "waives": ["PHYS-151L"]
+    },
+    {
+      "id": "AP_PHYS_C_EM",
+      "name": "AP Physics C: Electricity & Magnetism",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-E"],
+      "waives": ["PHYS-152L"]
+    },
+    {
+      "id": "AP_CALC_AB",
+      "name": "AP Calculus AB",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-F"],
+      "waives": ["MATH-125"]
+    },
+    {
+      "id": "AP_CALC_BC",
+      "name": "AP Calculus BC",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-F"],
+      "waives": ["MATH-125", "MATH-126"]
+    },
+    {
+      "id": "AP_STATS",
+      "name": "AP Statistics",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-F"],
+      "waives": []
+    },
+    {
+      "id": "AP_MICRO",
+      "name": "AP Microeconomics",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-F"],
+      "waives": ["ECON-203"]
+    },
+    {
+      "id": "AP_MACRO",
+      "name": "AP Macroeconomics",
+      "min_score": 4,
+      "units": 4,
+      "ge": ["GE-F"],
+      "waives": ["ECON-205"]
+    },
+    {
+      "id": "AP_CSA",
+      "name": "AP Computer Science A",
+      "min_score": 4,
+      "units": 4,
+      "ge": [],
+      "waives": ["CSCI-102L", "ITP-115"]
+    }
   ]
 }

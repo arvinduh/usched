@@ -8,13 +8,13 @@
  * wordmark while the screen rises in.
  */
 
-import { useEffect } from 'react';
-import { morph } from '../ui/_morph';
+import { useEffect } from "react";
+import { morph } from "../ui/_morph";
 
 let revealed = false;
 
 function reveal(): void {
-  const splash = document.querySelector('.splash');
+  const splash = document.querySelector(".splash");
   if (revealed || !splash) {
     return;
   }
@@ -25,7 +25,7 @@ function reveal(): void {
   };
   // A load quicker than the splash's delayed fade-in skips the hand-off:
   // morphing a wordmark nobody saw yet reads as a glitch, not an entrance.
-  const mark = splash.querySelector('.splash-mark');
+  const mark = splash.querySelector(".splash-mark");
   if (!mark || Number(getComputedStyle(mark).opacity) < 0.5) {
     finish();
   } else {

@@ -12,13 +12,13 @@
  * Plan edits and navigation go to the caller.
  */
 
-import React from 'react';
-import { Check, ExternalLink, Lock, Search } from 'lucide-react';
-import { uscCourseUrl } from '../config';
-import { courseKey, displayCode } from './_degree';
-import type { components } from '../api/schema';
-import { placePopover } from './_popover';
-import styles from './Degree.module.css';
+import { Check, ExternalLink, Lock, Search } from "lucide-react";
+import type React from "react";
+import type { components } from "../api/schema";
+import { uscCourseUrl } from "../config";
+import { courseKey, displayCode } from "./_degree";
+import { placePopover } from "./_popover";
+import styles from "./Degree.module.css";
 
 /**
  * Shared lookups and callbacks for every chip on the page.
@@ -39,19 +39,19 @@ export interface ChipContext {
   /** AP exams that waive each course, keyed by `courseKey`. */
   readonly examsFor: ReadonlyMap<
     string,
-    readonly components['schemas']['ApExam'][]
+    readonly components["schemas"]["ApExam"][]
   >;
   /** Ids of the AP exams the student passed. */
   readonly earned: ReadonlySet<string>;
   readonly onToggleAp: (examId: string) => void;
 }
 
-type ChipState = 'done' | 'planned' | 'open' | 'locked';
+type ChipState = "done" | "planned" | "open" | "locked";
 
 /** Notes longer than this collapse behind their first line. */
 const LONG_NOTES = 160;
 
-function codeOf(choice: components['schemas']['RequirementChoice']): string {
+function codeOf(choice: components["schemas"]["RequirementChoice"]): string {
   return choice.course.resolved ?? choice.course.code;
 }
 
@@ -59,21 +59,21 @@ function codeOf(choice: components['schemas']['RequirementChoice']): string {
 function waiverOf(
   key: string,
   ctx: ChipContext,
-): components['schemas']['ApExam'] | undefined {
+): components["schemas"]["ApExam"] | undefined {
   return ctx.examsFor.get(key)?.find((e) => ctx.earned.has(e.id));
 }
 
 function stateOf(key: string, ctx: ChipContext): ChipState {
   if (ctx.completed.has(key) || waiverOf(key, ctx)) {
-    return 'done';
+    return "done";
   }
   if (ctx.planned.has(key)) {
-    return 'planned';
+    return "planned";
   }
-  return ctx.locked.has(key) ? 'locked' : 'open';
+  return ctx.locked.has(key) ? "locked" : "open";
 }
 
-function unitsText(units: components['schemas']['Units']): string {
+function unitsText(units: components["schemas"]["Units"]): string {
   return units.min === units.max ? `${units.min}` : `${units.min}–${units.max}`;
 }
 
@@ -85,18 +85,24 @@ export function RequirementTree({
   audit,
   ctx,
 }: {
-  readonly program: components['schemas']['Program'];
-  readonly audit: components['schemas']['ProgramAudit'] | null;
+  readonly program: components["schemas"]["Program"];
+  readonly audit: components["schemas"]["ProgramAudit"] | null;
   readonly ctx: ChipContext;
 }): React.JSX.Element {
-  const children = new Map<number | null, components['schemas']['Requirement'][]>();
+  const children = new Map<
+    number | null,
+    components["schemas"]["Requirement"][]
+  >();
   for (const req of program.requirements) {
     const siblings = children.get(req.parent) ?? [];
     siblings.push(req);
     children.set(req.parent, siblings);
   }
   const progress = new Map(audit?.requirements.map((p) => [p.position, p]));
-  const render = (req: components['schemas']['Requirement'], depth: number): React.JSX.Element => (
+  const render = (
+    req: components["schemas"]["Requirement"],
+    depth: number,
+  ): React.JSX.Element => (
     <RequirementNode
       key={req.position}
       req={req}
@@ -104,7 +110,9 @@ export function RequirementTree({
       depth={depth}
       ctx={ctx}
     >
-      {(children.get(req.position) ?? []).map((child) => render(child, depth + 1))}
+      {(children.get(req.position) ?? []).map((child) =>
+        render(child, depth + 1),
+      )}
     </RequirementNode>
   );
   return <>{(children.get(null) ?? []).map((req) => render(req, 0))}</>;
@@ -117,24 +125,24 @@ function RequirementNode({
   ctx,
   children,
 }: {
-  readonly req: components['schemas']['Requirement'];
-  readonly progress: components['schemas']['RequirementProgress'] | undefined;
+  readonly req: components["schemas"]["Requirement"];
+  readonly progress: components["schemas"]["RequirementProgress"] | undefined;
   readonly depth: number;
   readonly ctx: ChipContext;
   readonly children: React.ReactNode;
 }): React.JSX.Element {
-  const done = progress?.status === 'done';
+  const done = progress?.status === "done";
   const plannedUnits = req.slots
     .flat()
     .filter((c) => {
       const key = courseKey(codeOf(c));
-      return ctx.planned.has(key) && stateOf(key, ctx) !== 'done';
+      return ctx.planned.has(key) && stateOf(key, ctx) !== "done";
     })
     .reduce((sum, c) => sum + (c.units?.min ?? 0), 0);
 
   return (
     <section
-      className={`${styles.requirement} ${depth > 0 ? styles.nested : ''}`}
+      className={`${styles.requirement} ${depth > 0 ? styles.nested : ""}`}
       data-depth={Math.min(depth, 3)}
     >
       <header className={styles.reqHeader}>
@@ -145,7 +153,9 @@ function RequirementNode({
           <span className={styles.reqUnits}>
             {done && <Check size={12} className={styles.reqCheck} />}
             {progress?.units ?? 0}
-            {plannedUnits > 0 && <span className={styles.plus}> +{plannedUnits}</span>}
+            {plannedUnits > 0 && (
+              <span className={styles.plus}> +{plannedUnits}</span>
+            )}
             <span className={styles.muted}> / {unitsText(req.units)}</span>
           </span>
         )}
@@ -171,7 +181,7 @@ function RequirementNode({
                   choice={choice}
                   ctx={ctx}
                   faded={
-                    done && stateOf(courseKey(codeOf(choice)), ctx) !== 'done'
+                    done && stateOf(courseKey(codeOf(choice)), ctx) !== "done"
                   }
                 />
               )),
@@ -211,7 +221,7 @@ function Chip({
   ctx,
   faded,
 }: {
-  readonly choice: components['schemas']['RequirementChoice'];
+  readonly choice: components["schemas"]["RequirementChoice"];
   readonly ctx: ChipContext;
   readonly faded: boolean;
 }): React.JSX.Element {
@@ -223,9 +233,9 @@ function Chip({
   const classes = [
     styles.chip,
     styles[state],
-    faded ? styles.faded : '',
-    ctx.highlighted.has(key) ? styles.blocker : '',
-  ].join(' ');
+    faded ? styles.faded : "",
+    ctx.highlighted.has(key) ? styles.blocker : "",
+  ].join(" ");
 
   return (
     <span
@@ -241,13 +251,13 @@ function Chip({
         type="button"
         className={classes}
         onClick={() => ctx.onToggleTaken(code)}
-        aria-pressed={state === 'done'}
+        aria-pressed={state === "done"}
         aria-label={`${displayCode(code)}, ${state}. ${
-          state === 'done' ? 'Unmark' : 'Mark'
+          state === "done" ? "Unmark" : "Mark"
         } taken.`}
       >
-        {state === 'done' && <Check size={11} />}
-        {state === 'locked' && <Lock size={10} />}
+        {state === "done" && <Check size={11} />}
+        {state === "locked" && <Lock size={10} />}
         {displayCode(choice.course.code)}
       </button>
       <span className={styles.chipPop} role="tooltip">
@@ -255,7 +265,9 @@ function Chip({
           {choice.title ?? displayCode(choice.course.code)}
         </span>
         {choice.units && (
-          <span className={styles.popMeta}>{unitsText(choice.units)} units</span>
+          <span className={styles.popMeta}>
+            {unitsText(choice.units)} units
+          </span>
         )}
         {blockers.length > 0 && (
           <span className={styles.popPrereqs}>
@@ -270,9 +282,9 @@ function Chip({
         <span className={styles.popHint}>
           {waiver
             ? `Credited by ${waiver.name}`
-            : state === 'done'
-              ? 'Taken · click to unmark'
-              : 'Click to mark taken'}
+            : state === "done"
+              ? "Taken · click to unmark"
+              : "Click to mark taken"}
         </span>
         <span className={styles.popActions}>
           <button
@@ -305,16 +317,14 @@ function ExamChip({
   exam,
   ctx,
 }: {
-  readonly exam: components['schemas']['ApExam'];
+  readonly exam: components["schemas"]["ApExam"];
   readonly ctx: ChipContext;
 }): React.JSX.Element {
   const isEarned = ctx.earned.has(exam.id);
   return (
     <button
       type="button"
-      className={`${styles.chip} ${
-        isEarned ? styles.done : styles.open
-      }`}
+      className={`${styles.chip} ${isEarned ? styles.done : styles.open}`}
       aria-pressed={isEarned}
       title={`${exam.units} units with a ${exam.min_score}+`}
       onClick={() => ctx.onToggleAp(exam.id)}

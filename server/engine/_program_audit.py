@@ -24,7 +24,20 @@ from server.db.ingest import codes
 _NUMBERS = {
   w: i
   for i, w in enumerate(
-    "one two three four five six seven eight nine ten eleven twelve".split(),
+    [
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight",
+      "nine",
+      "ten",
+      "eleven",
+      "twelve",
+    ],
     start=1,
   )
 }

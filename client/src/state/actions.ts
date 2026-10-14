@@ -7,11 +7,11 @@
  * and components; this module only edits user-authored data.
  */
 
-import { courseKey } from '../degree/_degree';
-import { displaces } from '../semester/_schedule';
-import { update, updateTerm } from './store';
-import type { ScheduleConfiguration, TermPlan } from './store';
-import type { components } from '../api/schema';
+import type { components } from "../api/schema";
+import { courseKey } from "../degree/_degree";
+import { displaces } from "../semester/_schedule";
+import type { ScheduleConfiguration, TermPlan } from "./store";
+import { update, updateTerm } from "./store";
 
 function toggle(ids: readonly string[], id: string): readonly string[] {
   return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
@@ -198,18 +198,15 @@ export function dropSection(sectionId: string, configId?: string): () => void {
  */
 function withSection(
   c: ScheduleConfiguration,
-  section: components['schemas']['Section'],
-  courseSections: readonly components['schemas']['Section'][],
+  section: components["schemas"]["Section"],
+  courseSections: readonly components["schemas"]["Section"][],
 ): ScheduleConfiguration {
   const rivals = new Set(
     courseSections.filter((x) => displaces(section, x)).map((x) => x.id),
   );
   return {
     ...c,
-    section_ids: [
-      ...c.section_ids.filter((id) => !rivals.has(id)),
-      section.id,
-    ],
+    section_ids: [...c.section_ids.filter((id) => !rivals.has(id)), section.id],
   };
 }
 
@@ -218,8 +215,8 @@ function withSection(
  * same-type sibling.
  */
 export function addSection(
-  section: components['schemas']['Section'],
-  courseSections: readonly components['schemas']['Section'][],
+  section: components["schemas"]["Section"],
+  courseSections: readonly components["schemas"]["Section"][],
   configId?: string,
 ): void {
   updateTerm((s) =>
@@ -234,8 +231,8 @@ export function addSection(
  * when adding.
  */
 export function toggleSection(
-  section: components['schemas']['Section'],
-  courseSections: readonly components['schemas']['Section'][],
+  section: components["schemas"]["Section"],
+  courseSections: readonly components["schemas"]["Section"][],
 ): void {
   updateTerm((s) =>
     editConfig(s, s.activeConfigId, (c) =>

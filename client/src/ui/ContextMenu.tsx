@@ -6,9 +6,10 @@
  * items do.
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { clampToViewport, useFloatingOverlay } from './_overlay';
-import styles from './ContextMenu.module.css';
+import type React from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { clampToViewport, useFloatingOverlay } from "./_overlay";
+import styles from "./ContextMenu.module.css";
 
 /**
  * One menu row.
@@ -52,7 +53,7 @@ export function ContextMenu({
   });
 
   useEffect(() => {
-    menu.current?.querySelector('button')?.focus();
+    menu.current?.querySelector("button")?.focus();
   }, []);
 
   return (

@@ -52,9 +52,9 @@ filter. Sections already on the student's week are passed as `around`: nothing
 may overlap them, they count toward the day limit and the goals, and they are
 not part of the result.
 
-The search walks courses with the fewest options first, abandons a branch at
-its first conflict or broken filter, and stops after a fixed budget, so it
-always answers quickly.
+The search walks courses with the fewest options first, abandons a branch at its
+first conflict or broken filter, and stops after a fixed budget, so it always
+answers quickly.
 
 ## Alternatives
 
@@ -69,10 +69,10 @@ three weeks that each win a different trade-off, called a lens:
 6. No breaks.
 
 A lens's best week is offered only if it places at least two courses (every
-course, when fewer are added) at different times from each week already
-offered, and beats each of them on that lens's own measure. A lens whose day
-off the student already excluded is skipped. Each alternative carries its lens,
-and the week captions the proposal with the trade-off it wins.
+course, when fewer are added) at different times from each week already offered,
+and beats each of them on that lens's own measure. A lens whose day off the
+student already excluded is skipped. Each alternative carries its lens, and the
+week captions the proposal with the trade-off it wins.
 
 ## When nothing fits
 
@@ -85,8 +85,8 @@ which wish to relax.
 USC charges flat tuition up to 18 units a term
 (`config.OVERLOAD_UNIT_THRESHOLD`; the client's `OVERLOAD_UNITS` mirrors it).
 `overload()` returns the units past that line. The advisor keeps proposals
-within it unless the student asks for more, and the week explains the extra
-cost when a plan goes over.
+within it unless the student asks for more, and the week explains the extra cost
+when a plan goes over.
 
 ## Client mirror
 

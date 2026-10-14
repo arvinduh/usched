@@ -1,15 +1,15 @@
 # Development
 
-This page covers setting up a working copy, the commands you run day to day,
-how tests are organized, and the conventions a change is expected to follow.
+This page covers setting up a working copy, the commands you run day to day, how
+tests are organized, and the conventions a change is expected to follow.
 
 ## Before you begin
 
 Install:
 
 - [Node.js](https://nodejs.org) 22 or later. CI uses Node 26.
-- [uv](https://docs.astral.sh/uv/), which manages Python 3.14 and the
-  virtual environment.
+- [uv](https://docs.astral.sh/uv/), which manages Python 3.14 and the virtual
+  environment.
 
 ## Set up
 
@@ -23,8 +23,8 @@ Install:
    cp .env.example .env    # PowerShell: Copy-Item .env.example .env
    ```
 
-2. Optional: add a Gemini key to `.env` for the advisor. `.env.example`
-   explains each setting.
+2. Optional: add a Gemini key to `.env` for the advisor. `.env.example` explains
+   each setting.
 
 3. Build the catalog. See [Catalog pipeline](catalog.md) for details.
 
@@ -61,8 +61,7 @@ Install:
 `npm run check` is the merge gate. It runs, in order: `ruff check`,
 `ruff format --check`, `basedpyright`, `pytest`, then `oxlint` and `tsc` in the
 client. It makes no network calls. GitHub Actions runs the same command, plus
-the client stage of the Docker image, on every pull request and push to
-`main`.
+the client stage of the Docker image, on every pull request and push to `main`.
 
 ## Configuration
 
@@ -91,8 +90,7 @@ Tests live in `tests/`, mirroring `server/`:
 
 `tests/conftest.py` builds a small catalog from fixtures once per session
 (`catalog_raw`, `catalog_path`), so tests run against a real database without
-the network. Tests marked `live` are skipped unless you run
-`npm run test:live`.
+the network. Tests marked `live` are skipped unless you run `npm run test:live`.
 
 ### Preview the UI without the real catalog
 
@@ -100,8 +98,8 @@ You can run the app against the fixture catalog:
 
 1. Build it, for example from a short script that calls
    `build.build(raw, target)` the way `catalog_path` does.
-2. Point the dev servers at it. `server/config.py` reads `CATALOG_DB_PATH`
-   from the environment:
+2. Point the dev servers at it. `server/config.py` reads `CATALOG_DB_PATH` from
+   the environment:
 
    ```bash
    CATALOG_DB_PATH=/path/to/fixture.db npm run dev

@@ -20,7 +20,7 @@
 }
 
 .wordmark::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -185,7 +185,9 @@ button.item:hover {
   border-radius: 6px;
   font-size: 12px;
   color: var(--text-secondary);
-  transition: background 120ms ease-out, color 120ms ease-out;
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out;
 }
 
 .segmentOn {
