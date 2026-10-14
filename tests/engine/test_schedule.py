@@ -167,7 +167,7 @@ def test_fewer_days_and_day_limits_count_the_fixed_week():
   )
   fewest = schedule.solve([b], _goals(schedule.Goal.FEWER_DAYS), around=fixed)
   assert [s.id for s in fewest[0].sections] == ["b-mon"]
-  assert fewest[0].days == 1
+  assert fewest[0].days == {MON}
   one_day = _goals(schedule.Goal.RATING, max_days=1)
   assert [
     s.id for s in schedule.solve([b], one_day, around=fixed)[0].sections

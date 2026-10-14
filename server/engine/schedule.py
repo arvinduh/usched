@@ -125,7 +125,7 @@ class Schedule:
   sections: tuple[models.Section, ...]
   average_rating: float | None
   average_difficulty: float | None
-  days: int
+  days: frozenset[models.Weekday]
   gap_minutes: int
   first_start: int | None
   last_end: int | None
@@ -268,7 +268,7 @@ def _clamp(x: float) -> float:
 
 @dataclasses.dataclass(frozen=True)
 class _Measures:
-  days: int
+  days: frozenset[models.Weekday]
   gap_minutes: int
   first_start: int | None
   last_end: int | None
@@ -297,7 +297,7 @@ def _measure(sections: Iterable[models.Section]) -> _Measures:
   firsts = [min(a for a, _ in spans) for spans in by_day.values()]
   lasts = [max(b for _, b in spans) for spans in by_day.values()]
   return _Measures(
-    days=len(by_day),
+    days=frozenset(by_day),
     gap_minutes=gaps,
     first_start=min(firsts) if firsts else None,
     last_end=max(lasts) if lasts else None,
@@ -306,10 +306,10 @@ def _measure(sections: Iterable[models.Section]) -> _Measures:
   )
 
 
-def _score(
-  chosen: Sequence[models.Section], week: _Measures, prefs: Preferences
-) -> float:
-  """Scores a week on its goals, each metric scaled to 0..1."""
+def _metrics(
+  chosen: Sequence[models.Section], week: _Measures
+) -> dict[Goal, float]:
+  """Measures a week against every goal, each scaled to 0..1."""
   ratings = _rmp(chosen, "rating")
   difficulty = _rmp(chosen, "difficulty")
   seats = [1 - s.registered / s.capacity for s in chosen if s.capacity > 0]
@@ -319,16 +319,22 @@ def _score(
     / 4,
     # Ten hours of gaps a week is as bad as it gets.
     Goal.COMPACT: 1 - min(week.gap_minutes, 600) / 600,
-    Goal.FEWER_DAYS: 1 - (max(week.days, 1) - 1) / 4,
+    Goal.FEWER_DAYS: 1 - (max(len(week.days), 1) - 1) / 4,
     # Days starting at 8 score 0; at noon or later, 1.
     Goal.LATE_START: _clamp(((week.mean_first or 480) - 480) / 240),
     # Days ending by 2 score 1; at 8 or later, 0.
     Goal.EARLY_END: _clamp((1200 - (week.mean_last or 1200)) / 360),
     Goal.SEATS: statistics.fmean(seats) if seats else 0.5,
   }
-  score = sum(
-    _weight(i) * _clamp(metrics[goal]) for i, goal in enumerate(prefs.goals)
-  )
+  return {goal: _clamp(value) for goal, value in metrics.items()}
+
+
+def _score(
+  chosen: Sequence[models.Section], week: _Measures, prefs: Preferences
+) -> float:
+  """Scores a week on its goals, earlier goals weighing more."""
+  metrics = _metrics(chosen, week)
+  score = sum(_weight(i) * metrics[goal] for i, goal in enumerate(prefs.goals))
   return score + _PREFERRED_BONUS * sum(
     _teaches(s, prefs.preferred) for s in chosen
   )
@@ -394,7 +400,10 @@ def solve(
       if any(overlaps(a, b) for a in bundle for b in chosen):
         continue
       added = [*chosen, *bundle]
-      if max_days is not None and _measure([*added, *around]).days > max_days:
+      if (
+        max_days is not None
+        and len(_measure([*added, *around]).days) > max_days
+      ):
         continue
       walk(i + 1, added)
 

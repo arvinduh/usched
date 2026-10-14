@@ -400,7 +400,7 @@ def solve_schedule(
     facts = [
       f"rating {option.average_rating if option.average_rating else 'n/a'}",
       f"difficulty {option.average_difficulty or 'n/a'}",
-      f"{option.days} days",
+      f"{len(option.days)} days",
       f"{option.gap_minutes} min between classes",
       f"{_span(option.first_start)}-{_span(option.last_end)}",
     ]
