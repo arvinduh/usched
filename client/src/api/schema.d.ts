@@ -522,7 +522,7 @@ export interface components {
             name: string;
             /**
              * Area
-             * @description core or global.
+             * @description core, global, or seminar.
              */
             area: string;
             /** Required Count */

@@ -794,7 +794,8 @@ function Planner({
             onToggleTaken={handleToggleCompleted}
             onBrowseGe={(letter) => {
               go('planner');
-              setSearchText(`>ge ${letter.toLowerCase()} `);
+              // GESM has no letter; its courses share the code prefix.
+              setSearchText(letter.length === 1 ? `>ge ${letter.toLowerCase()} ` : `>${letter} `);
             }}
             onCountGe={(code, isFull) =>
               showToast(
