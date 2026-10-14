@@ -1,0 +1,31 @@
+# The merge gate: the same `npm run check` contributors run, plus the client
+# stage of the production image. Render deploys main only once this passes
+# (render.yaml autoDeployTrigger).
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+      # postinstall runs `uv sync`.
+      - run: npm ci
+      - run: npm run check
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The full image needs the published catalog; the client stage is
+      # where a missing file breaks the build.
+      - run: docker build --target client .

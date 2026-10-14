@@ -6,7 +6,8 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /healthz
-    autoDeploy: true
+    # Deploy a push to main only after its GitHub checks pass.
+    autoDeployTrigger: checksPass
     branch: main
     envVars:
       # Printed by `npm run catalog -- publish`; read at build time.
