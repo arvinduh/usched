@@ -49,6 +49,25 @@ def test_a_course_counts_once_per_area():
   assert result["GE-G"] == ["ANTH-1"]
 
 
+def test_a_ge_seminar_fills_its_core_category_and_the_seminar():
+  categories = [
+    *CATEGORIES,
+    models.GeCategory(
+      code="GESM", name="Seminar", area="seminar", required_count=1
+    ),
+  ]
+  course_ge = {"GESM-120": ["GE-B", "GESM"], "PHIL-1": ["GE-B"]}
+  result = _ge_audit.audit(
+    categories, course_ge, ["GESM-120g", "PHIL-1"], [], []
+  )
+  assert _filled(result) == {
+    "GE-B": ["GESM-120g", "PHIL-1"],
+    "GE-C": [],
+    "GE-G": [],
+    "GESM": ["GESM-120g"],
+  }
+
+
 def test_ap_credit_needs_the_exams_minimum_score():
   passed = _ge_audit.audit(
     CATEGORIES, {}, [], [CALC], [models.ApCredit(exam_id="AP_CALC", score=4)]

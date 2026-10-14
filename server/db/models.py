@@ -226,7 +226,7 @@ class GeCategory(pydantic.BaseModel):
 
   code: str
   name: str
-  area: str = pydantic.Field(description="core or global.")
+  area: str = pydantic.Field(description="core, global, or seminar.")
   required_count: int
 
 

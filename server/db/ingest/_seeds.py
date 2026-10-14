@@ -19,6 +19,7 @@ class GeRule:
   code: str
   area: str
   required_count: int
+  name: str | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -36,7 +37,7 @@ def ge_rules() -> list[GeRule]:
     (config.SEEDS_DIR / "ge_categories.json").read_text(encoding="utf-8")
   )
   return [
-    GeRule(c["code"], c["area"], int(c["required_count"]))
+    GeRule(c["code"], c["area"], int(c["required_count"]), c.get("name"))
     for c in data["categories"]
   ]
 

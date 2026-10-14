@@ -25,6 +25,10 @@ _NUMBER = re.compile(r"\d+(?:\.\d+)?")
 _GE = re.compile(
   r"^Satisfies (?:New General Education|Global Perspective) in Category ([A-H])"
 )
+# GE Seminars: GESM 1X0 and 1X1 fill Core category X (1 for GE-A up to
+# 6 for GE-F), and every GESM fills the seminar requirement. The number decides,
+# so neither depends on how an entry words its GE statement.
+_SEMINAR_CORE = re.compile(r"^1([1-6])[01]")
 # The closed set of labeled fields. Other "Words: ..." lines are description
 # sentences that happen to contain a colon.
 _FIELDS = {
@@ -98,6 +102,20 @@ def _lines(body: str) -> list[str]:
   return [line for line in map(_text, parts) if line]
 
 
+def _seminar_ge(
+  prefix: str, number: str, catalogue_id: int
+) -> list[models.GeCourseRow]:
+  """The GE seats a GE Seminar fills by its number; none for other courses."""
+  if prefix != "GESM":
+    return []
+  code = f"{prefix}-{number}"
+  rows = [models.GeCourseRow(catalogue_id, "GESM", code)]
+  if core := _SEMINAR_CORE.match(number):
+    letter = "ABCDEF"[int(core.group(1)) - 1]
+    rows.append(models.GeCourseRow(catalogue_id, f"GE-{letter}", code))
+  return rows
+
+
 def parse_page(page: str, catalogue_id: int) -> CoursePage:
   """Parses one expanded course index page."""
   out = CoursePage([], [], {})
@@ -133,6 +151,7 @@ def parse_page(page: str, catalogue_id: int) -> CoursePage:
         fields["enroll_in_code"] = _code(line) or line
       else:
         prose.append(line)
+    out.ge_courses.extend(_seminar_ge(prefix, number, catalogue_id))
     units_text = fields.get("units_text", "")
     numbers = [float(n) for n in _NUMBER.findall(units_text)]
     max_units = _NUMBER.search(fields.get("max_units", ""))
