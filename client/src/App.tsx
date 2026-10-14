@@ -62,6 +62,7 @@ import { reset, useStore, useTermPlan } from './state/store';
 import type { ScheduleConfiguration } from './state/store';
 import { showToast, undoLast } from './state/toast';
 import { usePlanCourses } from './state/usePlanCourses';
+import { morph } from './ui/_morph';
 import { ToastHost } from './ui/Toast';
 import type { components } from './api/schema';
 import styles from './App.module.css';
@@ -352,15 +353,7 @@ function Planner({
     currentSpace.current = space;
   }, [space]);
   const switchTo = useCallback((next: Space): void => {
-    if ('startViewTransition' in document) {
-      // A skipped animation (hidden tab, rapid toggling) rejects `ready`;
-      // the state update itself still applies, so the rejection is noise.
-      document
-        .startViewTransition(() => flushSync(() => setSpace(next)))
-        .ready.catch(() => {});
-    } else {
-      setSpace(next);
-    }
+    morph(() => flushSync(() => setSpace(next)));
   }, []);
   // Leaving the degree, the page first lifts back toward the meter (it
   // dropped from there), then the bar morphs home and the planner rises.
