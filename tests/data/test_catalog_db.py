@@ -107,7 +107,9 @@ def test_search_by_text_ge_and_rating(conn):
   assert [
     c.code for c in store.search_courses(conn, 20271, None, ge="ge-a")
   ] == ["CSCI-104L"]
-  rated = store.search_courses(conn, 20271, None, min_rating=4.0)
+  rated = store.search_courses(
+    conn, 20271, None, section=store.SectionFilter(min_rating=4.0)
+  )
   assert [c.code for c in rated] == ["CSCI-104L"]
 
 
@@ -121,9 +123,9 @@ def test_search_by_meeting_time(conn):
       conn,
       20271,
       None,
-      starts_from=starts_from,
-      ends_by=ends_by,
-      meets_at=meets_at,
+      section=store.SectionFilter(
+        starts_from=starts_from, ends_by=ends_by, meets_at=meets_at
+      ),
     )
     return [c.code for c in found]
 
@@ -134,6 +136,36 @@ def test_search_by_meeting_time(conn):
     "CSCI-104L",
     "CSCI-445Lx",
   ]
+
+
+def test_search_by_units_level_and_instructor(conn):
+  def codes(**kwargs) -> list[str]:
+    return [c.code for c in store.search_courses(conn, 20271, None, **kwargs)]
+
+  # A 1-8 unit course counts as a 2-unit one.
+  assert codes(units=(2, 2)) == ["CHEM-251x", "CHEM-490x"]
+  assert codes(levels=(400, 499)) == [
+    "CHEM-462L",
+    "CHEM-490x",
+    "CSCI-420",
+    "CSCI-445Lx",
+  ]
+  assert codes(section=store.SectionFilter(instructor="Biyik")) == [
+    "CSCI-445Lx"
+  ]
+  easy = store.SectionFilter(max_difficulty=3.0)
+  assert codes(section=easy) == ["CSCI-104L"]
+
+
+def test_search_sorts_by_a_sections_best_value(conn):
+  by_seats = store.search_courses(
+    conn, 20271, "csci", sort=store.SearchSort.OPEN_SEATS
+  )
+  assert [c.code for c in by_seats][:2] == ["CSCI-104L", "CSCI-103L"]
+  rated = store.search_courses(
+    conn, 20271, "csci", sort=store.SearchSort.RATING
+  )
+  assert rated[0].code == "CSCI-104L"  # The only rated instructor.
 
 
 def test_search_expands_abbreviations_to_phrases(conn):

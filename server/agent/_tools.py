@@ -38,12 +38,16 @@ _CODES = {
 TOOLS = [
   _llm.Tool(
     "search_courses",
-    "Searches this term's courses by code, title, or topic, and by when a "
-    "section meets. Use it for any course the student brief does not "
-    "already list. Times are filters, never query words: 'an 8pm class' is "
-    "meets_at 20:00; 'something from 6 to 8 pm' is earliest_start_time "
+    "Searches this term's courses by code, title, or topic, and filters "
+    "by what one section offers. Use it for any course the student brief "
+    "does not already list. Wishes are filters, never query words: 'an 8pm "
+    "class' is meets_at 20:00; 'from 6 to 8 pm' is earliest_start_time "
     "18:00 and latest_end_time 20:00; 'evening classes' is "
-    "earliest_start_time 17:00. Leave query empty to search by time alone.",
+    "earliest_start_time 17:00; 'no Fridays' is excluded_days; 'easy' is "
+    "max_difficulty or sort easiest; 'good professors' is min_rating or "
+    "sort rating; 'upper division' is min_level 300 and max_level 499; 'a "
+    "2-unit class' is min_units and max_units 2. Leave query empty to "
+    "search by filters alone.",
     {
       "type": "object",
       "properties": {
@@ -63,6 +67,43 @@ TOOLS = [
         "meets_at": {
           "type": "string",
           "description": "HH:MM; a section is in class at that time.",
+        },
+        "excluded_days": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Days a section never meets, e.g. ['Friday'].",
+        },
+        "open_seats": {
+          "type": "boolean",
+          "description": "Only sections with a seat left.",
+        },
+        "min_rating": {
+          "type": "number",
+          "description": "Lowest instructor RateMyProfessors rating, 1-5.",
+        },
+        "max_difficulty": {
+          "type": "number",
+          "description": "Highest instructor difficulty, 1-5.",
+        },
+        "instructor": {
+          "type": "string",
+          "description": "Part of an instructor's name, e.g. 'Slocum'.",
+        },
+        "min_units": {"type": "number"},
+        "max_units": {"type": "number"},
+        "min_level": {
+          "type": "integer",
+          "description": "Lowest course number, e.g. 300.",
+        },
+        "max_level": {
+          "type": "integer",
+          "description": "Highest course number, e.g. 499.",
+        },
+        "sort": {
+          "type": "string",
+          "enum": [s.value for s in store.SearchSort],
+          "description": "Default relevance. rating and easiest rank by a "
+          "course's best instructor; open_seats by seats left.",
         },
       },
     },
@@ -243,48 +284,55 @@ def search_courses(
   earliest_start_time: str = "",
   latest_end_time: str = "",
   meets_at: str = "",
+  excluded_days: Sequence[str] = (),
+  open_seats: bool = False,
+  min_rating: float | None = None,
+  max_difficulty: float | None = None,
+  instructor: str = "",
+  min_units: float | None = None,
+  max_units: float | None = None,
+  min_level: int | None = None,
+  max_level: int | None = None,
+  sort: str = "relevance",
 ) -> ToolResult:
-  """Lists the best few matches, each with a section that fits the times."""
-  starts_from = _minute(earliest_start_time)
-  ends_by = _minute(latest_end_time)
-  during = _minute(meets_at)
+  """Lists the best few matches, each with a section that passes the filters."""
+  section = store.SectionFilter(
+    starts_from=_minute(earliest_start_time),
+    ends_by=_minute(latest_end_time),
+    meets_at=_minute(meets_at),
+    excluded_days=frozenset(
+      d for d in map(_weekday, excluded_days) if d is not None
+    ),
+    open_seats=open_seats,
+    min_rating=min_rating,
+    max_difficulty=max_difficulty,
+    instructor=instructor,
+  )
   found = store.search_courses(
     conn,
     term,
     query or None,
     ge=ge_category or None,
     limit=5,
-    starts_from=starts_from,
-    ends_by=ends_by,
-    meets_at=during,
+    section=section,
+    units=(min_units, max_units),
+    levels=(min_level, max_level),
+    sort=store.SearchSort(sort)
+    if sort in store.SearchSort
+    else store.SearchSort.RELEVANCE,
   )
   if not found:
-    asked = " ".join(
-      filter(
-        None,
-        [
-          f"'{query}'" if query else "",
-          ge_category,
-          f"starting at or after {earliest_start_time}"
-          if starts_from is not None
-          else "",
-          f"ending by {latest_end_time}" if ends_by is not None else "",
-          f"in class at {meets_at}" if during is not None else "",
-        ],
-      )
+    return ToolResult(
+      f"No courses match '{query}' with these filters this term. Say which "
+      "filter to loosen."
+      if query
+      else "No courses match these filters this term. Say which to loosen."
     )
-    return ToolResult(f"No courses match {asked or 'that'} this term.")
-
-  def fits(m: models.Meeting) -> bool:
-    if m.start_minute is None or m.end_minute is None:
-      return False
-    return (
-      (starts_from is None or m.start_minute >= starts_from)
-      and (ends_by is None or m.end_minute <= ends_by)
-      and (during is None or m.start_minute <= during < m.end_minute)
-    )
-
-  timed = (starts_from, ends_by, during) != (None, None, None)
+  fitting = (
+    store.matching_sections(conn, term, [c.code for c in found], section)
+    if section != store.ANY_SECTION
+    else None
+  )
   lines = []
   for c in found:
     lines.append(f"{c.code}: {c.title} ({_units(c.units)} units)")
@@ -292,7 +340,7 @@ def search_courses(
       lines.append(
         f"  Prerequisites: {_requisite_text(c.requisites.prerequisite)}"
       )
-    shown = [s for s in c.sections if not timed or any(map(fits, s.meetings))]
+    shown = [s for s in c.sections if fitting is None or s.id in fitting]
     if shown:
       first = shown[0]
       lines.append(f"  e.g. {first.id} {first.type} {when(first)} {who(first)}")
@@ -687,7 +735,7 @@ def mark_taken(
 
 
 def _describe_search(arguments: Mapping[str, Any]) -> str:
-  """ "Searching courses for “GE” meeting at 20:00", say."""
+  """Says what a search is doing, its query and any times."""
   times = [
     f"{label} {arguments[key]}"
     for key, label in (

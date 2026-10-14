@@ -11,6 +11,8 @@ database belongs to the ingest subpackage; this module never writes.
 
 import collections
 import contextlib
+import dataclasses
+import enum
 import functools
 import pathlib
 import sqlite3
@@ -135,24 +137,144 @@ def default_term(conn: sqlite3.Connection) -> int | None:
     return row[0] if row else None
 
 
+_WEEK = list(models.Weekday)
+# A course's sections joined to their rated instructors, for sort keys.
+_RATED = """FROM section s
+      JOIN section_instructor si
+        ON si.term_code = s.term_code AND si.section_id = s.id
+      JOIN rmp_profile r ON r.instructor_key = si.instructor_key
+      WHERE s.term_code = o.term_code AND s.course_code = o.course_code"""
+
+
+@dataclasses.dataclass(frozen=True)
+class SectionFilter:
+  """What one section of a course must offer for the course to match.
+
+  Every set field must hold for the same section, so "Tuesday at 8 PM
+  with open seats" finds a section that is all three. Times are minutes
+  after midnight; the time fields must hold for one meeting.
+
+  Attributes:
+    starts_from: A meeting starts at or after this.
+    ends_by: A meeting ends by this.
+    meets_at: A meeting is in session at this minute.
+    excluded_days: No meeting falls on these days.
+    open_seats: Fewer students registered than its capacity.
+    min_rating: An instructor rated at least this on RateMyProfessors.
+    max_difficulty: An instructor rated at most this hard.
+    instructor: An instructor's name contains this, any case.
+  """
+
+  starts_from: int | None = None
+  ends_by: int | None = None
+  meets_at: int | None = None
+  excluded_days: frozenset[models.Weekday] = frozenset()
+  open_seats: bool = False
+  min_rating: float | None = None
+  max_difficulty: float | None = None
+  instructor: str = ""
+
+
+ANY_SECTION = SectionFilter()
+
+
+class SearchSort(enum.StrEnum):
+  """How matches are ordered: relevance, or a section's best value."""
+
+  RELEVANCE = "relevance"
+  RATING = "rating"
+  EASIEST = "easiest"
+  OPEN_SEATS = "open_seats"
+
+
+# Each sort's key per course, over its sections; NULLs (unrated) sort last.
+_SORTS: Mapping[SearchSort, str] = {
+  SearchSort.RATING: f"(SELECT MAX(r.rating) {_RATED}) DESC NULLS LAST",
+  SearchSort.EASIEST: f"(SELECT MIN(r.difficulty) {_RATED}) ASC NULLS LAST",
+  SearchSort.OPEN_SEATS: """(SELECT SUM(MAX(s.capacity - s.registered, 0))
+      FROM section s WHERE s.term_code = o.term_code
+        AND s.course_code = o.course_code) DESC""",
+}
+
+
+def _section_where(f: SectionFilter) -> tuple[list[str], list[Any]]:
+  """The SQL conditions on section `s` that `f` asks for, with params."""
+  conds: list[str] = []
+  params: list[Any] = []
+  times = [
+    (cond, value)
+    for cond, value in (
+      ("m.start_minute >= ?", f.starts_from),
+      ("m.end_minute <= ?", f.ends_by),
+      ("m.start_minute <= ?", f.meets_at),
+      ("m.end_minute > ?", f.meets_at),
+    )
+    if value is not None
+  ]
+  if times:
+    conds.append(
+      f"""EXISTS (SELECT 1 FROM meeting m
+          WHERE m.term_code = s.term_code AND m.section_id = s.id
+            AND {" AND ".join(cond for cond, _ in times)})"""
+    )
+    params += [value for _, value in times]
+  if f.excluded_days:
+    conds.append(
+      """NOT EXISTS (SELECT 1 FROM meeting m
+          WHERE m.term_code = s.term_code AND m.section_id = s.id
+            AND m.days & ? != 0)"""
+    )
+    params.append(sum(1 << _WEEK.index(d) for d in f.excluded_days))
+  if f.open_seats:
+    conds.append("s.registered < s.capacity")
+  instructor = [
+    (cond, value)
+    for cond, value in (
+      ("r.rating >= ?", f.min_rating),
+      ("r.difficulty <= ?", f.max_difficulty),
+    )
+    if value is not None
+  ]
+  if instructor:
+    conds.append(
+      f"""EXISTS (SELECT 1 FROM section_instructor si
+          JOIN rmp_profile r ON r.instructor_key = si.instructor_key
+          WHERE si.term_code = s.term_code AND si.section_id = s.id
+            AND {" AND ".join(cond for cond, _ in instructor)})"""
+    )
+    params += [value for _, value in instructor]
+  if f.instructor.strip():
+    conds.append(
+      """EXISTS (SELECT 1 FROM section_instructor si
+          WHERE si.term_code = s.term_code AND si.section_id = s.id
+            AND si.instructor_key LIKE ?)"""
+    )
+    params.append(f"%{f.instructor.strip().lower()}%")
+  return conds, params
+
+
 def search_courses(
   conn: sqlite3.Connection,
   term: int,
   q: str | None,
   ge: str | None = None,
-  min_rating: float | None = None,
   limit: int = 100,
   offset: int = 0,
-  starts_from: int | None = None,
-  ends_by: int | None = None,
-  meets_at: int | None = None,
+  section: SectionFilter = ANY_SECTION,
+  units: tuple[float | None, float | None] = (None, None),
+  levels: tuple[int | None, int | None] = (None, None),
+  sort: SearchSort = SearchSort.RELEVANCE,
 ) -> list[models.Course]:
-  """Finds a term's courses by text, GE category, rating, and meeting time.
+  """Finds a term's courses by text, GE category, units, level, and section.
 
-  Text matches rank by exact course-code prefix, then BM25 relevance.
-  The time filters, in minutes after midnight, keep a course when one of
-  its meetings starts at or after `starts_from`, ends by `ends_by`, and
-  is in session at `meets_at`, all at once.
+  Text matches rank by exact course-code prefix, then BM25 relevance;
+  another `sort` ranks by its key first. A course matches when one of
+  its sections passes `section`.
+
+  Args:
+    units: Least and most units the course may carry, either open.
+    levels: Least and most course number, e.g. (300, 499) for upper
+      division; either open.
   """
   where = ["o.term_code = ?"]
   params: list[Any] = [term]
@@ -171,6 +293,8 @@ def search_courses(
     if match.code_prefix is not None:
       order.insert(0, "o.course_code NOT LIKE ?")
       order_params.append(match.code_prefix)
+  if sort != SearchSort.RELEVANCE:
+    order.insert(0, _SORTS[sort])
   if ge:
     where.append(
       """EXISTS (SELECT 1 FROM ge_course g
@@ -178,40 +302,55 @@ def search_courses(
             AND g.resolved_code = o.course_code AND g.ge_code = ?)"""
     )
     params.append(ge.upper())
-  if min_rating:
-    where.append(
-      """EXISTS (SELECT 1 FROM section s
-          JOIN section_instructor si
-            ON si.term_code = s.term_code AND si.section_id = s.id
-          JOIN rmp_profile r ON r.instructor_key = si.instructor_key
-          WHERE s.term_code = o.term_code AND s.course_code = o.course_code
-            AND r.rating >= ?)"""
-    )
-    params.append(min_rating)
-  times = [
-    (cond, value)
-    for cond, value in (
-      ("m.start_minute >= ?", starts_from),
-      ("m.end_minute <= ?", ends_by),
-      ("m.start_minute <= ?", meets_at),
-      ("m.end_minute > ?", meets_at),
-    )
-    if value is not None
-  ]
-  if times:
+  for cond, value in (
+    ("o.units_max >= ?", units[0]),
+    ("o.units_min <= ?", units[1]),
+  ):
+    if value is not None:
+      where.append(cond)
+      params.append(value)
+  for cond, value in (
+    ("CAST(c.number AS INTEGER) >= ?", levels[0]),
+    ("CAST(c.number AS INTEGER) <= ?", levels[1]),
+  ):
+    if value is not None:
+      where.append(
+        f"EXISTS (SELECT 1 FROM course c WHERE c.code = o.course_code"
+        f" AND {cond})"
+      )
+      params.append(value)
+  conds, section_params = _section_where(section)
+  if conds:
     where.append(
       f"""EXISTS (SELECT 1 FROM section s
-          JOIN meeting m ON m.term_code = s.term_code AND m.section_id = s.id
           WHERE s.term_code = o.term_code AND s.course_code = o.course_code
-            AND {" AND ".join(cond for cond, _ in times)})"""
+            AND {" AND ".join(conds)})"""
     )
-    params += [value for _, value in times]
+    params += section_params
   sql = f"""SELECT o.course_code FROM offering o {join}
       WHERE {" AND ".join(where)}
       ORDER BY {", ".join(order)} LIMIT ? OFFSET ?"""
   with _query(conn, sql, [*params, *order_params, limit, offset]) as cur:
     matched_codes = [row[0] for row in cur]
   return courses(conn, term, matched_codes)
+
+
+def matching_sections(
+  conn: sqlite3.Connection,
+  term: int,
+  course_codes: Sequence[str],
+  section: SectionFilter,
+) -> set[str]:
+  """The ids of the courses' sections that pass `section`."""
+  if not course_codes:
+    return set()
+  conds, params = _section_where(section)
+  marks = ", ".join("?" * len(course_codes))
+  sql = f"""SELECT s.id FROM section s
+      WHERE s.term_code = ? AND s.course_code IN ({marks})
+        {"".join(f" AND {c}" for c in conds)}"""
+  with _query(conn, sql, [term, *course_codes, *params]) as cur:
+    return {row[0] for row in cur}
 
 
 def canonical(conn: sqlite3.Connection, codes: Iterable[str]) -> dict[str, str]:
