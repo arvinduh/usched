@@ -49,6 +49,25 @@ def test_a_course_counts_once_per_area():
   assert result["GE-G"] == ["ANTH-1"]
 
 
+def test_a_ge_seminar_fills_its_core_category_and_the_seminar():
+  categories = [
+    *CATEGORIES,
+    models.GeCategory(
+      code="GESM", name="Seminar", area="seminar", required_count=1
+    ),
+  ]
+  course_ge = {"GESM-120": ["GE-B", "GESM"], "PHIL-1": ["GE-B"]}
+  result = _ge_audit.audit(
+    categories, course_ge, ["GESM-120g", "PHIL-1"], [], []
+  )
+  assert _filled(result) == {
+    "GE-B": ["GESM-120g", "PHIL-1"],
+    "GE-C": [],
+    "GE-G": [],
+    "GESM": ["GESM-120g"],
+  }
+
+
 def test_ap_credit_needs_the_exams_minimum_score():
   passed = _ge_audit.audit(
     CATEGORIES, {}, [], [CALC], [models.ApCredit(exam_id="AP_CALC", score=4)]
@@ -70,11 +89,17 @@ def test_codes_match_case_insensitively_and_unknowns_are_ignored():
 def test_earned_units_count_each_course_and_exam_once():
   progress = [
     models.GeProgress(
-      code="GE-B", name="B", required_count=2, courses=["ANTH-1"], exams=[]
+      code="GE-B",
+      name="B",
+      area="core",
+      required_count=2,
+      courses=["ANTH-1"],
+      exams=[],
     ),
     models.GeProgress(
       code="GE-G",
       name="G",
+      area="global",
       required_count=1,
       courses=["anth-1"],
       exams=["AP_CALC"],
@@ -82,6 +107,35 @@ def test_earned_units_count_each_course_and_exam_once():
   ]
   units = {"ANTH-1": models.Units(min=4, max=4)}
   assert _ge_audit.earned_units(progress, units, [CALC]) == 8
+
+
+def test_courses_counted_by_hand_earn_units_except_the_seminar():
+  result = _ge_audit.audit(
+    [
+      *CATEGORIES,
+      models.GeCategory(
+        code="GESM", name="Seminar", area="seminar", required_count=1
+      ),
+    ],
+    {},
+    [],
+    [],
+    [],
+    {"GE-B": 2, "GE-G": 1, "GESM": 1},
+  )
+  assert _ge_audit.counted_units(result) == 12
+  assert _ge_audit.earned_units(result, {}, []) == 12
+
+
+def test_the_area_with_most_open_seats_sets_the_required_units():
+  fresh = _ge_audit.audit(CATEGORIES, {}, [], [], [])
+  # Three open Core seats; GE-G can share one of their courses.
+  assert _ge_audit.required_units(fresh, 0) == 12
+  core_done = _ge_audit.audit(
+    CATEGORIES, {}, [], [], [], {"GE-B": 2, "GE-C": 1}
+  )
+  # Core is full, yet GE-G still needs a course of its own.
+  assert _ge_audit.required_units(core_done, 12) == 16
 
 
 def test_seats_counted_by_hand_fill_only_what_is_left():

@@ -144,7 +144,7 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
 
 
 def test_the_brief_counts_ge_seats_the_student_filled_by_hand(conn):
-  every = {f"GE-{letter}": 9 for letter in "ABCDEFGH"}
+  every = {f"GE-{letter}": 9 for letter in "ABCDEFGH"} | {"GESM": 1}
   text = _brief.build(conn, dataclasses.replace(STUDENT, ge_counted=every)).text
   assert "Open GE categories: none" in text
 

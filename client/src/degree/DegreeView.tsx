@@ -9,7 +9,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Check, Lock, Search } from 'lucide-react';
-import { courseKey, displayCode } from './_degree';
+import { courseKey, displayCode, levelOf } from './_degree';
 import type { components } from '../api/schema';
 import { DegreePicker } from './DegreePicker';
 import { placePopover } from './_popover';
@@ -28,7 +28,7 @@ export interface DegreeViewProps {
   readonly onSelectProgram: (programId: string) => void;
   readonly program: components['schemas']['Program'] | null;
   readonly audit: components['schemas']['ProgramAudit'] | null;
-  readonly geProgress: readonly components['schemas']['GeProgress'][] | null;
+  readonly geAudit: components['schemas']['GeAudit'] | null;
   readonly apExams: readonly components['schemas']['ApExam'][];
   readonly apCredits: readonly components['schemas']['ApCredit'][];
   readonly onToggleAp: (examId: string) => void;
@@ -79,6 +79,9 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
     onToggleTaken: props.onToggleTaken,
   };
 
+  // GE is undergraduate policy; master's and doctoral students owe none.
+  const level = program ? levelOf(program) : null;
+  const isGraduate = level === 'master' || level === 'doctoral';
   const total = program?.total_units ?? 0;
   const done = audit?.units ?? 0;
   const share = (n: number): string =>
@@ -128,9 +131,9 @@ export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps)
         </>
       )}
 
-      {props.geProgress && (
+      {props.geAudit && !isGraduate && (
         <GeStrip
-          progress={props.geProgress}
+          audit={props.geAudit}
           apExams={props.apExams}
           onBrowse={props.onBrowseGe}
           onCount={props.onCountGe}
@@ -171,34 +174,29 @@ function Legend(): React.JSX.Element {
  * popover finds courses for it.
  */
 function GeStrip({
-  progress,
+  audit,
   apExams,
   onBrowse,
   onCount,
 }: {
-  readonly progress: readonly components['schemas']['GeProgress'][];
+  readonly audit: components['schemas']['GeAudit'];
   readonly apExams: readonly components['schemas']['ApExam'][];
   readonly onBrowse: (letter: string) => void;
   readonly onCount: (code: string, isFull: boolean) => void;
 }): React.JSX.Element {
   const examNames = new Map(apExams.map((e) => [e.id, e.name]));
   const filled = (p: components['schemas']['GeProgress']): number => p.courses.length + p.exams.length + p.counted;
-  const required = progress.reduce((n, p) => n + p.required_count, 0);
-  const satisfied = progress.reduce(
-    (n, p) => n + Math.min(filled(p), p.required_count),
-    0,
-  );
   return (
     <section>
       <header className={styles.headingRow}>
         <h2 className={styles.heading}>General education</h2>
         <span className={styles.reqUnits}>
-          {satisfied}
-          <span className={styles.muted}> / {required}</span>
+          {audit.units}
+          <span className={styles.muted}> / {audit.required_units} units</span>
         </span>
       </header>
       <div className={styles.geStrip}>
-        {progress.map((cat) => {
+        {audit.categories.map((cat) => {
           const letter = cat.code.replace('GE-', '');
           const isMet = filled(cat) >= cat.required_count;
           const fill = isMet ? 'full' : filled(cat) > 0 ? 'half' : 'empty';

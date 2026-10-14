@@ -103,12 +103,12 @@ def _need(left: _program_audit.Open) -> str:
 
 
 def _program_lines(
-  conn: sqlite3.Connection, student: Student, planned: set[str]
+  conn: sqlite3.Connection,
+  student: Student,
+  program: models.Program | None,
+  planned: set[str],
 ) -> list[str]:
   """Progress, next courses, and locked courses."""
-  program = (
-    store.program(conn, student.program_id) if student.program_id else None
-  )
   if program is None:
     return ["Program: not chosen"]
   audit = audits.program(
@@ -225,23 +225,34 @@ def _screen_lines(conn: sqlite3.Connection, student: Student) -> list[str]:
   return lines
 
 
-def build(conn: sqlite3.Connection, student: Student) -> Brief:
-  """Builds the brief for one message."""
-  week, planned = _week_lines(conn, student)
-  program = _program_lines(conn, student, planned)
+def _ge_lines(
+  conn: sqlite3.Connection, student: Student, program: models.Program | None
+) -> list[str]:
+  """Open GE categories, or that the student's program needs none."""
+  if not audits.needs_general_education(program):
+    return ["GE: not required for this graduate program"]
   ge = audits.general_education(
     conn, student.completed, student.ap_credits, student.ge_counted
   )
   open_ge = [
     f"{p.code} {p.name} ({p.filled} of {p.required_count})"
-    for p in ge
+    for p in ge.categories
     if p.filled < p.required_count
   ]
+  return [f"Open GE categories: {_listed(open_ge)}"]
+
+
+def build(conn: sqlite3.Connection, student: Student) -> Brief:
+  """Builds the brief for one message."""
+  week, planned = _week_lines(conn, student)
+  program = (
+    store.program(conn, student.program_id) if student.program_id else None
+  )
   lines = [
     "[Student brief]",
     f"Planning: {_term_name(conn, student.term)}",
-    *program,
-    f"Open GE categories: {_listed(open_ge)}",
+    *_program_lines(conn, student, program, planned),
+    *_ge_lines(conn, student, program),
     f"Completed: {_listed(list(student.completed))}",
     *week,
     f"Shortlisted: {_listed(list(student.shortlisted))}",

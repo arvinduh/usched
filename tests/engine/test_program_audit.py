@@ -126,6 +126,7 @@ def _ge(filled: int, required: int) -> models.GeProgress:
   return models.GeProgress(
     code="GE-A",
     name="Arts",
+    area="core",
     required_count=required,
     courses=[f"X-{i}" for i in range(filled)],
     exams=[],
@@ -148,7 +149,7 @@ def test_the_ge_audit_decides_ge_requirements():
 
 
 def test_exam_units_count_toward_the_total():
-  audit = _program_audit.audit(PROGRAM, ["A-1"], {}, {}, exam_units=4)
+  audit = _program_audit.audit(PROGRAM, ["A-1"], {}, {}, credit_units=4)
   assert audit.units == 8
 
 

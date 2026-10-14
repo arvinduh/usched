@@ -167,7 +167,7 @@ export function auditGe(
   completed: readonly string[],
   apCredits: readonly components['schemas']['ApCredit'][],
   geCounted: Readonly<Record<string, number>>,
-): Promise<readonly components['schemas']['GeProgress'][]> {
+): Promise<components['schemas']['GeAudit']> {
   return post('/ge-audit', { completed, ap_credits: apCredits, ge_counted: geCounted });
 }
 
