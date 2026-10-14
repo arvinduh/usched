@@ -278,6 +278,24 @@ def test_history_remembers_what_each_reply_offered(conn):
       [_chips.Search(label="Show CSCI-104L", query="CSCI-104L")],
     ),
     ([], []),
+    (
+      [
+        *(
+          _chips.Search(label=f"Show GE-{n}", query=f"GE-{n}") for n in range(5)
+        ),
+        _chips.ProposeSchedule(
+          label="Preview option 1", name="Option 1", section_ids=["17367"]
+        ),
+      ],
+      [
+        *(
+          _chips.Search(label=f"Show GE-{n}", query=f"GE-{n}") for n in range(4)
+        ),
+        _chips.ProposeSchedule(
+          label="Preview option 1", name="Option 1", section_ids=["17367"]
+        ),
+      ],
+    ),
   ],
 )
 def test_chips_come_only_from_what_the_model_did(chips, expected):
