@@ -226,7 +226,7 @@ class GeCategory(pydantic.BaseModel):
 
   code: str
   name: str
-  area: str = pydantic.Field(description="core or global.")
+  area: str = pydantic.Field(description="core, global, or seminar.")
   required_count: int
 
 
@@ -263,6 +263,7 @@ class GeProgress(pydantic.BaseModel):
 
   code: str
   name: str
+  area: str = pydantic.Field(description="core, global, or seminar.")
   required_count: int
   courses: list[str] = pydantic.Field(description="Completed codes used here.")
   exams: list[str] = pydantic.Field(description="AP exam ids used here.")
@@ -275,6 +276,18 @@ class GeProgress(pydantic.BaseModel):
   def filled(self) -> int:
     """Seats filled by courses, exams, and the student's own count."""
     return len(self.courses) + len(self.exams) + self.counted
+
+
+class GeAudit(pydantic.BaseModel):
+  """General Education progress per category and in units."""
+
+  categories: list[GeProgress]
+  units: float = pydantic.Field(
+    description="Units of the distinct courses, exams, and hand counts used."
+  )
+  required_units: float = pydantic.Field(
+    description="Units earned plus the fewest more that meet every category."
+  )
 
 
 class RequirementStatus(enum.StrEnum):

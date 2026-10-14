@@ -85,6 +85,22 @@ def test_departments_come_from_headings(page):
   }
 
 
+def test_ge_seminars_fill_the_seminar_and_the_core_category_they_name():
+  page = _parse_courses.parse_page(
+    "<li><h3>GESM 120g Seminar in Humanistic Inquiry</h3>Units: 4</li>"
+    "<li><h3>GESM 151Lg Seminar in Physical Sciences</h3>Units: 4</li>"
+    "<li><h3>GESM 210g Topics</h3>Units: 4</li>",
+    22,
+  )
+  assert [(g.ge_code, g.listed_code) for g in page.ge_courses] == [
+    ("GESM", "GESM-120g"),
+    ("GE-B", "GESM-120g"),
+    ("GESM", "GESM-151Lg"),
+    ("GE-E", "GESM-151Lg"),
+    ("GESM", "GESM-210g"),
+  ]
+
+
 def test_ge_statements_and_extra_prose():
   page = _parse_courses.parse_page(
     "<h2>Anthropology</h2><li><h3>ANTH 123gp Global Health</h3>Units: 2, 4"

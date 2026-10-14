@@ -1,5 +1,5 @@
 {
-  "source": "USC General Education policy: categories, area, and how many courses each needs. Names come from the catalogue's General Education page at build time.",
+  "source": "USC General Education policy: categories, area, and how many courses each needs. Names come from the catalogue's General Education page at build time; a name here is the fallback. Every freshman takes one GE Seminar (GESM), which also fills the Core category its number names, so it has an area of its own.",
   "categories": [
     { "code": "GE-A", "area": "core", "required_count": 1 },
     { "code": "GE-B", "area": "core", "required_count": 2 },
@@ -8,6 +8,12 @@
     { "code": "GE-E", "area": "core", "required_count": 1 },
     { "code": "GE-F", "area": "core", "required_count": 1 },
     { "code": "GE-G", "area": "global", "required_count": 1 },
-    { "code": "GE-H", "area": "global", "required_count": 1 }
+    { "code": "GE-H", "area": "global", "required_count": 1 },
+    {
+      "code": "GESM",
+      "area": "seminar",
+      "required_count": 1,
+      "name": "General Education Seminar"
+    }
   ]
 }

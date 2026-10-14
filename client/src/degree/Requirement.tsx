@@ -3,7 +3,8 @@
  *
  * Each requirement shows its title, progress, any prose rules, and its
  * slots: a loose chip is a course to take; chips gathered in a box are
- * alternatives, any one of which fills the slot. Nested requirements
+ * alternatives, any one of which fills the slot. An AP exam that waives a
+ * slot's course joins it as one more alternative. Nested requirements
  * indent beneath their parent. Chip fill encodes state (done, planned this
  * term, available, locked). Clicking a chip marks it taken (or not), like
  * checking off a list; hovering shows the course and a way to find its
@@ -35,6 +36,14 @@ export interface ChipContext {
   /** Opens the course's card; `title` covers courses this term lacks. */
   readonly onOpen: (code: string, title: string | null) => void;
   readonly onToggleTaken: (code: string) => void;
+  /** AP exams that waive each course, keyed by `courseKey`. */
+  readonly examsFor: ReadonlyMap<
+    string,
+    readonly components['schemas']['ApExam'][]
+  >;
+  /** Ids of the AP exams the student passed. */
+  readonly earned: ReadonlySet<string>;
+  readonly onToggleAp: (examId: string) => void;
 }
 
 type ChipState = 'done' | 'planned' | 'open' | 'locked';
@@ -46,8 +55,16 @@ function codeOf(choice: components['schemas']['RequirementChoice']): string {
   return choice.course.resolved ?? choice.course.code;
 }
 
+/** The passed AP exam that waives a course, if any. */
+function waiverOf(
+  key: string,
+  ctx: ChipContext,
+): components['schemas']['ApExam'] | undefined {
+  return ctx.examsFor.get(key)?.find((e) => ctx.earned.has(e.id));
+}
+
 function stateOf(key: string, ctx: ChipContext): ChipState {
-  if (ctx.completed.has(key)) {
+  if (ctx.completed.has(key) || waiverOf(key, ctx)) {
     return 'done';
   }
   if (ctx.planned.has(key)) {
@@ -111,7 +128,7 @@ function RequirementNode({
     .flat()
     .filter((c) => {
       const key = courseKey(codeOf(c));
-      return ctx.planned.has(key) && !ctx.completed.has(key);
+      return ctx.planned.has(key) && stateOf(key, ctx) !== 'done';
     })
     .reduce((sum, c) => sum + (c.units?.min ?? 0), 0);
 
@@ -142,15 +159,27 @@ function RequirementNode({
       {req.slots.length > 0 && (
         <div className={styles.chips}>
           {req.slots.map((slot, i) => {
-            const chips = slot.map((choice) => (
-              <Chip
-                key={choice.course.code}
-                choice={choice}
-                ctx={ctx}
-                faded={done && !ctx.completed.has(courseKey(codeOf(choice)))}
-              />
-            ));
-            return slot.length > 1 ? (
+            const exams = new Map(
+              slot
+                .flatMap((c) => ctx.examsFor.get(courseKey(codeOf(c))) ?? [])
+                .map((e) => [e.id, e]),
+            );
+            const chips = [
+              ...slot.map((choice) => (
+                <Chip
+                  key={choice.course.code}
+                  choice={choice}
+                  ctx={ctx}
+                  faded={
+                    done && stateOf(courseKey(codeOf(choice)), ctx) !== 'done'
+                  }
+                />
+              )),
+              ...[...exams.values()].map((exam) => (
+                <ExamChip key={exam.id} exam={exam} ctx={ctx} />
+              )),
+            ];
+            return chips.length > 1 ? (
               <span key={i} className={styles.choiceBox}>
                 {chips}
               </span>
@@ -190,6 +219,7 @@ function Chip({
   const key = courseKey(code);
   const state = stateOf(key, ctx);
   const blockers = ctx.locked.get(key) ?? [];
+  const waiver = waiverOf(key, ctx);
   const classes = [
     styles.chip,
     styles[state],
@@ -238,7 +268,11 @@ function Chip({
           </span>
         )}
         <span className={styles.popHint}>
-          {state === 'done' ? 'Taken · click to unmark' : 'Click to mark taken'}
+          {waiver
+            ? `Credited by ${waiver.name}`
+            : state === 'done'
+              ? 'Taken · click to unmark'
+              : 'Click to mark taken'}
         </span>
         <span className={styles.popActions}>
           <button
@@ -260,5 +294,33 @@ function Chip({
         </span>
       </span>
     </span>
+  );
+}
+
+/**
+ * An AP exam offered in place of the course it waives; a click records
+ * the exam as passed (or not).
+ */
+function ExamChip({
+  exam,
+  ctx,
+}: {
+  readonly exam: components['schemas']['ApExam'];
+  readonly ctx: ChipContext;
+}): React.JSX.Element {
+  const isEarned = ctx.earned.has(exam.id);
+  return (
+    <button
+      type="button"
+      className={`${styles.chip} ${
+        isEarned ? styles.done : styles.open
+      }`}
+      aria-pressed={isEarned}
+      title={`${exam.units} units with a ${exam.min_score}+`}
+      onClick={() => ctx.onToggleAp(exam.id)}
+    >
+      {isEarned && <Check size={11} />}
+      {exam.name}
+    </button>
   );
 }

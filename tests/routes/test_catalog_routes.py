@@ -93,16 +93,19 @@ def test_missing_catalog_is_503_with_the_fix(tmp_path):
 
 
 def test_ge_audit(client):
-  progress = client.post(
+  audit = client.post(
     "/api/ge-audit",
     json={
       "completed": ["csci-104l"],
       "ap_credits": [{"exam_id": "AP_CALC_BC", "score": 5}],
+      "ge_counted": {"GE-B": 1},
     },
   ).json()
-  by_code = {p["code"]: p for p in progress}
+  by_code = {p["code"]: p for p in audit["categories"]}
   assert by_code["GE-A"]["courses"] == ["csci-104l"]
   assert by_code["GE-F"]["exams"] == ["AP_CALC_BC"]
+  # CSCI-104L, the exam, and one Core course counted by hand.
+  assert (audit["units"], audit["required_units"]) == (12, 32)
 
 
 def test_program_audit(client):
@@ -117,6 +120,15 @@ def test_program_audit(client):
     json={"completed": []},
   ).json()
   assert "CSCI-104L" in fresh["locked"]
+
+
+def test_program_audit_credits_courses_ap_exams_waive(client):
+  audit = client.post(
+    "/api/terms/20271/programs/computer-science-bs/audit",
+    json={"completed": [], "ap_credits": [{"exam_id": "AP_CSA", "score": 4}]},
+  ).json()
+  assert audit["units"] == 4  # The exam's units; CSCI 102L adds none.
+  assert any("CSCI-102L" in r["courses"] for r in audit["requirements"])
 
 
 def test_static_endpoints_have_cache_control(client):

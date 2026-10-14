@@ -393,7 +393,7 @@ def _tuples(rows: Iterable[Any]) -> list[tuple[Any, ...]]:
 def _ge_categories(names: Mapping[str, str]) -> list[models.GeCategoryRow]:
   categories = []
   for rule in _seeds.ge_rules():
-    name = names.get(rule.code)
+    name = names.get(rule.code) or rule.name
     if name is None:
       logging.warning(
         "Catalogue gives no name for %s; using its code", rule.code

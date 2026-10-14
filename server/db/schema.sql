@@ -123,7 +123,7 @@ CREATE TABLE restriction (
 CREATE TABLE ge_category (            -- seeded policy
   code TEXT PRIMARY KEY,              -- e.g. GE-B
   name TEXT NOT NULL,
-  area TEXT NOT NULL CHECK (area IN ('core', 'global')),
+  area TEXT NOT NULL CHECK (area IN ('core', 'global', 'seminar')),
   required_count INTEGER NOT NULL
 );
 

@@ -5,11 +5,16 @@ so the API routes and the advisor's tools audit a student identically.
 It reads through store and never writes.
 """
 
+import re
 import sqlite3
 from collections.abc import Mapping, Sequence
 
 from server.db import models, store
 from server.engine import _ge_audit, _program_audit
+
+
+# Master's (MS, MBA, LLM) and doctoral (PhD, DPT, MD, JD) degree types.
+_GRADUATE = re.compile(r"^(?:M|LLM|D)|D$")
 
 
 def listed_codes(program: models.Program) -> list[str]:
@@ -22,20 +27,53 @@ def listed_codes(program: models.Program) -> list[str]:
   ]
 
 
+def needs_general_education(program: models.ProgramSummary | None) -> bool:
+  """Whether a student in `program` owes USC's GE requirement.
+
+  GE is an undergraduate requirement: master's and doctoral degrees (MS,
+  MBA, LLM, PhD, MD, JD, DPT) owe none. No program, a bachelor's, or a
+  minor keeps it.
+  """
+  if program is None or program.kind != "degree":
+    return True
+  degree = program.degree_type or ""
+  return degree.startswith("B") or _GRADUATE.search(degree) is None
+
+
+left_to_take = _program_audit.left_to_take
+
+
+def waived(
+  conn: sqlite3.Connection, ap_credits: Sequence[models.ApCredit]
+) -> list[str]:
+  """Course codes the student's passed AP exams waive."""
+  passed = _ge_audit.passed(store.ap_exams(conn), ap_credits)
+  return [w.resolved or w.code for e in passed for w in e.waives]
+
+
 def general_education(
   conn: sqlite3.Connection,
   completed: Sequence[str],
   ap_credits: Sequence[models.ApCredit],
   ge_counted: Mapping[str, int],
-) -> list[models.GeProgress]:
+) -> models.GeAudit:
   """Shows how courses, AP exams, and seats counted by hand fill each GE."""
-  return _ge_audit.audit(
+  exams = store.ap_exams(conn)
+  progress = _ge_audit.audit(
     store.ge_categories(conn),
     store.ge_of(conn, completed),
     completed,
-    store.ap_exams(conn),
+    exams,
     ap_credits,
     ge_counted,
+  )
+  earned = _ge_audit.earned_units(
+    progress, store.units_of(conn, completed), exams
+  )
+  return models.GeAudit(
+    categories=progress,
+    units=earned,
+    required_units=_ge_audit.required_units(progress, earned),
   )
 
 
@@ -48,22 +86,16 @@ def program(
   ge_counted: Mapping[str, int],
 ) -> models.ProgramAudit:
   """Audits a program; prerequisites follow `term`'s listings."""
+  ge = general_education(conn, completed, ap_credits, ge_counted)
   exams = store.ap_exams(conn)
-  ge = _ge_audit.audit(
-    store.ge_categories(conn),
-    store.ge_of(conn, completed),
-    completed,
-    exams,
-    ap_credits,
-    ge_counted,
-  )
-  units = store.units_of(conn, completed)
   return _program_audit.audit(
     audited,
     completed,
-    units,
+    store.units_of(conn, completed),
     store.requisites_of(conn, term, listed_codes(audited)),
-    ge=ge,
-    ge_units=_ge_audit.earned_units(ge, units, exams),
-    exam_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits)),
+    ge=ge.categories,
+    ge_units=ge.units,
+    credit_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits))
+    + _ge_audit.counted_units(ge.categories),
+    waived=waived(conn, ap_credits),
   )

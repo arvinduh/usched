@@ -19,7 +19,7 @@ from server import config
 from server.agent import _tools
 from server.db import models, store
 from server.db.ingest import codes
-from server.engine import audits, schedule
+from server.engine import _program_audit, audits, schedule
 
 
 _NEXT = 10  # Courses suggested as next steps.
@@ -88,13 +88,28 @@ def _listed(codes_: Sequence[str]) -> str:
   return ", ".join(codes_) or "none"
 
 
+def _code(choice: models.RequirementChoice) -> str:
+  return choice.course.resolved or choice.course.code
+
+
+def _need(left: _program_audit.Open) -> str:
+  """One requirement's open slots: "or" joins alternatives within a slot."""
+  slots = "; ".join(" or ".join(_code(c) for c in s) for s in left.slots)
+  title = left.requirement.title
+  if left.count is None:
+    return f"- {title}: {left.units:g} more units from {slots}"
+  if left.count < len(left.slots):
+    return f"- {title}: any {left.count} of {slots}"
+  return f"- {title}: {slots}"
+
+
 def _program_lines(
-  conn: sqlite3.Connection, student: Student, planned: set[str]
+  conn: sqlite3.Connection,
+  student: Student,
+  program: models.Program | None,
+  planned: set[str],
 ) -> list[str]:
   """Progress, next courses, and locked courses."""
-  program = (
-    store.program(conn, student.program_id) if student.program_id else None
-  )
   if program is None:
     return ["Program: not chosen"]
   audit = audits.program(
@@ -119,19 +134,21 @@ def _program_lines(
   ]
   lines.append(f"Unmet requirements: {_listed(unmet)}")
 
-  titles = {
-    c.course.resolved or c.course.code: c.title
-    for r in program.requirements
-    for slot in r.slots
-    for c in slot
-  }
-  listed = audits.listed_codes(program)
-  offered = store.offered(conn, student.term, listed)
+  credited = [*student.completed, *audits.waived(conn, student.ap_credits)]
+  left = audits.left_to_take(program, credited, audit)
+  lines.append(
+    "Left to take (only these count; a filled slot's alternatives do not):"
+  )
+  lines += [_need(o) for o in left] or ["- nothing listed"]
+
+  titles = {_code(c): c.title for o in left for slot in o.slots for c in slot}
+  needed = [_code(c) for o in left for slot in o.slots for c in slot]
+  offered = store.offered(conn, student.term, needed)
   done = {codes.identity(c) for c in student.completed}
   locked = {codes.identity(c) for c in audit.locked}
   ready = [
     code
-    for code in dict.fromkeys(listed)
+    for code in dict.fromkeys(needed)
     if codes.identity(code) in offered
     and codes.identity(code) not in done | locked | planned
   ][:_NEXT]
@@ -217,23 +234,34 @@ def _screen_lines(conn: sqlite3.Connection, student: Student) -> list[str]:
   return lines
 
 
-def build(conn: sqlite3.Connection, student: Student) -> Brief:
-  """Builds the brief for one message."""
-  week, planned = _week_lines(conn, student)
-  program = _program_lines(conn, student, planned)
+def _ge_lines(
+  conn: sqlite3.Connection, student: Student, program: models.Program | None
+) -> list[str]:
+  """Open GE categories, or that the student's program needs none."""
+  if not audits.needs_general_education(program):
+    return ["GE: not required for this graduate program"]
   ge = audits.general_education(
     conn, student.completed, student.ap_credits, student.ge_counted
   )
   open_ge = [
     f"{p.code} {p.name} ({p.filled} of {p.required_count})"
-    for p in ge
+    for p in ge.categories
     if p.filled < p.required_count
   ]
+  return [f"Open GE categories: {_listed(open_ge)}"]
+
+
+def build(conn: sqlite3.Connection, student: Student) -> Brief:
+  """Builds the brief for one message."""
+  week, planned = _week_lines(conn, student)
+  program = (
+    store.program(conn, student.program_id) if student.program_id else None
+  )
   lines = [
     "[Student brief]",
     f"Planning: {_term_name(conn, student.term)}",
-    *program,
-    f"Open GE categories: {_listed(open_ge)}",
+    *_program_lines(conn, student, program, planned),
+    *_ge_lines(conn, student, program),
     f"Completed: {_listed(list(student.completed))}",
     *week,
     f"Shortlisted: {_listed(list(student.shortlisted))}",

@@ -199,7 +199,7 @@ def test_the_brief_warns_when_the_week_passes_the_unit_cap(conn):
 
 
 def test_the_brief_counts_ge_seats_the_student_filled_by_hand(conn):
-  every = {f"GE-{letter}": 9 for letter in "ABCDEFGH"}
+  every = {f"GE-{letter}": 9 for letter in "ABCDEFGH"} | {"GESM": 1}
   text = _brief.build(conn, dataclasses.replace(STUDENT, ge_counted=every)).text
   assert "Open GE categories: none" in text
 
@@ -309,3 +309,15 @@ def test_live_advisor_answers_from_the_brief(conn, live_model):
   assert reply.strip()
   assert closing["unverified"] == []
   assert events[-1] == "[DONE]"
+
+
+def test_the_brief_lists_what_is_left_without_filled_alternatives(conn):
+  student = dataclasses.replace(
+    STUDENT, completed=["CSCI-103L", "MATH-126g", "BISC-121Lg"]
+  )
+  lines = _brief.build(conn, student).text.splitlines()
+  # The student's AP Calculus BC waives MATH-125g, so it is not left.
+  assert "- Mathematics: MATH-225 or MATH-235; MATH-226g or MATH-229" in lines
+  # Taking BISC-121Lg settles Life Sciences, so its alternatives are gone.
+  assert not any(line.startswith("- Life Sciences") for line in lines)
+  assert not any("MATH-129" in line for line in lines)

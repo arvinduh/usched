@@ -488,6 +488,24 @@ export interface components {
             section_id: string;
         };
         /**
+         * GeAudit
+         * @description General Education progress per category and in units.
+         */
+        GeAudit: {
+            /** Categories */
+            categories: components["schemas"]["GeProgress"][];
+            /**
+             * Units
+             * @description Units of the distinct courses, exams, and hand counts used.
+             */
+            units: number;
+            /**
+             * Required Units
+             * @description The fewest units that can meet every category.
+             */
+            required_units: number;
+        };
+        /**
          * GeAuditRequest
          * @description What a student has done toward General Education.
          */
@@ -522,7 +540,7 @@ export interface components {
             name: string;
             /**
              * Area
-             * @description core or global.
+             * @description core, global, or seminar.
              */
             area: string;
             /** Required Count */
@@ -537,6 +555,11 @@ export interface components {
             code: string;
             /** Name */
             name: string;
+            /**
+             * Area
+             * @description core, global, or seminar.
+             */
+            area: string;
             /** Required Count */
             required_count: number;
             /**
@@ -1357,7 +1380,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GeProgress"][];
+                    "application/json": components["schemas"]["GeAudit"];
                 };
             };
             /** @description Validation Error */

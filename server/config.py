@@ -60,6 +60,8 @@ USC_CATALOGUE_BASE: str = "https://catalogue.usc.edu"
 RMP_GRAPHQL_ENDPOINT: str = "https://www.ratemyprofessors.com/graphql"
 
 DEFAULT_BACHELOR_MINIMUM_UNITS: float = 128.0
+# USC GE courses carry 4 units; a GE course counted by hand earns this many.
+GE_COURSE_UNITS: float = 4.0
 # Most units a term takes at flat tuition; each unit past it costs extra.
 # The client's OVERLOAD_UNITS mirrors it.
 OVERLOAD_UNIT_THRESHOLD: int = 18
