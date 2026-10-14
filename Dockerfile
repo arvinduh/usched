@@ -4,7 +4,7 @@
 #   docker run -p 8000:8000 --env-file .env usched
 #
 # The catalog database is not in the repo: pass the CATALOG_URL that
-# `npm run catalog -- publish` prints. README "Deploying" walks through it.
+# `npm run catalog -- publish` prints. docs/deploy.md walks through it.
 
 FROM node:26-slim AS client
 WORKDIR /app

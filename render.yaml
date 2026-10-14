@@ -1,4 +1,4 @@
-# Render blueprint for the hosted demo (README "Deploying").
+# Render blueprint for the hosted app (docs/deploy.md).
 # Render > New > Blueprint > this repo; it asks for each value below.
 services:
   - type: web
