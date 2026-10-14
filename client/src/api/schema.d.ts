@@ -501,7 +501,7 @@ export interface components {
             units: number;
             /**
              * Required Units
-             * @description The fewest units that can meet every category.
+             * @description Units earned plus the fewest more that meet every category.
              */
             required_units: number;
         };
