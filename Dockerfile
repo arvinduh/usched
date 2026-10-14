@@ -14,6 +14,8 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/
 RUN npm ci --ignore-scripts
 COPY client/ client/
+# The client bundles the course-code abbreviations it shares with the API.
+COPY server/seeds/abbreviations.json server/seeds/
 RUN npm run build -w client
 
 FROM python:3.14-slim
