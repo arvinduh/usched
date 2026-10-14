@@ -8,13 +8,13 @@
 :root {
   color-scheme: light dark;
 
-  --bg: light-dark(#fff, #111110);
+  --bg: light-dark(#fff, #171716);
   --text-primary: light-dark(#111, #ededec);
   --text-secondary: light-dark(#6b6b6b, #a1a09c);
-  --text-muted: light-dark(#a3a3a3, #6f6e6a);
-  --hairline: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.08));
-  --hairline-strong: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
-  --hover: light-dark(rgba(0, 0, 0, 0.035), rgba(255, 255, 255, 0.05));
+  --text-muted: light-dark(#a3a3a3, #8e8d89);
+  --hairline: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.11));
+  --hairline-strong: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.20));
+  --hover: light-dark(rgba(0, 0, 0, 0.035), rgba(255, 255, 255, 0.07));
   --accent: light-dark(#900, #f0675c);
   --danger: light-dark(#c0352b, #f28b82);
   --danger-fill: light-dark(#fcebeb, #3b1715);
