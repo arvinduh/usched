@@ -43,7 +43,7 @@ import {
   cycleConfig,
   deleteConfig,
   dropSection,
-  duplicateActiveConfig,
+  duplicateConfig,
   overwriteConfig,
   renameConfig,
   selectConfig,
@@ -870,7 +870,8 @@ function Planner({
               onSelectVariant={handleSelectVariant}
               onRenameVariant={renameConfig}
               onDeleteVariant={handleDeleteVariant}
-              onDuplicateVariant={duplicateActiveConfig}
+              onNewVariant={() => createConfig()}
+              onDuplicateVariant={duplicateConfig}
               onToggleSection={handleToggleSection}
               onRemove={handleRemove}
               onFocusCourse={openCourse}

@@ -36,6 +36,7 @@ import { cycleProposal, setFocus, shownProposal, usePreview } from '../state/pre
 import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import type { ScheduleConfiguration } from '../state/store';
+import { ContextMenu } from '../ui/ContextMenu';
 import { RatingPair } from '../ui/Glyphs';
 import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { components } from '../api/schema';
@@ -55,7 +56,9 @@ export interface WeekProps {
   readonly onSelectVariant: (configId: string) => void;
   readonly onRenameVariant: (configId: string, name: string) => void;
   readonly onDeleteVariant: (config: ScheduleConfiguration) => void;
-  readonly onDuplicateVariant: () => void;
+  /** Starts an empty variant. */
+  readonly onNewVariant: () => void;
+  readonly onDuplicateVariant: (configId: string) => void;
   readonly onToggleSection: (
     section: components['schemas']['Section'],
     course: components['schemas']['Course'],
@@ -435,10 +438,20 @@ function Variants(
     onSelectVariant,
     onRenameVariant,
     onDeleteVariant,
+    onNewVariant,
     onDuplicateVariant,
   } = props;
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [menu, setMenu] = useState<{
+    readonly x: number;
+    readonly y: number;
+    readonly config: ScheduleConfiguration;
+  } | null>(null);
+  const startRename = (c: ScheduleConfiguration): void => {
+    setDraft(c.name);
+    setEditing(c.id);
+  };
   // A shown proposal takes the selection away from the real variants.
   const activeConfigId = proposalName === null ? props.activeConfigId : null;
 
@@ -477,11 +490,12 @@ function Variants(
               aria-selected={c.id === activeConfigId}
               className={`${styles.variant} ${c.id === activeConfigId ? styles.variantOn : ''}`}
               onClick={() => onSelectVariant(c.id)}
-              onDoubleClick={() => {
-                setDraft(c.name);
-                setEditing(c.id);
+              onDoubleClick={() => startRename(c)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setMenu({ x: e.clientX, y: e.clientY, config: c });
               }}
-              title="Double-click to rename"
+              title="Double-click to rename, right-click for more"
             >
               {c.name}
             </button>
@@ -511,12 +525,34 @@ function Variants(
       <button
         type="button"
         className={styles.duplicate}
-        onClick={onDuplicateVariant}
-        title="Duplicate this week"
-        aria-label="Duplicate this week"
+        onClick={onNewVariant}
+        title="New empty week"
+        aria-label="New empty week"
       >
         <Plus size={13} />
       </button>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: 'Duplicate',
+              onSelect: () => onDuplicateVariant(menu.config.id),
+            },
+            { label: 'Rename', onSelect: () => startRename(menu.config) },
+            ...(configurations.length > 1
+              ? [
+                  {
+                    label: 'Delete',
+                    onSelect: () => onDeleteVariant(menu.config),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
     </div>
   );
 }
