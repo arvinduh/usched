@@ -18,6 +18,11 @@ class ProposeSchedule(pydantic.BaseModel):
   label: str
   name: str
   section_ids: list[str]
+  tradeoff: str = pydantic.Field(
+    default="",
+    description="Why to pick this week over the other options, e.g. "
+    "'No class on Fri, avg prof 3.4'; empty when there is no choice.",
+  )
 
 
 class EnrollSection(pydantic.BaseModel):

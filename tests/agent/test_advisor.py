@@ -42,6 +42,23 @@ def test_solve_offers_each_option_as_a_proposal(conn):
   assert absent.content == "Not offered this term: NOPE-1."
 
 
+def test_solve_labels_each_option_with_its_trade_off(conn):
+  result = _tools.solve_schedule(conn, TERM, [], ["CSCI-104L"])
+  best, fewest = result.chips
+  assert isinstance(best, _chips.ProposeSchedule)
+  assert isinstance(fewest, _chips.ProposeSchedule)
+  # Slocum's Mon/Wed lecture brings a lab and a quiz on two more days;
+  # the unrated Tue/Thu lecture is the whole course in two.
+  assert best.name == "Best professors"
+  assert best.tradeoff == "Best professors (avg prof 4.5)"
+  assert fewest.name == "Fewest days"
+  assert fewest.tradeoff == "Fewest days (2 days on campus), profs unrated"
+  assert "Option 2, Fewest days" in result.content
+  # One course with no real alternative gets one unlabeled option.
+  (only,) = _tools.solve_schedule(conn, TERM, ["17367"], ["CSCI-104L"]).chips
+  assert isinstance(only, _chips.ProposeSchedule) and only.tradeoff == ""
+
+
 def test_solve_applies_filters_and_names_what_blocks_a_week(conn):
   # Only 104L's group-B lecture (29989, Tue/Thu 8:00) ends by noon.
   morning = _tools.solve_schedule(

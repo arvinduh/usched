@@ -320,6 +320,97 @@ def _span(minutes: int | None) -> str:
   return _clock(minutes) if minutes is not None else "TBA"
 
 
+# What a week that ranks each goal first is best at, as a student reads it.
+_GOAL_TITLES: Mapping[schedule.Goal, str] = {
+  schedule.Goal.RATING: "Best professors",
+  schedule.Goal.EASY: "Easiest professors",
+  schedule.Goal.COMPACT: "Fewest breaks",
+  schedule.Goal.FEWER_DAYS: "Fewest days",
+  schedule.Goal.LATE_START: "Latest start",
+  schedule.Goal.EARLY_END: "Earliest finish",
+  schedule.Goal.SEATS: "Most open seats",
+}
+
+
+def _title(lens: schedule.Lens) -> str:
+  if lens.day_off is not None:
+    return f"No class on {lens.day_off}"
+  return _GOAL_TITLES[lens.goal]
+
+
+def _profs(week: schedule.Schedule) -> str:
+  rating = week.average_rating
+  return f"avg prof {rating:.1f}" if rating is not None else "profs unrated"
+
+
+def _tradeoff(option: schedule.Alternative) -> str:
+  """What an option wins and what it costs, in one line.
+
+  For example "No class on Fri, avg prof 3.4" beside "Best professors
+  (avg prof 4.5), class on Fri".
+  """
+  lens, week = option.lens, option.schedule
+  measures = {
+    schedule.Goal.RATING: _profs(week),
+    schedule.Goal.EASY: f"difficulty {week.average_difficulty or 'n/a'}",
+    schedule.Goal.COMPACT: f"{week.gap_minutes} min of breaks",
+    schedule.Goal.FEWER_DAYS: f"{len(week.days)} days on campus",
+    schedule.Goal.LATE_START: f"first class {_span(week.first_start)}",
+    schedule.Goal.EARLY_END: f"done by {_span(week.last_end)}",
+    schedule.Goal.SEATS: "most seats left",
+  }
+  if lens.day_off is not None:
+    facts = [_title(lens), _profs(week)]
+  else:
+    facts = [f"{_title(lens)} ({measures[lens.goal]})"]
+    if lens.goal != schedule.Goal.RATING:
+      facts.append(_profs(week))
+  if models.Weekday.FRI in week.days:
+    facts.append("class on Fri")
+  return ", ".join(facts)
+
+
+def _offer(
+  options: Sequence[schedule.Alternative], kept: Sequence[models.Section]
+) -> ToolResult:
+  """Lists each option's trade-off and sections; proposes each one."""
+  lines = (
+    [f"Keeps your week: {', '.join(f'{s.course_code} {s.id}' for s in kept)}"]
+    if kept
+    else []
+  )
+  actions: list[_chips.Chip] = []
+  for n, option in enumerate(options, 1):
+    week = option.schedule
+    facts = [
+      f"rating {week.average_rating or 'n/a'}",
+      f"difficulty {week.average_difficulty or 'n/a'}",
+      f"{len(week.days)} days",
+      f"{week.gap_minutes} min between classes",
+      f"{_span(week.first_start)}-{_span(week.last_end)}",
+    ]
+    tradeoff = _tradeoff(option)
+    lines.append(f"Option {n}, {tradeoff}: {', '.join(facts)}")
+    lines += [
+      f"  {s.course_code} {s.id} {s.type}: {when(s)} | {who(s)}"
+      for s in week.sections
+    ]
+    actions.append(
+      _chips.ProposeSchedule(
+        label=f"Preview option {n}",
+        name=_title(option.lens),
+        section_ids=[s.id for s in kept] + [s.id for s in week.sections],
+        tradeoff=tradeoff if len(options) > 1 else "",
+      )
+    )
+  if len(options) == 1:
+    lines.append(
+      "No other week is a real alternative: each moves at most one course "
+      "or is no better at what it trades for."
+    )
+  return ToolResult("\n".join(lines), actions)
+
+
 def solve_schedule(
   conn: sqlite3.Connection,
   term: int,
@@ -336,7 +427,9 @@ def solve_schedule(
   excluded_instructors: Sequence[str] = (),
   min_rating: float | None = None,
 ) -> ToolResult:
-  """Finds the three best ways to add courses to the week; offers each.
+  """Finds up to three ways to add courses to the week; offers each.
+
+  Each way wins a different trade-off (see `schedule.alternatives`).
 
   Sections already on the week (`week`, by number) stay fixed unless
   their course is listed, so each proposal is the whole resulting week.
@@ -372,7 +465,7 @@ def solve_schedule(
     or schedule.NO_PREFERENCES.goals,
     preferred=tuple(p.lower() for p in preferred_instructors if p),
   )
-  options = schedule.solve(courses, prefs, around=kept)
+  options = schedule.alternatives(courses, prefs, around=kept)
   if not options:
     listed = ", ".join(c.code for c in courses)
     if blocking := schedule.blockers(courses, prefs, around=kept):
@@ -390,33 +483,7 @@ def solve_schedule(
       f"No conflict-free week adds all of {listed}; suggest dropping one, "
       "or listing a course already on the week to re-pick it."
     )
-  lines = (
-    [f"Keeps your week: {', '.join(f'{s.course_code} {s.id}' for s in kept)}"]
-    if kept
-    else []
-  )
-  actions: list[_chips.Chip] = []
-  for n, option in enumerate(options, 1):
-    facts = [
-      f"rating {option.average_rating if option.average_rating else 'n/a'}",
-      f"difficulty {option.average_difficulty or 'n/a'}",
-      f"{len(option.days)} days",
-      f"{option.gap_minutes} min between classes",
-      f"{_span(option.first_start)}-{_span(option.last_end)}",
-    ]
-    lines.append(f"Option {n}: {', '.join(facts)}")
-    lines += [
-      f"  {s.course_code} {s.id} {s.type}: {when(s)} | {who(s)}"
-      for s in option.sections
-    ]
-    actions.append(
-      _chips.ProposeSchedule(
-        label=f"Preview option {n}",
-        name=f"Option {n}",
-        section_ids=[s.id for s in kept] + [s.id for s in option.sections],
-      )
-    )
-  return ToolResult("\n".join(lines), actions)
+  return _offer(options, kept)
 
 
 def edit_week(

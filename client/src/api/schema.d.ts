@@ -756,6 +756,12 @@ export interface components {
             name: string;
             /** Section Ids */
             section_ids: string[];
+            /**
+             * Tradeoff
+             * @description Why to pick this week over the other options, e.g. 'No class on Fri, avg prof 3.4'; empty when there is no choice.
+             * @default
+             */
+            tradeoff: string;
         };
         /**
          * Rating
