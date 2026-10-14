@@ -218,6 +218,16 @@
   position: absolute;
   padding: 1px 2px;
   z-index: var(--z-grid);
+  view-transition-class: week-block;
+}
+
+/* Flipping between proposals names each block by its slot (Week sets
+   --slot), so a block whose course moves to another section slides to the
+   new time while added and dropped ones fade. Named only then: names on
+   every transition would snapshot the whole week when switching places.
+   index.css times the slide, since a module would rename the class. */
+:active-view-transition-type(week-slide) .block {
+  view-transition-name: var(--slot);
 }
 
 /* Keyboard focus only: a click leaves nothing pinned once the pointer goes. */

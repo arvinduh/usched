@@ -11,6 +11,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { ChevronLeft, ChevronRight, Copy, Plus, X } from 'lucide-react';
 import {
   bySectionOrder,
@@ -39,6 +40,7 @@ import { showToast } from '../state/toast';
 import type { ScheduleConfiguration } from '../state/store';
 import { ContextMenu } from '../ui/ContextMenu';
 import { CountUp } from '../ui/CountUp';
+import { morph } from '../ui/_morph';
 import { RatingPair } from '../ui/Glyphs';
 import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { components } from '../api/schema';
@@ -79,16 +81,33 @@ export interface WeekProps {
 interface Block extends TimedMeeting {
   readonly key: string;
   readonly section: components['schemas']['Section'];
+  /**
+   * The meeting's role in the schedule, independent of which section fills
+   * it: course, component, and which meeting. Flipping between proposals
+   * slides a block to wherever the same role sits in the next one.
+   */
+  readonly slot: string;
 }
 
 function blocksOf(sections: readonly components['schemas']['Section'][]): readonly Block[] {
-  return sections.flatMap((section) =>
-    timedMeetings(section).map((m, i) => ({
+  const seen = new Map<string, number>();
+  return sections.flatMap((section) => {
+    const role = `${section.course_code}-${section.type}`;
+    const nth = seen.get(role) ?? 0;
+    seen.set(role, nth + 1);
+    const slot = `slot-${role.replace(/[^a-zA-Z0-9-]/g, '-')}-${nth}`;
+    return timedMeetings(section).map((m, i) => ({
       ...m,
       key: `${section.id}:${i}`,
       section,
-    })),
-  );
+      slot: `${slot}-${i}`,
+    }));
+  });
+}
+
+/** Swaps what the week shows, sliding blocks that keep their slot. */
+function slide(update: () => void): void {
+  morph(() => flushSync(update), 'week-slide');
 }
 
 /**
@@ -227,13 +246,13 @@ export function Week(props: WeekProps): React.JSX.Element {
             <>
               {proposalCount > 1 && (
                 <span className={styles.cycle}>
-                  <button type="button" onClick={() => cycleProposal(-1)} aria-label="Previous option">
+                  <button type="button" onClick={() => slide(() => cycleProposal(-1))} aria-label="Previous option">
                     <ChevronLeft size={14} />
                   </button>
                   <span className={styles.num}>
                     {shownIndex + 1} of {proposalCount}
                   </span>
-                  <button type="button" onClick={() => cycleProposal(1)} aria-label="Next option">
+                  <button type="button" onClick={() => slide(() => cycleProposal(1))} aria-label="Next option">
                     <ChevronRight size={14} />
                   </button>
                 </span>
@@ -241,7 +260,7 @@ export function Week(props: WeekProps): React.JSX.Element {
               <button type="button" className={styles.keep} onClick={() => onKeepProposal(proposal)}>
                 Keep
               </button>
-              <button type="button" className={styles.discard} onClick={onDiscardProposal}>
+              <button type="button" className={styles.discard} onClick={() => slide(onDiscardProposal)}>
                 Discard
               </button>
             </>
@@ -305,12 +324,17 @@ export function Week(props: WeekProps): React.JSX.Element {
                     } ${focusId === s.id ? styles.blockFocus : ''} ${
                       expanded?.code === s.course_code ? styles.blockPicked : ''
                     }`}
-                    style={{
-                      top: pct(b.start),
-                      height: `calc(${pct(b.end)} - ${pct(b.start)})`,
-                      left: `${(lane.lane / lane.lanes) * 100}%`,
-                      width: `${100 / lane.lanes}%`,
-                    }}
+                    style={
+                      {
+                        top: pct(b.start),
+                        height: `calc(${pct(b.end)} - ${pct(b.start)})`,
+                        left: `${(lane.lane / lane.lanes) * 100}%`,
+                        width: `${100 / lane.lanes}%`,
+                        // A Mon/Wed meeting's first day slides to the next
+                        // section's first day, wherever that falls.
+                        '--slot': `${b.slot}-${b.days.indexOf(day)}`,
+                      } as React.CSSProperties
+                    }
                     // Focusable so keyboard users reach the popover's actions.
                     tabIndex={0}
                     // Pairs with the card: its row for this section lights up.
