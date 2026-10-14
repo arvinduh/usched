@@ -98,6 +98,37 @@ def test_the_loop_forbids_tools_after_its_rounds():
   assert [allowed for _, allowed in seen] == [True] * _llm.TOOL_ROUNDS + [False]
 
 
+def test_an_empty_turn_is_retried_once_without_tools():
+  seen: list[bool] = []
+
+  def turn(
+    rounds: Sequence[_llm.Round], allow_tools: bool
+  ) -> Iterator[str | _llm.Thought | _llm.Step]:
+    del rounds
+    seen.append(allow_tools)
+    yield _llm.Thought("Weighing the options.")
+    if len(seen) > 1:
+      yield "Here it is."
+    yield _llm.Step([], None)
+
+  assert _text(_llm.run(turn, lambda name, args: "r")) == "Here it is."
+  assert seen == [True, False]
+
+
+def test_a_turn_empty_twice_gives_up():
+  seen: list[bool] = []
+
+  def turn(
+    rounds: Sequence[_llm.Round], allow_tools: bool
+  ) -> Iterator[_llm.Step]:
+    del rounds
+    seen.append(allow_tools)
+    yield _llm.Step([], None)
+
+  assert _text(_llm.run(turn, lambda name, args: "r")) == ""
+  assert seen == [True, False]
+
+
 @pytest.mark.live
 def test_live_model_answers_and_calls_tools(live_model):
   """The configured model streams text and uses a tool when it needs one."""
