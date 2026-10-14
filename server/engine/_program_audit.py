@@ -5,14 +5,17 @@ catalogue order, so no course counts twice. A requirement with a unit
 count is met by units earned in it and its nested requirements; one
 without needs every slot filled, or as many as its heading or notes pick
 ("Choose three of the following"); one with only prose rules is left for a
-person to judge. Prerequisites decide which of the program's remaining
-courses are locked. This module is pure; catalog_db supplies the data.
+person to judge. A course an AP exam waives fills its slot and meets
+prerequisites like a completed one, but adds no units of its own: the
+exam's units already count. Prerequisites decide which of the program's
+remaining courses are locked. This module is pure; catalog_db supplies the
+data.
 """
 
 import collections
 import dataclasses
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 
 from server.db import models
 from server.db.ingest import codes
@@ -108,6 +111,7 @@ def audit(
   ge: Sequence[models.GeProgress] = (),
   ge_units: float = 0.0,
   credit_units: float = 0.0,
+  waived: Collection[str] = (),
 ) -> models.ProgramAudit:
   """Audits `program` for a student.
 
@@ -123,8 +127,10 @@ def audit(
     ge_units: Units filling GE seats, credited to GE requirements.
     credit_units: Units from passed AP exams and GE courses counted by
       hand, which count toward the total.
+    waived: Course codes the student's passed AP exams waive.
   """
-  shown = {codes.identity(c): c for c in completed}
+  shown = {codes.identity(c): c for c in [*waived, *completed]}
+  exempt = {codes.identity(c) for c in waived}
   own: dict[int, list[str]] = collections.defaultdict(list)
   own_units: dict[int, float] = collections.defaultdict(float)
   slot_units: dict[str, float] = {}
@@ -216,7 +222,9 @@ def audit(
             )
           )
   total = credit_units + sum(
-    units[k].min if k in units else slot_units.get(k, 0.0) for k in shown
+    units[k].min if k in units else slot_units.get(k, 0.0)
+    for k in shown
+    if k not in exempt
   )
   return models.ProgramAudit(
     units=total,

@@ -80,6 +80,7 @@ def program(
   """Audits a program; prerequisites follow `term`'s listings."""
   ge = general_education(conn, completed, ap_credits, ge_counted)
   exams = store.ap_exams(conn)
+  passed = _ge_audit.passed(exams, ap_credits)
   return _program_audit.audit(
     audited,
     completed,
@@ -87,6 +88,7 @@ def program(
     store.requisites_of(conn, term, listed_codes(audited)),
     ge=ge.categories,
     ge_units=ge.units,
-    credit_units=sum(e.units for e in _ge_audit.passed(exams, ap_credits))
+    credit_units=sum(e.units for e in passed)
     + _ge_audit.counted_units(ge.categories),
+    waived=[w.resolved or w.code for e in passed for w in e.waives],
   )
