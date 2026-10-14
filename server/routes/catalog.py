@@ -82,7 +82,13 @@ def search_courses(
     wanted = [c for c in (s.strip() for s in codes.split(",")) if c]
     return store.courses(conn, term, wanted[:limit])
   return store.search_courses(
-    conn, term, q, ge=ge, min_rating=min_rating, limit=limit, offset=offset
+    conn,
+    term,
+    q,
+    ge=ge,
+    limit=limit,
+    offset=offset,
+    section=store.SectionFilter(min_rating=min_rating),
   )
 
 

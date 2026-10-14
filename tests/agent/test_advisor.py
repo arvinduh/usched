@@ -27,7 +27,19 @@ def test_search_by_time_shows_a_section_at_that_time(conn):
   assert "CSCI-104L" in result.content
   assert "e.g. 29972" in result.content  # Its 7 PM section, not its first.
   none = _tools.search_courses(conn, TERM, "data", meets_at="23:00")
-  assert none.content == "No courses match 'data' in class at 23:00 this term."
+  assert none.content.startswith("No courses match 'data' with these filters")
+
+
+def test_search_filters_combine_on_one_section(conn):
+  # CSCI-104L's 7 PM section meets Thursday; its noon sections, Mon-Thu.
+  evening = _tools.search_courses(
+    conn, TERM, meets_at="19:30", excluded_days=["Thursday"]
+  )
+  assert "CSCI-104L" not in evening.content
+  easy = _tools.search_courses(
+    conn, TERM, "csci", instructor="slocum", sort="rating"
+  )
+  assert easy.content.startswith("CSCI-104L")
 
 
 def test_a_time_search_step_names_the_time():
