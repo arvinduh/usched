@@ -89,7 +89,7 @@
   left: 12px;
   right: 12px;
   bottom: calc(100% - 4px);
-  z-index: 10;
+  z-index: var(--z-popover);
   padding: 4px;
   list-style: none;
   border-radius: var(--radius-m);

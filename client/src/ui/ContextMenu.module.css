@@ -1,6 +1,6 @@
 .menu {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-modal);
   min-width: 180px;
   padding: 6px;
   border-radius: var(--radius-m);

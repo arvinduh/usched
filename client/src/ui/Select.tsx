@@ -10,6 +10,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
+import { useFloatingOverlay } from './_overlay';
 import styles from './Select.module.css';
 
 /**
@@ -48,21 +49,6 @@ export function Select<T extends string | number>(props: SelectProps<T>): React.
   const list = useRef<HTMLUListElement>(null);
   const selected = options.findIndex((o) => o.value === value);
 
-  // A press anywhere else closes the list.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const onPointer = (e: PointerEvent): void => {
-      if (!root.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    list.current?.focus();
-    return () => document.removeEventListener('pointerdown', onPointer);
-  }, [open]);
-
   const show = (): void => {
     setCursor(Math.max(0, selected));
     setOpen(true);
@@ -75,6 +61,18 @@ export function Select<T extends string | number>(props: SelectProps<T>): React.
     onChange(options[index].value);
     close();
   };
+
+  useFloatingOverlay({
+    open,
+    onClose: close,
+    overlayRef: root,
+  });
+
+  useEffect(() => {
+    if (open) {
+      list.current?.focus();
+    }
+  }, [open]);
 
   const onListKey = (e: React.KeyboardEvent<HTMLUListElement>): void => {
     const last = options.length - 1;

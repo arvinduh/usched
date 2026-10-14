@@ -45,7 +45,7 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
 /**
  * Renders the filter rows.
  */
-export function FilterPanel(props: FilterPanelProps): React.JSX.Element {
+export const FilterPanel = React.memo(function FilterPanel(props: FilterPanelProps): React.JSX.Element {
   const { filter, onFilter, parsed, text, setText } = props;
 
   // Swaps the token of one kind ("ge b", "4+") for `token`, or removes it
@@ -153,4 +153,4 @@ export function FilterPanel(props: FilterPanelProps): React.JSX.Element {
       </div>
     </div>
   );
-}
+});

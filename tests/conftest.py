@@ -105,3 +105,13 @@ def catalog_path(catalog_raw, tmp_path_factory) -> pathlib.Path:
   assert built.counts["offering"] > 0
   assert not target.with_name(target.name + ".building").exists()
   return target
+
+
+@pytest.fixture(autouse=True)
+def _reset_catalog_caches():
+  """Clears in-memory catalog LRU caches between tests."""
+  from server.db import store
+
+  store.clear_catalog_caches()
+  yield
+  store.clear_catalog_caches()

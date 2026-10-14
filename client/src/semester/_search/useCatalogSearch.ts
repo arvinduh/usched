@@ -34,9 +34,14 @@ export interface CatalogSearch {
 }
 
 function _isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return true;
+  }
   return (
-    (err instanceof DOMException && err.name === 'AbortError') ||
-    (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError')
+    typeof err === 'object' &&
+    err !== null &&
+    'name' in err &&
+    err.name === 'AbortError'
   );
 }
 

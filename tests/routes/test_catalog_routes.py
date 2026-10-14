@@ -117,3 +117,18 @@ def test_program_audit(client):
     json={"completed": []},
   ).json()
   assert "CSCI-104L" in fresh["locked"]
+
+
+def test_static_endpoints_have_cache_control(client):
+  expected = "public, max-age=3600, stale-while-revalidate=86400"
+  for path in (
+    "/api/terms",
+    "/api/programs",
+    "/api/programs/computer-science-bs",
+    "/api/ge-categories",
+    "/api/ap-exams",
+    "/api/courses?codes=csci-104l",
+  ):
+    response = client.get(path)
+    assert response.status_code == 200, path
+    assert response.headers.get("cache-control") == expected, path

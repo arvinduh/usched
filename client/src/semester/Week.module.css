@@ -207,14 +207,14 @@
 .block {
   position: absolute;
   padding: 1px 2px;
-  z-index: 1;
+  z-index: var(--z-grid);
 }
 
 /* Keyboard focus only: a click leaves nothing pinned once the pointer goes. */
 .block:hover,
 .block:focus-visible,
 .block:has(:focus-visible) {
-  z-index: 5;
+  z-index: calc(var(--z-grid) + 4);
 }
 
 .block:focus-visible {
@@ -342,12 +342,12 @@
 
 .ghostSlot {
   position: absolute;
-  z-index: 3;
+  z-index: calc(var(--z-grid) + 2);
 }
 
 .ghostSlot:hover,
 .ghostSlot:has(:focus-visible) {
-  z-index: 5;
+  z-index: calc(var(--z-grid) + 4);
 }
 
 .ghostSlot:hover .popover,

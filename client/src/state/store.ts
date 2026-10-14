@@ -67,86 +67,88 @@ const DEFAULT_STATE: PlanState = {
   welcomed: false,
 };
 
+function _isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function _isStringArray(arr: unknown): arr is readonly string[] {
   return Array.isArray(arr) && arr.every((item) => typeof item === 'string');
 }
 
 function _isValidConfiguration(c: unknown): c is ScheduleConfiguration {
-  if (typeof c !== 'object' || c === null || Array.isArray(c)) {
+  if (!_isRecord(c)) {
     return false;
   }
-  const obj = c as Record<string, unknown>;
   return (
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string' &&
-    _isStringArray(obj.section_ids)
+    typeof c['id'] === 'string' &&
+    typeof c['name'] === 'string' &&
+    _isStringArray(c['section_ids'])
   );
 }
 
 function _isValidTermPlan(tp: unknown): tp is TermPlan {
-  if (typeof tp !== 'object' || tp === null || Array.isArray(tp)) {
+  if (!_isRecord(tp)) {
     return false;
   }
-  const obj = tp as Record<string, unknown>;
   return (
-    typeof obj.activeConfigId === 'string' &&
-    _isStringArray(obj.watchedCourseIds) &&
-    Array.isArray(obj.configurations) &&
-    obj.configurations.every(_isValidConfiguration)
+    typeof tp['activeConfigId'] === 'string' &&
+    _isStringArray(tp['watchedCourseIds']) &&
+    Array.isArray(tp['configurations']) &&
+    tp['configurations'].every(_isValidConfiguration)
+  );
+}
+
+function _isApCredit(c: unknown): c is components['schemas']['ApCredit'] {
+  return (
+    _isRecord(c) &&
+    typeof c['exam_id'] === 'string' &&
+    typeof c['score'] === 'number'
   );
 }
 
 function _isValidPlanState(candidate: unknown): candidate is PlanState {
-  if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
-    return false;
-  }
-  const obj = candidate as Record<string, unknown>;
-
-  if (obj.term !== null && typeof obj.term !== 'number') {
+  if (!_isRecord(candidate)) {
     return false;
   }
 
-  if (typeof obj.terms !== 'object' || obj.terms === null || Array.isArray(obj.terms)) {
+  if (candidate['term'] !== null && typeof candidate['term'] !== 'number') {
     return false;
   }
-  for (const [key, val] of Object.entries(obj.terms)) {
+
+  if (!_isRecord(candidate['terms'])) {
+    return false;
+  }
+  for (const [key, val] of Object.entries(candidate['terms'])) {
     if (Number.isNaN(Number(key)) || !_isValidTermPlan(val)) {
       return false;
     }
   }
 
-  if (!_isStringArray(obj.completedCourseIds)) {
+  if (!_isStringArray(candidate['completedCourseIds'])) {
     return false;
   }
 
   if (
-    !Array.isArray(obj.apCredits) ||
-    !obj.apCredits.every(
-      (c) =>
-        typeof c === 'object' &&
-        c !== null &&
-        !Array.isArray(c) &&
-        typeof (c as Record<string, unknown>).exam_id === 'string' &&
-        typeof (c as Record<string, unknown>).score === 'number',
-    )
+    !Array.isArray(candidate['apCredits']) ||
+    !candidate['apCredits'].every(_isApCredit)
   ) {
     return false;
   }
 
-  if (typeof obj.geCounted !== 'object' || obj.geCounted === null || Array.isArray(obj.geCounted)) {
+  if (!_isRecord(candidate['geCounted'])) {
     return false;
   }
-  for (const [k, v] of Object.entries(obj.geCounted)) {
+  for (const [k, v] of Object.entries(candidate['geCounted'])) {
     if (typeof k !== 'string' || typeof v !== 'number') {
       return false;
     }
   }
 
-  if (typeof obj.programId !== 'string') {
+  if (typeof candidate['programId'] !== 'string') {
     return false;
   }
 
-  if (typeof obj.welcomed !== 'boolean') {
+  if (typeof candidate['welcomed'] !== 'boolean') {
     return false;
   }
 

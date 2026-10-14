@@ -47,7 +47,7 @@ export interface DegreeViewProps {
 /**
  * Renders the Degree space.
  */
-export function DegreeView(props: DegreeViewProps): React.JSX.Element {
+export const DegreeView = React.memo(function DegreeView(props: DegreeViewProps): React.JSX.Element {
   const { program, audit, completed, planned, plannedUnits } = props;
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -144,7 +144,7 @@ export function DegreeView(props: DegreeViewProps): React.JSX.Element {
       />
     </div>
   );
-}
+});
 
 /**
  * Explains chip states: taken counts toward the degree already, and this

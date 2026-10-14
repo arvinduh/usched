@@ -11,7 +11,7 @@
   background: var(--text-primary);
   color: var(--bg);
   box-shadow: var(--shadow-pop);
-  z-index: 100;
+  z-index: var(--z-toast);
   animation: rise 200ms var(--ease);
 }
 

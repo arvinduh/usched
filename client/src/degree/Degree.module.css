@@ -159,7 +159,7 @@
   border-radius: var(--radius-m);
   background: var(--bg);
   box-shadow: var(--shadow-pop);
-  z-index: 20;
+  z-index: var(--z-popover);
   animation: drop 140ms var(--ease);
 }
 
@@ -332,11 +332,6 @@
   display: none;
 }
 
-.reqRule {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
 .reqUnits {
   margin-left: auto;
   display: inline-flex;
@@ -428,17 +423,6 @@
   background: var(--hover);
 }
 
-.openSlot {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px dashed var(--hairline-strong);
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
 /* Chip popover */
 
 .chipPop {
@@ -454,7 +438,7 @@
   display: none;
   flex-direction: column;
   gap: 6px;
-  z-index: 10;
+  z-index: var(--z-popover);
   font-family: inherit;
   text-align: left;
 }
@@ -516,27 +500,6 @@
   font-family: var(--font-mono);
   font-size: 11px;
   box-shadow: inset 0 0 0 1px var(--hairline-strong);
-}
-
-.miniDone {
-  background: var(--text-primary);
-  color: var(--bg);
-  box-shadow: none;
-}
-
-.miniCapsule {
-  display: inline-flex;
-  border-radius: 999px;
-  box-shadow: inset 0 0 0 1px var(--hairline-strong);
-}
-
-.miniCapsule .miniChip {
-  box-shadow: none;
-  border-radius: 0;
-}
-
-.miniCapsule .miniChip + .miniChip {
-  box-shadow: inset 1px 0 0 var(--hairline-strong);
 }
 
 .popActions {

@@ -7,6 +7,7 @@ the built client when one exists.
 
 import contextlib
 import os
+import sqlite3
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -14,7 +15,7 @@ import fastapi
 import uvicorn
 from absl import logging
 from fastapi import staticfiles
-from fastapi.middleware import gzip
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import Response
 from starlette.types import Scope
 
@@ -31,15 +32,16 @@ async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
   app.state.catalog = store.CatalogDb()
   try:
     conn = app.state.catalog.connect()
+    app.state.db_conn = conn
   except FileNotFoundError as e:
     logging.warning("%s", e)
+    app.state.db_conn = None
   else:
-    with contextlib.closing(conn):
-      fetched = [t for t in store.terms(conn) if t.has_courses]
-      logging.info(
-        "Catalog has %s.",
-        ", ".join(f"{t.season} {t.year}" for t in fetched) or "no terms",
-      )
+    fetched = [t for t in store.terms(conn) if t.has_courses]
+    logging.info(
+      "Catalog has %s.",
+      ", ".join(f"{t.season} {t.year}" for t in fetched) or "no terms",
+    )
 
   app.state.model = _llm.from_env()
   reason = app.state.model.unavailable()
@@ -47,7 +49,15 @@ async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None]:
     logging.warning("Advisor model %s: %s", app.state.model.name, reason)
   else:
     logging.info("Advisor model %s is ready.", app.state.model.name)
-  yield
+  try:
+    yield
+  finally:
+    db_conn = getattr(app.state, "db_conn", None)
+    if isinstance(db_conn, sqlite3.Connection):
+      db_conn.close()
+      app.state.db_conn = None
+    store.close_connection()
+    store.clear_catalog_caches()
 
 
 app = fastapi.FastAPI(
@@ -58,10 +68,23 @@ app = fastapi.FastAPI(
 )
 # A search page is ~200KB of JSON and compresses about tenfold. Starlette
 # leaves text/event-stream alone, so the advisor still streams token by token.
-app.add_middleware(gzip.GZipMiddleware, minimum_size=1024)
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
 
 app.include_router(catalog.router)
 app.include_router(chat.router)
+
+
+_HEALTHZ_RESPONSE = Response(
+  content=b'{"status": "ok"}',
+  media_type="application/json",
+  headers={"Cache-Control": "no-store"},
+)
+
+
+@app.get("/healthz")
+def healthz() -> Response:
+  """Zero-allocation liveness probe for orchestration platforms."""
+  return _HEALTHZ_RESPONSE
 
 
 @app.get("/api/health")
@@ -90,9 +113,10 @@ class _Client(staticfiles.StaticFiles):
     status_code: int = 200,
   ) -> Response:
     response = super().file_response(full_path, stat_result, scope, status_code)
+    path = Path(full_path)
     response.headers["Cache-Control"] = (
       "public, max-age=31536000, immutable"
-      if Path(full_path).parent.name == "assets"
+      if "assets" in path.parts
       else "no-cache"
     )
     return response

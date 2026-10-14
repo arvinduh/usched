@@ -21,3 +21,11 @@ def test_assets_cache_for_good_and_the_page_rechecks(tmp_path: pathlib.Path):
 
   assert asset.headers["cache-control"] == "public, max-age=31536000, immutable"
   assert page.headers["cache-control"] == "no-cache"
+
+
+def test_healthz_endpoint():
+  client = testclient.TestClient(main.app)
+  response = client.get("/healthz")
+  assert response.status_code == 200
+  assert response.json() == {"status": "ok"}
+  assert response.headers["cache-control"] == "no-store"

@@ -7,6 +7,7 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { clampToViewport, useFloatingOverlay } from './_overlay';
 import styles from './ContextMenu.module.css';
 
 /**
@@ -16,9 +17,6 @@ export interface MenuItem {
   readonly label: string;
   readonly onSelect: () => void;
 }
-
-/** Keeps the menu this far from the viewport edge. */
-const EDGE_PX = 8;
 
 /**
  * Renders the menu at viewport coordinates (`x`, `y`).
@@ -41,37 +39,21 @@ export function ContextMenu({
   useLayoutEffect(() => {
     const rect = menu.current?.getBoundingClientRect();
     if (rect) {
-      setPosition({
-        left: Math.min(x, window.innerWidth - rect.width - EDGE_PX),
-        top: Math.min(y, window.innerHeight - rect.height - EDGE_PX),
-      });
+      setPosition(clampToViewport(x, y, rect));
     }
   }, [x, y]);
 
+  useFloatingOverlay({
+    open: true,
+    onClose,
+    overlayRef: menu,
+    closeOnScroll: true,
+    closeOnResize: true,
+  });
+
   useEffect(() => {
-    const onPointer = (e: PointerEvent): void => {
-      if (!menu.current?.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', onClose, true);
-    window.addEventListener('resize', onClose);
     menu.current?.querySelector('button')?.focus();
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', onClose, true);
-      window.removeEventListener('resize', onClose);
-    };
-  }, [onClose]);
+  }, []);
 
   return (
     <div ref={menu} className={styles.menu} style={position} role="menu">

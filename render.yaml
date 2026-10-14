@@ -5,7 +5,7 @@ services:
     name: usched
     runtime: docker
     plan: free
-    healthCheckPath: /api/health
+    healthCheckPath: /healthz
     autoDeploy: true
     branch: main
     envVars:

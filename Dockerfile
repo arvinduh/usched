@@ -19,6 +19,7 @@ RUN npm run build -w client
 FROM python:3.14-slim
 COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 # Runtime dependencies only: no dev tools, no browser for fetching.
 COPY pyproject.toml uv.lock ./
@@ -33,4 +34,4 @@ ADD ${CATALOG_URL} server/data/catalog.db
 # Hosts such as Render set PORT; 8000 otherwise.
 ENV PORT=8000
 EXPOSE 8000
-CMD ["sh", "-c", "exec .venv/bin/uvicorn server.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "exec .venv/bin/uvicorn server.main:app --host 0.0.0.0 --port ${PORT} --workers 1 --no-access-log"]

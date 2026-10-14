@@ -6,7 +6,6 @@ catalog has not been built they answer 503 with the command that builds it.
 """
 
 import sqlite3
-from collections.abc import Iterator
 from http import HTTPStatus
 from typing import Annotated
 
@@ -17,18 +16,27 @@ from server.engine import audits
 
 
 router = fastapi.APIRouter(prefix="/api", tags=["catalog"])
+_STATIC_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
 
 
-def _conn(request: fastapi.Request) -> Iterator[sqlite3.Connection]:
-  db: store.CatalogDb = request.app.state.catalog
+def _conn(request: fastapi.Request) -> sqlite3.Connection:
+  conn: sqlite3.Connection | None = getattr(request.app.state, "db_conn", None)
+  if conn is not None:
+    return conn
+  db: store.CatalogDb | None = getattr(request.app.state, "catalog", None)
+  if db is not None:
+    try:
+      conn = db.connect()
+      request.app.state.db_conn = conn
+      return conn
+    except FileNotFoundError as e:
+      raise fastapi.HTTPException(HTTPStatus.SERVICE_UNAVAILABLE, str(e)) from e
   try:
-    conn = db.connect()
+    conn = store.get_connection()
+    request.app.state.db_conn = conn
+    return conn
   except FileNotFoundError as e:
     raise fastapi.HTTPException(HTTPStatus.SERVICE_UNAVAILABLE, str(e)) from e
-  try:
-    yield conn
-  finally:
-    conn.close()
 
 
 Conn = Annotated[sqlite3.Connection, fastapi.Depends(_conn)]
@@ -41,8 +49,9 @@ def _found[T](item: T | None, what: str) -> T:
 
 
 @router.get("/terms")
-def list_terms(conn: Conn) -> list[models.Term]:
+def list_terms(conn: Conn, response: fastapi.Response) -> list[models.Term]:
   """Lists every term, newest first; plan for the first with courses."""
+  response.headers["Cache-Control"] = _STATIC_CACHE_CONTROL
   return store.terms(conn)
 
 
@@ -91,39 +100,53 @@ def get_sections(conn: Conn, term: int, ids: str) -> list[models.Section]:
 
 
 @router.get("/courses")
-def lookup_courses(conn: Conn, codes: str) -> list[models.KnownCourse]:
+def lookup_courses(
+  conn: Conn, codes: str, response: fastapi.Response
+) -> list[models.KnownCourse]:
   """Recognizes comma-separated course codes written any way.
 
   Answers with the catalog's spelling and title for each known course, in
   request order; codes that name no course are left out.
   """
+  response.headers["Cache-Control"] = _STATIC_CACHE_CONTROL
   wanted = [c for c in (s.strip() for s in codes.split(",")) if c]
   return store.known_courses(conn, wanted[:200])
 
 
 @router.get("/programs")
 def list_programs(
-  conn: Conn, kind: str | None = None
+  conn: Conn, response: fastapi.Response, kind: str | None = None
 ) -> list[models.ProgramSummary]:
   """Lists the current catalogue's programs, optionally of one kind."""
+  response.headers["Cache-Control"] = _STATIC_CACHE_CONTROL
   return store.programs(conn, kind)
 
 
 @router.get("/programs/{program_id}")
-def get_program(conn: Conn, program_id: str) -> models.Program:
+def get_program(
+  conn: Conn, program_id: str, response: fastapi.Response
+) -> models.Program:
   """Returns a program with its requirement tree."""
-  return _found(store.program(conn, program_id), f"program {program_id}")
+  result = _found(store.program(conn, program_id), f"program {program_id}")
+  response.headers["Cache-Control"] = _STATIC_CACHE_CONTROL
+  return result
 
 
 @router.get("/ge-categories")
-def list_ge_categories(conn: Conn) -> list[models.GeCategory]:
+def list_ge_categories(
+  conn: Conn, response: fastapi.Response
+) -> list[models.GeCategory]:
   """Lists GE categories and how many courses each needs."""
+  response.headers["Cache-Control"] = _STATIC_CACHE_CONTROL
   return store.ge_categories(conn)
 
 
 @router.get("/ap-exams")
-def list_ap_exams(conn: Conn) -> list[models.ApExam]:
+def list_ap_exams(
+  conn: Conn, response: fastapi.Response
+) -> list[models.ApExam]:
   """Lists AP exams with the GE categories and courses they cover."""
+  response.headers["Cache-Control"] = _STATIC_CACHE_CONTROL
   return store.ap_exams(conn)
 
 

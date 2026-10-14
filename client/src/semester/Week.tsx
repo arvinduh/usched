@@ -15,12 +15,14 @@ import {
   bySectionOrder,
   clashes,
   findOverlaps,
+  isTba,
   isTimed,
   missingComponents,
+  packIntervals,
   timedMeetings,
   totalUnits,
 } from './_schedule';
-import type { TimedMeeting } from './_schedule';
+import type { Lane, TimedMeeting } from './_schedule';
 import {
   DAYS_OF_WEEK,
   DEFAULT_END_HOUR,
@@ -68,11 +70,6 @@ export interface WeekProps {
   readonly onDiscardProposal: () => void;
 }
 
-interface Lane {
-  readonly lane: number;
-  readonly lanes: number;
-}
-
 /** One timed meeting of a section: what the canvas draws. */
 interface Block extends TimedMeeting {
   readonly key: string;
@@ -90,38 +87,12 @@ function blocksOf(sections: readonly components['schemas']['Section'][]): readon
 }
 
 /**
- * Assigns side-by-side lanes to overlapping blocks on one day. Each
- * cluster of transitively overlapping blocks shares one lane count.
+ * Assigns side-by-side lanes to overlapping blocks on one day.
  */
 function layoutLanes(dayBlocks: readonly Block[]): ReadonlyMap<string, Lane> {
-  const sorted = [...dayBlocks].sort((a, b) => a.start - b.start);
-  const result = new Map<string, Lane>();
-  let cluster: { readonly id: string; readonly lane: number }[] = [];
-  let laneEnds: number[] = [];
-  let clusterEnd = -1;
-  const flush = (): void => {
-    for (const item of cluster) {
-      result.set(item.id, { lane: item.lane, lanes: laneEnds.length });
-    }
-    cluster = [];
-    laneEnds = [];
-  };
-  for (const b of sorted) {
-    if (b.start >= clusterEnd) {
-      flush();
-    }
-    let lane = laneEnds.findIndex((end) => end <= b.start);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(b.end);
-    } else {
-      laneEnds[lane] = b.end;
-    }
-    cluster.push({ id: b.key, lane });
-    clusterEnd = Math.max(clusterEnd, b.end);
-  }
-  flush();
-  return result;
+  return packIntervals(
+    dayBlocks.map((b) => ({ id: b.key, start: b.start, end: b.end })),
+  );
 }
 
 /**
@@ -210,7 +181,7 @@ export function Week(props: WeekProps): React.JSX.Element {
   const hours = Array.from({ length: Math.max(1, hi - lo) }, (_, i) => lo + i);
 
   const units = totalUnits(sections, coursesByCode);
-  const tba = sections.filter((s) => !isTimed(s));
+  const tba = sections.filter(isTba);
   const incomplete = scheduledCourseIds.flatMap((id) => {
     const course = coursesByCode.get(id);
     if (!course) {

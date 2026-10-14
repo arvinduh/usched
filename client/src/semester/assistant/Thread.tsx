@@ -9,6 +9,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { CalendarDays, Check } from 'lucide-react';
+import { setFocus } from '../../state/preview';
 import type { components } from '../../api/schema';
 import type { ChatMessage } from './_useAdvisorChat';
 import { Reply } from './Reply';
@@ -128,11 +129,21 @@ function Chips({
           {schedules === 1 ? 'Schedule' : `${schedules} schedules`} on your week
         </button>
       )}
-      {others.map((chip, i) => (
-        <button key={i} type="button" className={styles.chip} onClick={() => onChip(chip)}>
-          {chip.label}
-        </button>
-      ))}
+      {others.map((chip, i) => {
+        const sectionId = chip.action === 'enroll_section' ? chip.section_id : null;
+        return (
+          <button
+            key={i}
+            type="button"
+            className={styles.chip}
+            onClick={() => onChip(chip)}
+            onMouseEnter={sectionId ? () => setFocus(sectionId) : undefined}
+            onMouseLeave={sectionId ? () => setFocus(null) : undefined}
+          >
+            {chip.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

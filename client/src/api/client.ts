@@ -9,6 +9,28 @@
 import type { components } from './schema';
 import { API_BASE_URL } from '../config';
 
+/* Canonical domain types derived strictly from components['schemas'] */
+export type Term = components['schemas']['Term'];
+export type Course = components['schemas']['Course'];
+export type Section = components['schemas']['Section'];
+export type KnownCourse = components['schemas']['KnownCourse'];
+export type Program = components['schemas']['Program'];
+export type ProgramSummary = components['schemas']['ProgramSummary'];
+export type ProgramAudit = components['schemas']['ProgramAudit'];
+export type GeCategory = components['schemas']['GeCategory'];
+export type GeProgress = components['schemas']['GeProgress'];
+export type ApExam = components['schemas']['ApExam'];
+export type ApCredit = components['schemas']['ApCredit'];
+export type ChatRequest = components['schemas']['ChatRequest'];
+export type ChatTurn = components['schemas']['ChatTurn'];
+export type ClosingEvent = components['schemas']['ClosingEvent'];
+export type ActionChip = components['schemas']['ClosingEvent']['action_chips'][number];
+export type Weekday = components['schemas']['Weekday'];
+export type Meeting = components['schemas']['Meeting'];
+export type RequisiteGroup = components['schemas']['RequisiteGroup'];
+export type CourseRef = components['schemas']['CourseRef'];
+export type Units = components['schemas']['Units'];
+
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, { signal });
   if (!res.ok) {
@@ -161,9 +183,17 @@ export interface ChatHandlers {
   readonly onStep: (step: string) => void;
   /** A piece of the advisor's reasoning summary. */
   readonly onThought: (text: string) => void;
-  /** The reply's last event: chips and any unverified courses. */
   readonly onClose: (event: components['schemas']['ClosingEvent']) => void;
   readonly onDone: () => void;
+}
+
+function _isClosingEvent(val: unknown): val is ClosingEvent {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    'action_chips' in val &&
+    Array.isArray(val.action_chips)
+  );
 }
 
 /**
@@ -220,19 +250,17 @@ export function streamChat(
             if (data === '[DONE]') {
               return;
             }
-            const parsed = JSON.parse(data) as
-              | { readonly token: string }
-              | { readonly step: string }
-              | { readonly thought: string }
-              | components['schemas']['ClosingEvent'];
-            if ('token' in parsed) {
-              onToken(parsed.token);
-            } else if ('step' in parsed) {
-              onStep(parsed.step);
-            } else if ('thought' in parsed) {
-              onThought(parsed.thought);
-            } else {
-              onClose(parsed);
+            const parsed: unknown = JSON.parse(data);
+            if (typeof parsed === 'object' && parsed !== null) {
+              if ('token' in parsed && typeof parsed.token === 'string') {
+                onToken(parsed.token);
+              } else if ('step' in parsed && typeof parsed.step === 'string') {
+                onStep(parsed.step);
+              } else if ('thought' in parsed && typeof parsed.thought === 'string') {
+                onThought(parsed.thought);
+              } else if (_isClosingEvent(parsed)) {
+                onClose(parsed);
+              }
             }
           }
         }

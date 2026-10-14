@@ -565,10 +565,13 @@ def build(raw: _cache.RawCache, target: pathlib.Path = DEFAULT_DB) -> Built:
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     with conn:
       counts = _write(conn, data)
+    conn.execute("ANALYZE")
+    conn.execute("PRAGMA optimize")
+    conn.commit()
+    conn.execute("VACUUM")
     report = _verify.verify(conn)
     if report.problems:
       raise VerificationError("; ".join(report.problems))
-    conn.execute("ANALYZE")
   except BaseException:
     conn.close()
     partial.unlink(missing_ok=True)

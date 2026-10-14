@@ -152,3 +152,40 @@ def test_ge_categories_and_ap_exams(conn):
   ]
   calc = next(e for e in store.ap_exams(conn) if e.id == "AP_CALC_BC")
   assert [w.code for w in calc.waives] == ["MATH-125", "MATH-126"]
+
+
+def test_connection_performance_pragmas(conn):
+  assert conn.execute("PRAGMA query_only").fetchone()[0] == 1
+  assert conn.execute("PRAGMA temp_store").fetchone()[0] == 2
+  assert conn.execute("PRAGMA cache_size").fetchone()[0] == -32000
+  assert conn.execute("PRAGMA mmap_size").fetchone()[0] == 134217728
+
+
+def test_cached_catalog_queries_and_clear(conn):
+  # First call computes and caches
+  progs1 = store.programs(conn)
+  progs2 = store.programs(conn)
+  assert progs1 == progs2
+
+  ge1 = store.ge_categories(conn)
+  ge2 = store.ge_categories(conn)
+  assert ge1 == ge2
+
+  p1 = store.program(conn, "computer-science-bs")
+  p2 = store.program(conn, "computer-science-bs")
+  assert p1 is p2
+
+  ap1 = store.ap_exams(conn)
+  ap2 = store.ap_exams(conn)
+  assert ap1 == ap2
+
+  # Cache clear resets without errors
+  store.clear_catalog_caches()
+  assert store.programs(conn) == progs1
+
+
+def test_get_connection_module_helper(catalog_path):
+  conn1 = store.get_connection(catalog_path)
+  conn2 = store.get_connection(catalog_path)
+  assert conn1 is conn2
+  store.close_connection()

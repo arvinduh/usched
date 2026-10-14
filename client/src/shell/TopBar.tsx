@@ -8,7 +8,7 @@
  * own beyond whether the menu is open.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { ResetButton } from './_reset/ResetButton';
 import { APP_NAME } from '../config';
@@ -16,6 +16,7 @@ import { setTheme, useTheme } from '../state/theme';
 import type { Theme } from '../state/theme';
 import type { components } from '../api/schema';
 import { Select } from '../ui/Select';
+import { useFloatingOverlay } from '../ui/_overlay';
 import styles from './TopBar.module.css';
 
 /**
@@ -62,30 +63,11 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
   const theme = useTheme();
   const menu = useRef<HTMLDivElement>(null);
 
-  // Close on any press outside the menu, or on Escape.
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-    const onPointer = (e: PointerEvent): void => {
-      if (!menu.current?.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    // Escape closes only this layer, so the app-level handler never sees it.
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
+  useFloatingOverlay({
+    open: menuOpen,
+    onClose: () => setMenuOpen(false),
+    overlayRef: menu,
+  });
 
   const share = (n: number): string =>
     units && units.total > 0 ? `${Math.min(100, (n / units.total) * 100)}%` : '0%';

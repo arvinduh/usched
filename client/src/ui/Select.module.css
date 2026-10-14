@@ -33,7 +33,7 @@
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 30;
+  z-index: var(--z-popover);
   min-width: max(100%, 160px);
   padding: 4px;
   list-style: none;

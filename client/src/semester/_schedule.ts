@@ -28,6 +28,19 @@ export interface Overlap {
   readonly b: components['schemas']['Section'];
 }
 
+/** One assigned lane in a cluster of overlapping intervals. */
+export interface Lane {
+  readonly lane: number;
+  readonly lanes: number;
+}
+
+/** An item with a time interval and an identity for deterministic sorting. */
+export interface IntervalItem {
+  readonly id: string;
+  readonly start: number;
+  readonly end: number;
+}
+
 function timed(meeting: components['schemas']['Meeting']): TimedMeeting | null {
   const { days, start_minute: start, end_minute: end } = meeting;
   return Array.isArray(days) &&
@@ -36,10 +49,16 @@ function timed(meeting: components['schemas']['Meeting']): TimedMeeting | null {
     typeof end === 'number' &&
     !Number.isNaN(start) &&
     !Number.isNaN(end) &&
+    start >= 0 &&
     end > start
     ? { days, start, end }
     : null;
 }
+
+// Sections are immutable API records, and sorting, clash checks, and
+// layout ask for their meetings constantly; each is computed once and
+// dropped with its section.
+const timedCache = new WeakMap<components['schemas']['Section'], readonly TimedMeeting[]>();
 
 /**
  * Lists a section's meetings that have a fixed time (not TBA).
@@ -53,16 +72,19 @@ export function timedMeetings(section: components['schemas']['Section']): readon
   return found;
 }
 
-// Sections are immutable API records, and sorting, clash checks, and
-// layout ask for their meetings constantly; each is computed once and
-// dropped with its section.
-const timedCache = new WeakMap<components['schemas']['Section'], readonly TimedMeeting[]>();
-
 /**
  * Reports whether a section meets at a fixed weekly time.
  */
 export function isTimed(section: components['schemas']['Section']): boolean {
   return timedMeetings(section).length > 0;
+}
+
+/**
+ * Reports whether a section is TBA (To Be Announced) or asynchronous
+ * (has no fixed weekly meeting times).
+ */
+export function isTba(section: components['schemas']['Section']): boolean {
+  return timedMeetings(section).length === 0;
 }
 
 /**
@@ -75,10 +97,18 @@ export function startOf(section: components['schemas']['Section']): number | nul
 
 /**
  * Reports whether two sections share a day and their times intersect.
+ * Returns false if either section is TBA or asynchronous.
  */
 export function overlaps(a: components['schemas']['Section'], b: components['schemas']['Section']): boolean {
+  const as = timedMeetings(a);
+  if (as.length === 0) {
+    return false;
+  }
   const bs = timedMeetings(b);
-  return timedMeetings(a).some((x) =>
+  if (bs.length === 0) {
+    return false;
+  }
+  return as.some((x) =>
     bs.some(
       (y) =>
         x.start < y.end &&
@@ -89,18 +119,131 @@ export function overlaps(a: components['schemas']['Section'], b: components['sch
 }
 
 /**
- * Lists every overlapping pair among the given sections.
+ * Assigns side-by-side lanes to overlapping intervals on a timeline.
+ * Pure deterministic O(N log N) sweep-line interval packing:
+ * - Drops invalid, negative, or non-finite intervals (e.g. TBA / async).
+ * - Sorts deterministically: start asc, end desc, id asc.
+ * - Clusters intervals that overlap transitively.
+ * - Greedily assigns each interval to the lowest available lane.
+ */
+export function packIntervals<T extends IntervalItem>(
+  intervals: readonly T[],
+): ReadonlyMap<string, Lane> {
+  const valid = intervals.filter(
+    (item) =>
+      typeof item.start === 'number' &&
+      typeof item.end === 'number' &&
+      !Number.isNaN(item.start) &&
+      !Number.isNaN(item.end) &&
+      item.start >= 0 &&
+      item.end > item.start,
+  );
+  const sorted = [...valid].sort((a, b) => {
+    if (a.start !== b.start) {
+      return a.start - b.start;
+    }
+    if (a.end !== b.end) {
+      return b.end - a.end;
+    }
+    return a.id.localeCompare(b.id);
+  });
+
+  const result = new Map<string, Lane>();
+  let cluster: { readonly id: string; readonly lane: number }[] = [];
+  let laneEnds: number[] = [];
+  let clusterEnd = -1;
+
+  const flush = (): void => {
+    const totalLanes = Math.max(1, laneEnds.length);
+    for (const item of cluster) {
+      result.set(item.id, { lane: item.lane, lanes: totalLanes });
+    }
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const b of sorted) {
+    if (b.start >= clusterEnd) {
+      flush();
+    }
+    let lane = laneEnds.findIndex((end) => end <= b.start);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(b.end);
+    } else {
+      laneEnds[lane] = b.end;
+    }
+    cluster.push({ id: b.id, lane });
+    clusterEnd = Math.max(clusterEnd, b.end);
+  }
+  flush();
+  return result;
+}
+
+/**
+ * Lists every overlapping pair among the given sections in deterministic
+ * O(N log N + K) order using sweep-line per day, cleanly ignoring TBA/async sections.
  */
 export function findOverlaps(sections: readonly components['schemas']['Section'][]): readonly Overlap[] {
-  const result: Overlap[] = [];
-  for (let i = 0; i < sections.length; i++) {
-    for (let j = i + 1; j < sections.length; j++) {
-      if (overlaps(sections[i], sections[j])) {
-        result.push({ a: sections[i], b: sections[j] });
+  const pairs = new Map<string, Overlap>();
+  const timedSections = sections.filter(isTimed);
+  if (timedSections.length < 2) {
+    return [];
+  }
+
+  const days: readonly components['schemas']['Weekday'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  for (const day of days) {
+    const dayMeetings: {
+      readonly section: components['schemas']['Section'];
+      readonly start: number;
+      readonly end: number;
+    }[] = [];
+
+    for (const s of timedSections) {
+      for (const m of timedMeetings(s)) {
+        if (m.days.includes(day)) {
+          dayMeetings.push({ section: s, start: m.start, end: m.end });
+        }
+      }
+    }
+
+    if (dayMeetings.length < 2) {
+      continue;
+    }
+
+    dayMeetings.sort(
+      (a, b) =>
+        a.start - b.start ||
+        b.end - a.end ||
+        a.section.id.localeCompare(b.section.id),
+    );
+
+    for (let i = 0; i < dayMeetings.length; i++) {
+      const curr = dayMeetings[i];
+      for (let j = i + 1; j < dayMeetings.length; j++) {
+        const next = dayMeetings[j];
+        if (next.start >= curr.end) {
+          break;
+        }
+        if (curr.section.id !== next.section.id) {
+          const [first, second] =
+            curr.section.id < next.section.id
+              ? [curr.section, next.section]
+              : [next.section, curr.section];
+          const key = `${first.id}:${second.id}`;
+          if (!pairs.has(key)) {
+            pairs.set(key, { a: first, b: second });
+          }
+        }
       }
     }
   }
-  return result;
+
+  return [...pairs.values()].sort(
+    (a, b) =>
+      a.a.id.localeCompare(b.a.id) ||
+      a.b.id.localeCompare(b.b.id),
+  );
 }
 
 /**

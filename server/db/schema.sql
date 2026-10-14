@@ -337,3 +337,12 @@ CREATE VIRTUAL TABLE offering_fts USING fts5 (
   term_code UNINDEXED,
   tokenize = 'unicode61'
 );
+
+-- Indices --------------------------------------------------------------------
+
+CREATE INDEX idx_offering_lookup ON offering (course_code, term_code);
+CREATE INDEX idx_section_term_course ON section (term_code, course_code);
+CREATE INDEX idx_program_req ON program_requirement (program_id);
+CREATE INDEX idx_ge_course_resolved ON ge_course (catalogue_id, resolved_code, ge_code);
+CREATE INDEX idx_program_req_choice ON program_requirement_choice (program_id, requirement_position);
+

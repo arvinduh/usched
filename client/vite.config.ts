@@ -17,6 +17,10 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(import.meta.dirname, '..'), '');
   return {
     plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
+    build: {
+      target: 'esnext',
+      minify: 'esbuild',
+    },
     server: {
       port: Number(env.CLIENT_PORT || 18801),
       strictPort: true,

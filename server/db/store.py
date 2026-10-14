@@ -11,8 +11,10 @@ database belongs to the ingest subpackage; this module never writes.
 
 import collections
 import contextlib
+import functools
 import pathlib
 import sqlite3
+import threading
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
@@ -31,6 +33,7 @@ _DAYS: Sequence[tuple[int, models.Weekday]] = (
   (32, models.Weekday.SAT),
   (64, models.Weekday.SUN),
 )
+_QUERY_LOCK = threading.RLock()
 
 
 def _marks(values: Sequence[Any]) -> str:
@@ -41,7 +44,7 @@ def _marks(values: Sequence[Any]) -> str:
 def _query(
   conn: sqlite3.Connection, sql: str, params: Sequence[Any] = ()
 ) -> Iterator[sqlite3.Cursor]:
-  with conn:
+  with _QUERY_LOCK:
     with contextlib.closing(conn.execute(sql, params)) as cur:
       yield cur
 
@@ -77,7 +80,38 @@ class CatalogDb:
       f"{resolved.as_uri()}?mode=ro", uri=True, check_same_thread=False
     )
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA mmap_size = 134217728;")
+    conn.execute("PRAGMA cache_size = -32000;")
+    conn.execute("PRAGMA temp_store = MEMORY;")
+    conn.execute("PRAGMA query_only = ON;")
     return conn
+
+
+_cached_conn: sqlite3.Connection | None = None
+_cached_conn_path: pathlib.Path | None = None
+
+
+def get_connection(path: pathlib.Path = DEFAULT_PATH) -> sqlite3.Connection:
+  """Returns a persistent read-only connection to the catalog database."""
+  global _cached_conn, _cached_conn_path
+  resolved = path.resolve()
+  with _QUERY_LOCK:
+    if _cached_conn is None or _cached_conn_path != resolved:
+      if _cached_conn is not None:
+        _cached_conn.close()
+      _cached_conn = CatalogDb(resolved).connect()
+      _cached_conn_path = resolved
+    return _cached_conn
+
+
+def close_connection() -> None:
+  """Closes the persistent read-only connection if open."""
+  global _cached_conn, _cached_conn_path
+  with _QUERY_LOCK:
+    if _cached_conn is not None:
+      _cached_conn.close()
+      _cached_conn = None
+      _cached_conn_path = None
 
 
 def terms(conn: sqlite3.Connection) -> list[models.Term]:
@@ -516,13 +550,20 @@ def known_courses(
   ]
 
 
-def ge_categories(conn: sqlite3.Connection) -> list[models.GeCategory]:
-  """Lists GE categories in code order."""
+@functools.lru_cache(maxsize=256)
+def _cached_ge_categories(
+  conn: sqlite3.Connection,
+) -> tuple[models.GeCategory, ...]:
   with _query(
     conn,
     "SELECT code, name, area, required_count FROM ge_category ORDER BY code",
   ) as cur:
-    return [models.GeCategory(**dict(r)) for r in cur]
+    return tuple(models.GeCategory(**dict(r)) for r in cur)
+
+
+def ge_categories(conn: sqlite3.Connection) -> list[models.GeCategory]:
+  """Lists GE categories in code order."""
+  return list(_cached_ge_categories(conn))
 
 
 def ge_of(
@@ -533,10 +574,10 @@ def ge_of(
   return _ge(conn, known) if known else {}
 
 
-def programs(
+@functools.lru_cache(maxsize=256)
+def _cached_programs(
   conn: sqlite3.Connection, kind: str | None = None
-) -> list[models.ProgramSummary]:
-  """Lists the latest catalogue's programs, optionally of one kind."""
+) -> tuple[models.ProgramSummary, ...]:
   where = ["catalogue_id = (SELECT MAX(id) FROM catalogue)"]
   params: list[Any] = []
   if kind:
@@ -549,9 +590,17 @@ def programs(
         FROM program WHERE {" AND ".join(where)} ORDER BY title""",
     params,
   ) as cur:
-    return [models.ProgramSummary(**dict(r)) for r in cur]
+    return tuple(models.ProgramSummary(**dict(r)) for r in cur)
 
 
+def programs(
+  conn: sqlite3.Connection, kind: str | None = None
+) -> list[models.ProgramSummary]:
+  """Lists the latest catalogue's programs, optionally of one kind."""
+  return list(_cached_programs(conn, kind))
+
+
+@functools.lru_cache(maxsize=256)
 def program(conn: sqlite3.Connection, program_id: str) -> models.Program | None:
   """Loads a program with its requirement tree, or None if unknown."""
   with _query(
@@ -616,8 +665,10 @@ def _summary(row: Mapping[str, Any]) -> dict[str, Any]:
   return {name: row[name] for name in fields}
 
 
-def ap_exams(conn: sqlite3.Connection) -> list[models.ApExam]:
-  """Lists AP exams with the GE categories and courses they cover."""
+@functools.lru_cache(maxsize=256)
+def _cached_ap_exams(
+  conn: sqlite3.Connection,
+) -> tuple[models.ApExam, ...]:
   ge: dict[str, list[str]] = collections.defaultdict(list)
   with _query(
     conn, "SELECT exam_id, ge_code FROM ap_exam_ge ORDER BY ge_code"
@@ -631,7 +682,7 @@ def ap_exams(conn: sqlite3.Connection) -> list[models.ApExam]:
     for exam_id, code, resolved in cur:
       waives[exam_id].append(models.CourseRef(code=code, resolved=resolved))
   with _query(conn, "SELECT * FROM ap_exam ORDER BY name") as cur:
-    return [
+    return tuple(
       models.ApExam(
         id=r["id"],
         name=r["name"],
@@ -641,4 +692,17 @@ def ap_exams(conn: sqlite3.Connection) -> list[models.ApExam]:
         waives=waives[r["id"]],
       )
       for r in cur
-    ]
+    )
+
+
+def ap_exams(conn: sqlite3.Connection) -> list[models.ApExam]:
+  """Lists AP exams with the GE categories and courses they cover."""
+  return list(_cached_ap_exams(conn))
+
+
+def clear_catalog_caches() -> None:
+  """Clears all in-memory LRU query caches."""
+  _cached_ge_categories.cache_clear()
+  _cached_programs.cache_clear()
+  program.cache_clear()
+  _cached_ap_exams.cache_clear()
