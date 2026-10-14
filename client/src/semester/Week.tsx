@@ -1,8 +1,9 @@
 /**
  * The week canvas: the active variant's sections as blocks, plus ghosts of
  * the course being browsed. While the advisor proposes schedules, the week
- * projects one at a time in their place, dashing the sections it would add,
- * until the user flips to another, keeps one, or discards them.
+ * projects one at a time in their place, dashing the sections it would add
+ * and captioning the trade-off it wins, until the user flips to another,
+ * keeps one, or discards them.
  *
  * Owns layout only: fitting the hour range to the content, splitting
  * overlapping blocks into lanes, and texturing blocks by section type. Ghost
@@ -235,6 +236,11 @@ export function Week(props: WeekProps): React.JSX.Element {
           )}
         </span>
       </header>
+      {proposal?.tradeoff && (
+        <p className={styles.tradeoff} title={proposal.tradeoff}>
+          {proposal.tradeoff}
+        </p>
+      )}
 
       <div
         className={styles.grid}

@@ -27,7 +27,7 @@ export function proposalsOf(
       .map((id) => (typeof id === 'string' ? id.trim() : ''))
       .filter((id) => id.length > 0);
     return sectionIds.length > 0
-      ? [{ name: c.name || 'Proposal', sectionIds }]
+      ? [{ name: c.name || 'Proposal', sectionIds, tradeoff: c.tradeoff }]
       : [];
   });
 }
@@ -60,7 +60,9 @@ export function applyActionChip(
         showToast('Cannot propose schedule: no valid section IDs provided.');
         return;
       }
-      setProposals([{ name: chip.name || 'Proposal', sectionIds: validSectionIds }]);
+      setProposals([
+        { name: chip.name || 'Proposal', sectionIds: validSectionIds, tradeoff: chip.tradeoff },
+      ]);
       return;
     }
     case 'enroll_section': {

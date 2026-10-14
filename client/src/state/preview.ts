@@ -16,6 +16,8 @@ import type { components } from '../api/schema';
 export interface Proposal {
   readonly name: string;
   readonly sectionIds: readonly string[];
+  /** Why to pick it over the other proposals; empty when it is the only one. */
+  readonly tradeoff: string;
 }
 
 interface Preview {
