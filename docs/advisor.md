@@ -81,8 +81,9 @@ tools, so a reply always ends in words.
 
 ## Action chips
 
-A reply ends with up to four one-tap follow-ups, all derived from what the
-model actually did. They form a discriminated union on `action` in
+A reply ends with one-tap follow-ups, all derived from what the model actually
+did. Proposed schedules and recorded courses always survive; other buttons are
+capped at four. They form a discriminated union on `action` in
 `_chips.py`, so the generated client types narrow on it and a malformed chip
 fails validation on the server.
 
