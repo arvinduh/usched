@@ -40,6 +40,9 @@ def needs_general_education(program: models.ProgramSummary | None) -> bool:
   return degree.startswith("B") or _GRADUATE.search(degree) is None
 
 
+left_to_take = _program_audit.left_to_take
+
+
 def general_education(
   conn: sqlite3.Connection,
   completed: Sequence[str],

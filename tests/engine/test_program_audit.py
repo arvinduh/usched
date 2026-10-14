@@ -1,5 +1,7 @@
 """Tests for auditing a program's requirement tree."""
 
+import pytest
+
 from server.db import models
 from server.engine import _program_audit
 
@@ -149,3 +151,91 @@ def test_the_ge_audit_decides_ge_requirements():
 def test_exam_units_count_toward_the_total():
   audit = _program_audit.audit(PROGRAM, ["A-1"], {}, {}, credit_units=4)
   assert audit.units == 8
+
+
+def _titled(req: models.Requirement, title: str) -> models.Requirement:
+  return req.model_copy(update={"title": title})
+
+
+# BUAI-shaped: two "or" slots, then a heading that picks 3 of 9 courses,
+# then a bucket of its own that later courses can still fill.
+PICKS = PROGRAM.model_copy(
+  update={
+    "requirements": [
+      _req(0, None, [_slot("B-306", "B-308"), _slot("B-311", "B-313")]),
+      _titled(
+        _req(1, None, [_slot(f"P-{i}") for i in range(9)]),
+        "Choose three of the following:",
+      ),
+      _req(2, None, [_slot("P-8"), _slot("X-1")]),
+    ]
+  }
+)
+
+
+@pytest.mark.parametrize(
+  "text, picked",
+  [
+    ("Choose one of the following:", 1),
+    ("Select three courses from the following", 3),
+    ("Students must complete 3 of the following 9 courses", 3),
+    ("Take any two of these", 2),
+    ("Choose one course from each of the following areas", 9),
+    ("Take at least four 300- or 400- level CSCI courses", 9),
+    ("Choose one of these. Choose two of those.", 9),
+    ("Choose twelve of the following", 9),
+  ],
+)
+def test_picks_read_the_count_from_the_heading_or_notes(text, picked):
+  req = _req(0, None, [_slot(f"P-{i}") for i in range(9)])
+  assert _program_audit.picks(_titled(req, text)) == picked
+  noted = req.model_copy(update={"notes": text})
+  assert _program_audit.picks(noted) == picked
+
+
+def test_a_pick_requirement_is_done_at_its_count():
+  audit = _program_audit.audit(PICKS, ["B-308", "B-311", "P-1", "P-4"], {}, {})
+  assert _statuses(audit)[:2] == [DONE, PARTIAL]
+  done = _program_audit.audit(PICKS, ["P-1", "P-4", "P-6"], {}, {})
+  assert _statuses(done)[1] == DONE
+
+
+def test_courses_past_a_pick_count_flow_to_later_requirements():
+  audit = _program_audit.audit(PICKS, ["P-0", "P-1", "P-2", "P-8"], {}, {})
+  assert audit.requirements[1].courses == ["P-0", "P-1", "P-2"]
+  assert audit.requirements[2].courses == ["P-8"]
+
+
+def _left(program, completed):
+  audit = _program_audit.audit(program, completed, {}, {})
+  return [
+    (
+      o.requirement.position,
+      [[c.course.code for c in s] for s in o.slots],
+      o.count,
+      o.units,
+    )
+    for o in _program_audit.left_to_take(program, completed, audit)
+  ]
+
+
+def test_left_to_take_drops_a_filled_slots_alternatives():
+  left = _left(PICKS, ["B-306", "P-1", "P-2"])
+  assert left[0] == (0, [["B-311", "B-313"]], 1, 0.0)
+  position, slots, count, _ = left[1]
+  assert (position, count, len(slots)) == (1, 1, 7)
+  assert ["P-1"] not in slots
+
+
+def test_left_to_take_skips_requirements_already_met():
+  left = _left(PICKS, ["B-306", "B-313", "P-1", "P-2", "P-3", "X-1"])
+  assert [position for position, *_ in left] == [2]
+
+
+def test_left_to_take_lets_units_decide_when_more_is_listed():
+  # Requirement 2 needs 8 units from three 4-unit slots; A-1 fills one in 1.
+  left = dict((p, rest) for p, *rest in _left(PROGRAM, ["E-1"]))
+  assert left[2] == [[["E-2"], ["A-1"]], None, 4.0]
+  assert left[1] == [[["A-1"], ["A-2", "A-3"]], 2, 0.0]
+  # Parents with no slots of their own and prose-only requirements are out.
+  assert set(left) == {1, 2}

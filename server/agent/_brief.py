@@ -18,7 +18,7 @@ from typing import Literal
 from server.agent import _tools
 from server.db import models, store
 from server.db.ingest import codes
-from server.engine import audits, schedule
+from server.engine import _program_audit, audits, schedule
 
 
 _NEXT = 10  # Courses suggested as next steps.
@@ -87,6 +87,21 @@ def _listed(codes_: Sequence[str]) -> str:
   return ", ".join(codes_) or "none"
 
 
+def _code(choice: models.RequirementChoice) -> str:
+  return choice.course.resolved or choice.course.code
+
+
+def _need(left: _program_audit.Open) -> str:
+  """One requirement's open slots: "or" joins alternatives within a slot."""
+  slots = "; ".join(" or ".join(_code(c) for c in s) for s in left.slots)
+  title = left.requirement.title
+  if left.count is None:
+    return f"- {title}: {left.units:g} more units from {slots}"
+  if left.count < len(left.slots):
+    return f"- {title}: any {left.count} of {slots}"
+  return f"- {title}: {slots}"
+
+
 def _program_lines(
   conn: sqlite3.Connection,
   student: Student,
@@ -118,19 +133,20 @@ def _program_lines(
   ]
   lines.append(f"Unmet requirements: {_listed(unmet)}")
 
-  titles = {
-    c.course.resolved or c.course.code: c.title
-    for r in program.requirements
-    for slot in r.slots
-    for c in slot
-  }
-  listed = audits.listed_codes(program)
-  offered = store.offered(conn, student.term, listed)
+  left = audits.left_to_take(program, student.completed, audit)
+  lines.append(
+    "Left to take (only these count; a filled slot's alternatives do not):"
+  )
+  lines += [_need(o) for o in left] or ["- nothing listed"]
+
+  titles = {_code(c): c.title for o in left for slot in o.slots for c in slot}
+  needed = [_code(c) for o in left for slot in o.slots for c in slot]
+  offered = store.offered(conn, student.term, needed)
   done = {codes.identity(c) for c in student.completed}
   locked = {codes.identity(c) for c in audit.locked}
   ready = [
     code
-    for code in dict.fromkeys(listed)
+    for code in dict.fromkeys(needed)
     if codes.identity(code) in offered
     and codes.identity(code) not in done | locked | planned
   ][:_NEXT]
