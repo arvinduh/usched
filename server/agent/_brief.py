@@ -15,6 +15,7 @@ import sqlite3
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
+from server import config
 from server.agent import _tools
 from server.db import models, store
 from server.db.ingest import codes
@@ -149,7 +150,7 @@ def _program_lines(
 def _week_lines(
   conn: sqlite3.Connection, student: Student
 ) -> tuple[list[str], set[str]]:
-  """The active schedule, its conflicts, and missing sections."""
+  """The active schedule, its conflicts, missing sections, and units."""
   sections = store.sections(conn, student.term, list(student.section_ids))
   if not sections:
     return ["This week: nothing scheduled"], set()
@@ -167,10 +168,17 @@ def _week_lines(
   if clashes:
     lines.append(f"Conflicts: {'; '.join(clashes)}")
   planned = list(dict.fromkeys(s.course_code for s in sections))
-  for course in store.courses(conn, student.term, planned):
+  courses = store.courses(conn, student.term, planned)
+  for course in courses:
     chosen = [s for s in sections if s.course_code == course.code]
     if missing := schedule.missing_types(course, chosen):
       lines.append(f"{course.code} still needs a {' and a '.join(missing)}")
+  units = sum(c.units.min for c in courses)
+  lines.append(
+    f"Units: {units:g} of {config.OVERLOAD_UNIT_THRESHOLD} at flat tuition"
+  )
+  if warning := _tools.overload_warning(units):
+    lines.append(warning)
   return lines, {codes.identity(c) for c in planned}
 
 

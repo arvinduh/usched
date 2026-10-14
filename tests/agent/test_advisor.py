@@ -187,6 +187,15 @@ def test_the_brief_states_progress_next_steps_and_the_week(conn):
   ]
   assert "CSCI-104" not in next_line
   assert {"CSCI-104", "CSCI-420", "CSCI-103"} <= facts.grounded
+  assert "Units: 4 of 18 at flat tuition" in facts.text
+  assert "Overload" not in facts.text
+
+
+def test_the_brief_warns_when_the_week_passes_the_unit_cap(conn):
+  heavy = dataclasses.replace(STUDENT, section_ids=[*SIXTEEN_UNITS, "29989"])
+  text = _brief.build(conn, heavy).text
+  assert "Units: 20 of 18 at flat tuition" in text
+  assert "Overload: 20 units is 2 past the 18-unit" in text
 
 
 def test_the_brief_counts_ge_seats_the_student_filled_by_hand(conn):
