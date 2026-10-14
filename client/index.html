@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/school.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>usched | USC Course Planner</title>
+    <!-- Applies the saved theme before first paint, so the splash never
+         flashes the system scheme. Mirrors readTheme in state/theme.ts,
+         which re-applies it once the app loads. -->
+    <script>
+      try {
+        const saved =
+          localStorage.getItem('usched:v2:theme') ??
+          localStorage.getItem('usched:theme');
+        if (saved === 'light' || saved === 'dark') {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch {
+        // Storage blocked: the system scheme stands, as in theme.ts.
+      }
+    </script>
     <!-- Linked here, not imported, so the splash is styled before any
          script loads. -->
     <link rel="stylesheet" href="/src/index.css">
