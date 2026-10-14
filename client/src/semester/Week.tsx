@@ -38,6 +38,7 @@ import type { Proposal } from '../state/preview';
 import { showToast } from '../state/toast';
 import type { ScheduleConfiguration } from '../state/store';
 import { ContextMenu } from '../ui/ContextMenu';
+import { CountUp } from '../ui/CountUp';
 import { RatingPair } from '../ui/Glyphs';
 import { blockBackground, hueFor, textureBackground } from '../ui/encoding';
 import type { components } from '../api/schema';
@@ -212,7 +213,10 @@ export function Week(props: WeekProps): React.JSX.Element {
                 : undefined
             }
           >
-            <span className={styles.num}>{units}</span> units
+            <span className={styles.num}>
+              <CountUp value={units} />
+            </span>{' '}
+            units
           </span>
           {overlapCount > 0 && (
             <span className={styles.danger}>

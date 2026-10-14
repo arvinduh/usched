@@ -15,6 +15,7 @@ import { APP_NAME } from '../config';
 import { setTheme, useTheme } from '../state/theme';
 import type { Theme } from '../state/theme';
 import type { components } from '../api/schema';
+import { CountUp } from '../ui/CountUp';
 import { Select } from '../ui/Select';
 import { useFloatingOverlay } from '../ui/_overlay';
 import styles from './TopBar.module.css';
@@ -92,8 +93,13 @@ export function TopBar(props: TopBarProps): React.JSX.Element {
         </span>
         {units && (
           <span className={styles.figures}>
-            {units.completed}
-            {units.planned > 0 && <span className={styles.plus}> +{units.planned}</span>}
+            <CountUp value={units.completed} />
+            {units.planned > 0 && (
+              <span className={styles.plus}>
+                {' +'}
+                <CountUp value={units.planned} />
+              </span>
+            )}
             <span className={styles.total}> / {units.total}</span>
           </span>
         )}
